@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Tripwise",
+    "slug": "tripwise",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "tripwise",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.tripwise.app"
+    },
+    "android": {
+      "package": "com.tripwise.app",
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store"
+    ]
+  }
+}

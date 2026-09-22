@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .card {
+    @apply rounded-3xl border border-line bg-surface;
+  }
+
+  .field {
+    @apply min-h-14 rounded-2xl border border-line bg-surface px-4 text-base text-ink;
+  }
+
+  .section-label {
+    @apply text-xs font-semibold uppercase tracking-widest text-muted;
+  }
+}
