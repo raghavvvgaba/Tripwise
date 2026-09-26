@@ -27,7 +27,7 @@ export default function JoinGroupScreen() {
       <Stack.Screen options={{ title: "You're invited" }} />
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
-        contentContainerClassName="gap-6 px-5 pb-12 pt-6"
+        contentContainerClassName="w-full max-w-2xl self-center gap-6 px-5 pb-12 pt-6 md:px-8 lg:py-10"
         showsVerticalScrollIndicator={false}
       >
         <View className="items-center gap-3">

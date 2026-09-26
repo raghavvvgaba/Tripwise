@@ -1,6 +1,6 @@
 import { Link, router, Stack, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { ScrollView, Share, Text, TextInput, View } from "react-native";
+import { Platform, ScrollView, Share, Text, TextInput, View } from "react-native";
 
 import { EmptyState } from "@/components/empty-state";
 import { MemberAvatar } from "@/components/member-avatar";
@@ -12,6 +12,7 @@ export default function InviteScreen() {
   const group = useGroupsStore((state) => state.groups.find((item) => item.inviteCode === code));
   const addPlaceholderMember = useGroupsStore((state) => state.addPlaceholderMember);
   const [name, setName] = useState("");
+  const [didCopy, setDidCopy] = useState(false);
 
   if (!group) {
     return (
@@ -24,6 +25,18 @@ export default function InviteScreen() {
   const inviteUrl = `https://tripwise.app/join/${group.inviteCode}`;
 
   async function shareInvite() {
+    if (Platform.OS === "web") {
+      if (navigator.share) {
+        await navigator.share({ title: `Join ${group?.name} on Tripwise`, url: inviteUrl });
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(inviteUrl);
+        setDidCopy(true);
+      } else {
+        window.prompt("Copy this invite link", inviteUrl);
+      }
+      return;
+    }
+
     await Share.share({
       title: `Join ${group?.name} on Tripwise`,
       message: `Join ${group?.name} on Tripwise to view and add trip expenses: ${inviteUrl}`,
@@ -43,7 +56,7 @@ export default function InviteScreen() {
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
-        contentContainerClassName="gap-6 px-5 pb-12 pt-5"
+        contentContainerClassName="w-full max-w-3xl self-center gap-6 px-5 pb-12 pt-5 md:px-8 lg:py-10"
       >
         <View className="items-center gap-3 py-2">
           <View className="h-20 w-20 items-center justify-center rounded-3xl border border-brand-100 bg-brand-50">
@@ -62,7 +75,7 @@ export default function InviteScreen() {
           <Text selectable className="rounded-xl bg-canvas p-3 text-sm font-medium text-ink">
             {inviteUrl}
           </Text>
-          <PrimaryButton label="Share on WhatsApp or more" onPress={shareInvite} />
+          <PrimaryButton label={didCopy ? "Link copied" : "Share invite link"} onPress={shareInvite} />
           <Link href={`/join/${group.inviteCode}`} asChild>
             <PrimaryButton label="Preview join experience" variant="secondary" />
           </Link>

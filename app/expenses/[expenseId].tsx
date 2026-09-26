@@ -1,10 +1,11 @@
 import { Link, Stack, useLocalSearchParams } from "expo-router";
-import { Alert, Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { EmptyState } from "@/components/empty-state";
 import { MemberAvatar } from "@/components/member-avatar";
 import { PrimaryButton } from "@/components/primary-button";
 import { useGroupsStore } from "@/store/use-groups-store";
+import { confirmAction } from "@/utils/dialogs";
 import { formatExpenseDate, formatRelativeTime } from "@/utils/date";
 import { formatMoney } from "@/utils/money";
 
@@ -30,17 +31,11 @@ export default function ExpenseDetailsScreen() {
     : null;
 
   function confirmDelete() {
-    Alert.alert(
+    confirmAction(
       "Delete this expense?",
       "Balances will update immediately. You can restore it from this screen before leaving.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => deleteExpense(group!.id, expense!.id),
-        },
-      ],
+      "Delete",
+      () => deleteExpense(group!.id, expense!.id),
     );
   }
 
@@ -49,17 +44,17 @@ export default function ExpenseDetailsScreen() {
       <Stack.Screen options={{ title: "Expense details" }} />
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
-        contentContainerClassName="gap-6 px-5 pb-12 pt-4"
+        contentContainerClassName="w-full max-w-3xl self-center gap-6 px-5 pb-12 pt-5 md:px-8 lg:py-10"
         showsVerticalScrollIndicator={false}
       >
         {expense.deletedAt ? (
-          <View className="flex-row items-center justify-between gap-4 rounded-2xl bg-red-50 px-4 py-3">
+          <View className="flex-row items-center justify-between gap-4 rounded-2xl bg-red-50 px-4 py-3 dark:bg-red-950">
             <View className="flex-1 gap-0.5">
-              <Text className="font-semibold text-red-700">Expense deleted</Text>
-              <Text className="text-xs text-red-600">It is excluded from balances.</Text>
+              <Text className="font-semibold text-red-700 dark:text-red-300">Expense deleted</Text>
+              <Text className="text-xs text-red-600 dark:text-red-200">It is excluded from balances.</Text>
             </View>
-            <Pressable onPress={() => restoreExpense(group.id, expense.id)} className="rounded-xl bg-white px-3 py-2">
-              <Text className="text-sm font-bold text-red-700">Undo</Text>
+            <Pressable onPress={() => restoreExpense(group.id, expense.id)} className="rounded-xl bg-surface px-3 py-2">
+              <Text className="text-sm font-bold text-red-700 dark:text-red-300">Undo</Text>
             </Pressable>
           </View>
         ) : null}

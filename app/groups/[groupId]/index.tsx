@@ -1,6 +1,6 @@
 import { Link, router, Stack, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { Alert, Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { EmptyState } from "@/components/empty-state";
 import { ExpenseRow } from "@/components/expense-row";
@@ -8,6 +8,7 @@ import { MemberAvatar } from "@/components/member-avatar";
 import { PrimaryButton } from "@/components/primary-button";
 import { useGroupsStore } from "@/store/use-groups-store";
 import type { Settlement } from "@/types/models";
+import { confirmAction } from "@/utils/dialogs";
 import { getActiveExpenses, getGroupTotal, getMemberBalances, getSettlements } from "@/utils/balances";
 import { formatMoney } from "@/utils/money";
 
@@ -48,47 +49,33 @@ export default function GroupDetailsScreen() {
   const activeGroupId = group.id;
 
   function confirmArchive() {
-    Alert.alert(
+    confirmAction(
       "Archive this group?",
       "It will leave your active groups, but its expenses will stay available in local storage.",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Archive", style: "destructive", onPress: () => archiveGroup(activeGroupId) },
-      ],
+      "Archive",
+      () => archiveGroup(activeGroupId),
     );
   }
 
   function confirmDeleteGroup() {
-    Alert.alert(
+    confirmAction(
       "Delete this group permanently?",
       "All locally stored expenses and balances in this group will be removed. This cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete permanently",
-          style: "destructive",
-          onPress: () => {
-            deleteGroup(activeGroupId);
-            router.replace("/");
-          },
-        },
-      ],
+      "Delete permanently",
+      () => {
+        deleteGroup(activeGroupId);
+        router.replace("/");
+      },
     );
   }
 
   function handleMarkSettlementPaid(settlement: Settlement) {
-    Alert.alert(
+    confirmAction(
       "Mark settlement as paid?",
       `Record a payment of ${formatMoney(settlement.amount, group!.currency)} from ${settlement.from.name} to ${settlement.to.name}? This will settle this balance.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Mark as paid",
-          onPress: () => {
-            recordSettlement(group!.id, settlement.from.id, settlement.to.id, settlement.amount);
-          },
-        },
-      ],
+      "Mark as paid",
+      () => recordSettlement(group!.id, settlement.from.id, settlement.to.id, settlement.amount),
+      false,
     );
   }
 
@@ -101,17 +88,17 @@ export default function GroupDetailsScreen() {
       />
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
-        contentContainerClassName="gap-6 px-5 pb-12 pt-4"
+        contentContainerClassName="w-full max-w-4xl self-center gap-6 px-5 pb-12 pt-5 md:px-8 lg:py-10"
         showsVerticalScrollIndicator={false}
       >
         {group.archivedAt ? (
-          <View className="flex-row items-center justify-between gap-4 rounded-2xl bg-orange-50 px-4 py-3">
+          <View className="flex-row items-center justify-between gap-4 rounded-2xl bg-orange-50 px-4 py-3 dark:bg-orange-950">
             <View className="flex-1 gap-0.5">
-              <Text className="font-semibold text-orange-800">Archived group</Text>
-              <Text className="text-xs text-orange-700">Its history is safe and still available.</Text>
+              <Text className="font-semibold text-orange-800 dark:text-orange-200">Archived group</Text>
+              <Text className="text-xs text-orange-700 dark:text-orange-300">Its history is safe and still available.</Text>
             </View>
-            <Pressable onPress={() => unarchiveGroup(group.id)} className="rounded-xl bg-white px-3 py-2">
-              <Text className="text-sm font-bold text-orange-800">Restore</Text>
+            <Pressable onPress={() => unarchiveGroup(group.id)} className="rounded-xl bg-surface px-3 py-2">
+              <Text className="text-sm font-bold text-orange-800 dark:text-orange-200">Restore</Text>
             </Pressable>
           </View>
         ) : null}
@@ -209,7 +196,7 @@ export default function GroupDetailsScreen() {
             <Pressable
               key={option.id}
               onPress={() => setView(option.id)}
-              className={`min-h-10 flex-1 items-center justify-center rounded-xl ${view === option.id ? "bg-white" : ""}`}
+              className={`min-h-10 flex-1 items-center justify-center rounded-xl ${view === option.id ? "bg-surface" : ""}`}
             >
               <Text className={`text-sm font-semibold ${view === option.id ? "text-ink" : "text-muted"}`}>
                 {option.label}
@@ -221,7 +208,7 @@ export default function GroupDetailsScreen() {
         {view === "expenses" ? (
           <View className="gap-4">
             <Link href={`/groups/${group.id}/add-expense`} asChild>
-              <Pressable className="min-h-14 flex-row items-center justify-center gap-2 rounded-2xl bg-brand-600 active:bg-brand-700">
+              <Pressable className="min-h-14 flex-row items-center justify-center gap-2 rounded-2xl bg-brand-600 active:bg-[#086B49]">
                 <Text className="text-xl leading-6 text-white">＋</Text>
                 <Text className="font-semibold text-white">Add expense</Text>
               </Pressable>
@@ -249,9 +236,9 @@ export default function GroupDetailsScreen() {
                     href={{ pathname: "/expenses/[expenseId]", params: { expenseId: expense.id, groupId: group.id } }}
                     asChild
                   >
-                    <Pressable className="flex-row items-center justify-between rounded-2xl bg-red-50 px-4 py-3 active:bg-red-100">
-                      <Text className="font-medium text-red-700">{expense.description}</Text>
-                      <Text className="text-sm font-semibold text-red-700">View & restore</Text>
+                    <Pressable className="flex-row items-center justify-between rounded-2xl bg-red-50 px-4 py-3 active:bg-red-100 dark:bg-red-950 dark:active:bg-red-900">
+                      <Text className="font-medium text-red-700 dark:text-red-300">{expense.description}</Text>
+                      <Text className="text-sm font-semibold text-red-700 dark:text-red-300">View & restore</Text>
                     </Pressable>
                   </Link>
                 ))}

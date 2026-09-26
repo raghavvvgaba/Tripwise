@@ -14,7 +14,7 @@ export default function ArchivedGroupsScreen() {
       <Stack.Screen options={{ title: "Archived groups" }} />
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
-        contentContainerClassName="gap-6 px-5 pb-12 pt-4"
+        contentContainerClassName="w-full max-w-5xl self-center gap-6 px-5 pb-12 pt-5 md:px-8 lg:py-10"
         showsVerticalScrollIndicator={false}
       >
         <View className="gap-1 px-1">

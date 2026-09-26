@@ -46,7 +46,7 @@ export default function CreateGroupScreen() {
         <ScrollView
           contentInsetAdjustmentBehavior="automatic"
           keyboardShouldPersistTaps="handled"
-          contentContainerClassName="gap-6 px-5 pb-10 pt-4"
+          contentContainerClassName="w-full max-w-2xl self-center gap-6 px-5 pb-10 pt-5 md:px-8 lg:py-10"
         >
           <View className="gap-2">
             <Text className="section-label">Group name</Text>

@@ -110,7 +110,7 @@ export default function AddExpenseScreen() {
           contentInsetAdjustmentBehavior="automatic"
           keyboardDismissMode={process.env.EXPO_OS === "ios" ? "interactive" : "on-drag"}
           keyboardShouldPersistTaps="handled"
-          contentContainerClassName="gap-6 px-5 pb-6 pt-4"
+          contentContainerClassName="w-full max-w-2xl self-center gap-6 px-5 pb-6 pt-5 md:px-8 lg:py-10"
           showsVerticalScrollIndicator={false}
         >
           <View className="card gap-5 p-5">
@@ -151,7 +151,7 @@ export default function AddExpenseScreen() {
                   <Pressable
                     key={member.id}
                     onPress={() => setPaidById(member.id)}
-                    className={`flex-row items-center gap-2 rounded-full border px-3 py-2 ${selected ? "border-brand-500 bg-brand-50" : "border-line bg-white"}`}
+                    className={`flex-row items-center gap-2 rounded-full border px-3 py-2 ${selected ? "border-brand-500 bg-brand-50" : "border-line bg-surface"}`}
                   >
                     <MemberAvatar member={member} size="sm" />
                     <Text className={`text-sm font-semibold ${selected ? "text-brand-700" : "text-ink"}`}>
@@ -170,7 +170,7 @@ export default function AddExpenseScreen() {
                 <Pressable
                   key={mode}
                   onPress={() => setSplitMode(mode)}
-                  className={`min-h-11 flex-1 items-center justify-center rounded-xl ${splitMode === mode ? "bg-white" : ""}`}
+                  className={`min-h-11 flex-1 items-center justify-center rounded-xl ${splitMode === mode ? "bg-surface" : ""}`}
                 >
                   <Text className={`font-semibold ${splitMode === mode ? "text-ink" : "text-muted"}`}>
                     {mode === "equal" ? "Equally" : "Exact amounts"}
@@ -195,7 +195,7 @@ export default function AddExpenseScreen() {
                 return (
                   <View key={member.id}>
                     <Pressable onPress={() => toggleParticipant(member.id)} className="flex-row items-center gap-3 py-3">
-                      <View className={`h-6 w-6 items-center justify-center rounded-lg border ${selected ? "border-brand-600 bg-brand-600" : "border-line bg-white"}`}>
+                      <View className={`h-6 w-6 items-center justify-center rounded-lg border ${selected ? "border-brand-600 bg-brand-600" : "border-line bg-surface"}`}>
                         {selected ? <Text className="text-xs font-bold text-white">✓</Text> : null}
                       </View>
                       <MemberAvatar member={member} size="sm" />
@@ -228,8 +228,8 @@ export default function AddExpenseScreen() {
               })}
             </View>
             {splitMode === "exact" ? (
-              <View className={`rounded-2xl px-4 py-3 ${Math.abs(exactDifference) < 0.01 ? "bg-brand-50" : "bg-orange-50"}`}>
-                <Text className={`text-sm font-medium ${Math.abs(exactDifference) < 0.01 ? "text-brand-700" : "text-orange-700"}`}>
+              <View className={`rounded-2xl px-4 py-3 ${Math.abs(exactDifference) < 0.01 ? "bg-brand-50" : "bg-orange-50 dark:bg-orange-950"}`}>
+                <Text className={`text-sm font-medium ${Math.abs(exactDifference) < 0.01 ? "text-brand-700" : "text-orange-700 dark:text-orange-300"}`}>
                   {Math.abs(exactDifference) < 0.01
                     ? "Amounts add up correctly"
                     : exactDifference > 0
@@ -259,7 +259,7 @@ export default function AddExpenseScreen() {
         </ScrollView>
 
         <View
-          className="border-t border-line bg-canvas px-5 pt-3"
+          className="w-full max-w-2xl self-center border-t border-line bg-canvas px-5 pt-3 md:px-8"
           style={{ paddingBottom: Math.max(insets.bottom, 12) }}
         >
           <PrimaryButton
