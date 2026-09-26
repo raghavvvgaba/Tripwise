@@ -1,15 +1,18 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Link } from "expo-router";
-import { Alert, Pressable, ScrollView, Text, View } from "react-native";
+import { Platform, Pressable, ScrollView, Text, View } from "react-native";
 
 import { PrimaryButton } from "@/components/primary-button";
+import { useThemeColors } from "@/constants/theme";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/use-auth-store";
 import { useGroupsStore } from "@/store/use-groups-store";
 import type { CurrencyCode } from "@/types/models";
+import { confirmAction, showError } from "@/utils/dialogs";
 import { SUPPORTED_CURRENCIES } from "@/utils/money";
 
 export default function AccountScreen() {
+  const colors = useThemeColors();
   const accountEmail = useAuthStore((state) => state.session?.user.email);
   const defaultCurrency = useGroupsStore((state) => state.defaultCurrency);
   const setDefaultCurrency = useGroupsStore((state) => state.setDefaultCurrency);
@@ -17,33 +20,27 @@ export default function AccountScreen() {
   const groups = useGroupsStore((state) => state.groups);
 
   function confirmReset() {
-    Alert.alert(
+    confirmAction(
       "Reset demo data?",
       "All groups, expenses, and balances will be restored to their initial seed state. This cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Reset to default",
-          style: "destructive",
-          onPress: () => resetToSeedData(),
-        },
-      ],
+      "Reset to default",
+      resetToSeedData,
     );
   }
 
   async function signOut() {
     const { error } = await supabase.auth.signOut();
-    if (error) Alert.alert("Could not sign out", error.message);
+    if (error) showError("Could not sign out", error.message);
   }
 
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
-      contentContainerClassName="gap-6 px-5 pb-12 pt-4"
+      contentContainerClassName="w-full max-w-3xl self-center gap-6 px-5 pb-12 pt-5 md:px-8 lg:py-10"
       showsVerticalScrollIndicator={false}
     >
       <View className="gap-1 px-1">
-        <Text className="text-2xl font-bold text-ink">Account & Settings</Text>
+        <Text className="text-2xl font-bold text-ink lg:text-3xl">Account & Settings</Text>
         <Text className="text-sm leading-5 text-muted">
           Manage your account, preferences, and demo environment.
         </Text>
@@ -60,7 +57,7 @@ export default function AccountScreen() {
       </View>
 
       <Text className="px-1 text-xs leading-5 text-muted">
-        Groups and balances are still demo data stored on this device. They are not linked to your account yet.
+        Groups and balances are still demo data stored {Platform.OS === "web" ? "in this browser" : "on this device"}. They are not linked to your account yet.
       </Text>
 
       <View className="gap-3">
@@ -101,7 +98,7 @@ export default function AccountScreen() {
           <Pressable className="card flex-row items-center justify-between p-4 active:bg-canvas">
             <View className="flex-row items-center gap-3">
               <View className="h-10 w-10 items-center justify-center rounded-xl bg-canvas">
-                <Ionicons name="archive-outline" size={20} color="#17201B" />
+                <Ionicons name="archive-outline" size={20} color={colors.ink} />
               </View>
               <View>
                 <Text className="font-semibold text-ink">Archived groups</Text>
@@ -123,7 +120,7 @@ export default function AccountScreen() {
       <PrimaryButton label="Sign out" variant="secondary" onPress={signOut} />
 
       <View className="items-center gap-1 py-4">
-        <Text className="text-xs font-medium text-muted">Tripwise Mobile · MVP v1.0.0</Text>
+        <Text className="text-xs font-medium text-muted">Tripwise · MVP v1.0.0</Text>
         <Text className="text-[11px] text-muted">Account connected · Group data in demo mode</Text>
       </View>
     </ScrollView>

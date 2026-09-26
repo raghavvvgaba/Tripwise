@@ -41,14 +41,17 @@ export default function SignInScreen() {
         <ScrollView
           contentInsetAdjustmentBehavior="automatic"
           keyboardShouldPersistTaps="handled"
-          contentContainerClassName="flex-grow justify-center gap-6 px-5 py-10"
+          contentContainerClassName="w-full max-w-5xl flex-grow self-center justify-center gap-6 px-5 py-10 md:px-8 lg:flex-row lg:items-center lg:gap-20"
         >
-          <View className="gap-2">
-            <Text className="text-3xl font-bold text-ink">{isCreatingAccount ? "Create your account" : "Welcome to Tripwise"}</Text>
-            <Text className="text-sm leading-5 text-muted">Sign in to your Tripwise account.</Text>
+          <View className="gap-3 lg:flex-1">
+            <View className="mb-3 hidden h-12 w-12 items-center justify-center rounded-2xl bg-brand-600 lg:flex">
+              <Text className="text-2xl font-black text-white">t</Text>
+            </View>
+            <Text className="text-3xl font-bold tracking-tight text-ink lg:text-5xl">{isCreatingAccount ? "Create your account" : "Welcome to Tripwise"}</Text>
+            <Text className="text-sm leading-5 text-muted lg:max-w-md lg:text-base lg:leading-7">Keep your shared expenses in one calm, clear place.</Text>
           </View>
 
-          <View className="card gap-4 p-5">
+          <View className="card gap-4 p-5 lg:w-[420px] lg:p-8">
             <View className="gap-2">
               <Text className="section-label">Email</Text>
               <TextInput

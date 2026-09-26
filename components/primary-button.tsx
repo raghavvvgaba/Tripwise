@@ -1,5 +1,6 @@
 import type { ComponentProps } from "react";
 import { ActivityIndicator, Pressable, Text } from "react-native";
+import { useThemeColors } from "@/constants/theme";
 
 type PrimaryButtonProps = ComponentProps<typeof Pressable> & {
   label: string;
@@ -8,15 +9,15 @@ type PrimaryButtonProps = ComponentProps<typeof Pressable> & {
 };
 
 const containerClasses = {
-  primary: "bg-brand-600 active:bg-brand-700",
-  secondary: "border border-line bg-white active:bg-canvas",
-  danger: "bg-red-50 active:bg-red-100",
+  primary: "bg-brand-600 active:bg-[#086B49]",
+  secondary: "border border-line bg-surface active:bg-canvas",
+  danger: "bg-red-50 active:bg-red-100 dark:bg-red-950 dark:active:bg-red-900",
 };
 
 const labelClasses = {
   primary: "text-white",
   secondary: "text-ink",
-  danger: "text-red-600",
+  danger: "text-red-600 dark:text-red-300",
 };
 
 export function PrimaryButton({
@@ -28,6 +29,7 @@ export function PrimaryButton({
   ...props
 }: PrimaryButtonProps) {
   const isDisabled = disabled || loading;
+  const colors = useThemeColors();
 
   return (
     <Pressable
@@ -37,7 +39,7 @@ export function PrimaryButton({
       {...props}
     >
       {loading ? (
-        <ActivityIndicator color={variant === "primary" ? "#FFFFFF" : "#17201B"} />
+        <ActivityIndicator color={variant === "primary" ? "#FFFFFF" : colors.ink} />
       ) : (
         <Text className={`text-base font-semibold ${labelClasses[variant]}`}>{label}</Text>
       )}

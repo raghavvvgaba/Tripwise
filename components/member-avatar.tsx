@@ -25,7 +25,7 @@ export function MemberAvatar({ member, size = "md" }: MemberAvatarProps) {
       className={`${sizeClasses[size]} items-center justify-center rounded-full`}
       style={{ backgroundColor: member.color }}
     >
-      <Text className={`${textClasses[size]} font-bold text-ink`}>{member.initials}</Text>
+      <Text className={`${textClasses[size]} font-bold text-[#17201B]`}>{member.initials}</Text>
     </View>
   );
 }

@@ -1,9 +1,11 @@
+import { Ionicons } from "@expo/vector-icons";
 import { Link } from "expo-router";
 import { useMemo } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { EmptyState } from "@/components/empty-state";
 import { useGroupsStore } from "@/store/use-groups-store";
+import { useThemeColors } from "@/constants/theme";
 import type { Expense, Group } from "@/types/models";
 import { formatRelativeTime } from "@/utils/date";
 import { formatMoney } from "@/utils/money";
@@ -18,6 +20,7 @@ type ActivityItem = {
 
 export default function ActivityScreen() {
   const groups = useGroupsStore((state) => state.groups);
+  const colors = useThemeColors();
 
   const activities = useMemo(() => {
     const list: ActivityItem[] = [];
@@ -56,11 +59,11 @@ export default function ActivityScreen() {
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
-      contentContainerClassName="gap-6 px-5 pb-12 pt-4"
+      contentContainerClassName="w-full max-w-5xl self-center gap-6 px-5 pb-12 pt-5 md:px-8 lg:py-10"
       showsVerticalScrollIndicator={false}
     >
       <View className="gap-1 px-1">
-        <Text className="text-2xl font-bold text-ink">Recent Activity</Text>
+        <Text className="text-2xl font-bold text-ink lg:text-3xl">Recent Activity</Text>
         <Text className="text-sm leading-5 text-muted">
           Track expenses, changes, and settlements across all your groups.
         </Text>
@@ -79,17 +82,20 @@ export default function ActivityScreen() {
               ? group.members.find((m) => m.id === expense.shares[0].memberId)
               : null;
 
-            let icon = "🧾";
+            let icon: keyof typeof Ionicons.glyphMap = "receipt-outline";
+            let iconColor = colors["brand-700"];
             let actionText = "";
 
             if (type === "settlement") {
-              icon = "🤝";
+              icon = "swap-horizontal-outline";
               actionText = `${payer?.name ?? "Someone"} paid ${recipient?.name ?? "Someone"}`;
             } else if (type === "edit") {
-              icon = "✏️";
+              icon = "create-outline";
+              iconColor = colors["brand-700"];
               actionText = `${editor?.name ?? addedBy?.name ?? "Someone"} updated "${expense.description}"`;
             } else if (type === "delete") {
-              icon = "🗑️";
+              icon = "trash-outline";
+              iconColor = colors.muted;
               actionText = `${addedBy?.name ?? "Someone"} deleted "${expense.description}"`;
             } else {
               actionText = `${addedBy?.name ?? "Someone"} added "${expense.description}"`;
@@ -106,7 +112,7 @@ export default function ActivityScreen() {
                 >
                   <Pressable className="flex-row items-center gap-3 py-4 active:opacity-60">
                     <View className="h-11 w-11 items-center justify-center rounded-2xl bg-canvas">
-                      <Text className="text-lg">{icon}</Text>
+                      <Ionicons name={icon} size={21} color={iconColor} />
                     </View>
                     <View className="flex-1 gap-0.5">
                       <Text className="font-semibold text-ink" numberOfLines={1}>
@@ -131,7 +137,7 @@ export default function ActivityScreen() {
         </View>
       ) : (
         <EmptyState
-          emoji="⚡"
+          icon="flash-outline"
           title="No activity yet"
           message="Expenses, edits, and payments in your groups will appear here."
         />
