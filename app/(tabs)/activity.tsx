@@ -83,7 +83,7 @@ export default function ActivityScreen() {
               : null;
 
             let icon: keyof typeof Ionicons.glyphMap = "receipt-outline";
-            let iconColor = colors["brand-700"];
+            let iconColor: string = colors["brand-700"];
             let actionText = "";
 
             if (type === "settlement") {

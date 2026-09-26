@@ -1,5 +1,7 @@
-import { useColorScheme } from "react-native";
+import { useColorScheme, type ColorSchemeName } from "react-native";
 import { vars } from "nativewind";
+
+import { useSettingsStore, type ThemePreference } from "@/store/use-settings-store";
 
 export const themeColors = {
   light: {
@@ -16,17 +18,17 @@ export const themeColors = {
     coral: "#F0785A",
   },
   dark: {
-    ink: "#EAF3EC",
-    muted: "#A3B5A8",
-    canvas: "#0E1711",
-    surface: "#18251C",
-    line: "#35483A",
-    "brand-50": "#173C2A",
-    "brand-100": "#245338",
-    "brand-500": "#42C884",
+    ink: "#EEF4F1",
+    muted: "#A9B5B1",
+    canvas: "#111416",
+    surface: "#1B2022",
+    line: "#30393B",
+    "brand-50": "#19332A",
+    "brand-100": "#244637",
+    "brand-500": "#40C98C",
     "brand-600": "#078455",
-    "brand-700": "#94E5B0",
-    coral: "#FFA183",
+    "brand-700": "#80DFAC",
+    coral: "#FF9B8C",
   },
 } as const;
 
@@ -39,7 +41,13 @@ export const themeVariables = {
   dark: vars(Object.fromEntries(Object.entries(themeColors.dark).map(([name, hex]) => [`--color-${name}`, hexToRgb(hex)]))),
 };
 
+export function resolveTheme(preference: ThemePreference, systemColorScheme: ColorSchemeName) {
+  if (preference === "system") return systemColorScheme === "dark" ? "dark" : "light";
+  return preference;
+}
+
 export function useThemeColors() {
   const systemColorScheme = useColorScheme();
-  return themeColors[systemColorScheme === "dark" ? "dark" : "light"];
+  const preference = useSettingsStore((state) => state.themePreference);
+  return themeColors[resolveTheme(preference, systemColorScheme)];
 }
