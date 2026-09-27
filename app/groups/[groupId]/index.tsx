@@ -1,14 +1,16 @@
 import { Link, router, Stack, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 
 import { EmptyState } from "@/components/empty-state";
 import { ExpenseRow } from "@/components/expense-row";
 import { MemberAvatar } from "@/components/member-avatar";
 import { PrimaryButton } from "@/components/primary-button";
 import { useGroupsStore } from "@/store/use-groups-store";
+import { useSharedGroupsStore } from "@/store/use-shared-groups-store";
+import type { SharedGroup } from "@/types/shared-group";
 import type { Settlement } from "@/types/models";
-import { confirmAction } from "@/utils/dialogs";
+import { confirmAction, showError } from "@/utils/dialogs";
 import { getActiveExpenses, getGroupTotal, getMemberBalances, getSettlements } from "@/utils/balances";
 import { formatMoney } from "@/utils/money";
 
@@ -22,6 +24,8 @@ const views: { id: GroupView; label: string }[] = [
 
 export default function GroupDetailsScreen() {
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
+  const sharedGroup = useSharedGroupsStore((state) => state.groups.find((item) => item.id === groupId));
+  const sharedLoading = useSharedGroupsStore((state) => state.isLoading);
   const group = useGroupsStore((state) => state.groups.find((item) => item.id === groupId));
   const currentUserId = useGroupsStore((state) => state.currentUserId);
   const archiveGroup = useGroupsStore((state) => state.archiveGroup);
@@ -31,10 +35,15 @@ export default function GroupDetailsScreen() {
   const [view, setView] = useState<GroupView>("expenses");
   const [showMembers, setShowMembers] = useState(false);
 
+  if (sharedGroup) return <SharedGroupDetails group={sharedGroup} />;
+  if (sharedLoading) {
+    return <View className="flex-1 items-center justify-center"><ActivityIndicator /></View>;
+  }
+
   if (!group) {
     return (
       <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerClassName="px-5 py-8">
-        <EmptyState emoji="🔎" title="Group not found" message="This group may have been removed." />
+        <EmptyState icon="search-outline" title="Group not found" message="This group may have been removed." />
       </ScrollView>
     );
   }
@@ -224,7 +233,7 @@ export default function GroupDetailsScreen() {
                 ))}
               </View>
             ) : (
-              <EmptyState emoji="🧾" title="No expenses yet" message="Add the first shared cost for this group." />
+              <EmptyState icon="receipt-outline" title="No expenses yet" message="Add the first shared cost for this group." />
             )}
 
             {deletedExpenses.length > 0 ? (
@@ -311,7 +320,7 @@ export default function GroupDetailsScreen() {
                 </View>
               ))
             ) : (
-              <EmptyState emoji="✓" title="All settled up" message="There are no payments to make right now." />
+              <EmptyState icon="checkmark-circle-outline" title="All settled up" message="There are no payments to make right now." />
             )}
           </View>
         ) : null}
@@ -323,6 +332,62 @@ export default function GroupDetailsScreen() {
             <PrimaryButton label="Delete group permanently" variant="danger" onPress={confirmDeleteGroup} />
           )}
         </View>
+      </ScrollView>
+    </>
+  );
+}
+
+function SharedGroupDetails({ group }: { group: SharedGroup }) {
+  const setArchived = useSharedGroupsStore((state) => state.setArchived);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  async function updateArchive(archived: boolean) {
+    setIsUpdating(true);
+    try {
+      await setArchived(group.id, archived);
+    } catch (error) {
+      showError(
+        archived ? "Could not archive group" : "Could not restore group",
+        error instanceof Error ? error.message : "Please try again.",
+      );
+    } finally {
+      setIsUpdating(false);
+    }
+  }
+
+  function confirmArchive() {
+    confirmAction(
+      "Archive this group for you?",
+      "It will move to your Archived groups. Other members will still see it.",
+      "Archive",
+      () => void updateArchive(true),
+    );
+  }
+
+  return (
+    <>
+      <Stack.Screen options={{ title: group.name }} />
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerClassName="w-full max-w-4xl self-center gap-6 px-5 pb-12 pt-5 md:px-8 lg:py-10"
+      >
+        <View className="card gap-2 p-5">
+          <Text className="text-xl font-bold text-ink">{group.name}</Text>
+          <Text className="text-sm text-muted">Default currency: {group.currency}</Text>
+          {group.archivedAt ? <Text className="text-sm text-orange-700 dark:text-orange-300">Archived for you</Text> : null}
+        </View>
+
+        <EmptyState
+          icon="receipt-outline"
+          title="No shared expenses yet"
+          message="Invites and expenses will be connected to these real groups next."
+        />
+
+        {group.archivedAt ? (
+          <PrimaryButton label="Restore group" variant="secondary" loading={isUpdating} onPress={() => void updateArchive(false)} />
+        ) : (
+          <PrimaryButton label="Archive group" variant="danger" loading={isUpdating} onPress={confirmArchive} />
+        )}
       </ScrollView>
     </>
   );

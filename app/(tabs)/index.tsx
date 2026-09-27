@@ -1,26 +1,22 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Link } from "expo-router";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 
 import { EmptyState } from "@/components/empty-state";
 import { GroupCard } from "@/components/group-card";
-import { useGroupsStore } from "@/store/use-groups-store";
-import { getMemberBalances } from "@/utils/balances";
-import { formatMoney } from "@/utils/money";
+import { useAuthStore } from "@/store/use-auth-store";
+import { useSharedGroupsStore } from "@/store/use-shared-groups-store";
 import { useThemeColors } from "@/constants/theme";
 
 export default function GroupsScreen() {
   const colors = useThemeColors();
-  const groups = useGroupsStore((state) => state.groups);
-  const currentUserId = useGroupsStore((state) => state.currentUserId);
+  const groups = useSharedGroupsStore((state) => state.groups);
+  const isLoading = useSharedGroupsStore((state) => state.isLoading);
+  const error = useSharedGroupsStore((state) => state.error);
+  const loadGroups = useSharedGroupsStore((state) => state.loadGroups);
+  const userId = useAuthStore((state) => state.session?.user.id);
   const activeGroups = groups.filter((group) => !group.archivedAt);
   const archivedCount = groups.filter((group) => group.archivedAt).length;
-  const overallNet = activeGroups.reduce((total, group) => {
-    const balance = getMemberBalances(group).find(
-      (item) => item.member.id === currentUserId,
-    );
-    return total + (balance?.net ?? 0);
-  }, 0);
 
   return (
     <ScrollView
@@ -37,12 +33,12 @@ export default function GroupsScreen() {
         <View className="absolute -right-8 -top-10 h-32 w-32 rounded-full bg-brand-600 opacity-50" />
         <View className="absolute -bottom-20 right-28 h-36 w-36 rounded-full border border-white/10" />
         <View className="gap-2">
-          <Text className="text-sm font-medium text-white/70">Across all groups</Text>
+          <Text className="text-sm font-medium text-white/70">Your groups</Text>
           <Text selectable className="text-3xl font-bold tracking-tight text-white">
-            {overallNet >= 0 ? "You are owed" : "You owe"} {formatMoney(overallNet)}
+            {activeGroups.length} active {activeGroups.length === 1 ? "group" : "groups"}
           </Text>
           <Text className="text-sm leading-5 text-white/60">
-            {activeGroups.length} active {activeGroups.length === 1 ? "group" : "groups"}
+            {archivedCount} archived
           </Text>
         </View>
       </View>
@@ -75,7 +71,16 @@ export default function GroupsScreen() {
             </Link>
           </View>
         </View>
-        {activeGroups.length > 0 ? (
+        {isLoading ? (
+          <ActivityIndicator color={colors["brand-600"]} />
+        ) : error ? (
+          <View className="card gap-3 p-5">
+            <Text className="text-sm text-coral">Could not load groups: {error}</Text>
+            <Pressable onPress={() => userId && void loadGroups(userId)}>
+              <Text className="font-semibold text-brand-700">Try again</Text>
+            </Pressable>
+          </View>
+        ) : activeGroups.length > 0 ? (
           <View className="flex-row flex-wrap gap-4">
             {activeGroups.map((group) => (
               <View key={group.id} className="w-full lg:w-[48%]">
@@ -85,7 +90,7 @@ export default function GroupsScreen() {
           </View>
         ) : (
           <EmptyState
-            emoji="✈️"
+            icon="airplane-outline"
             title="Plan the trip, not the math"
             message="Create a group and start adding shared expenses."
           />

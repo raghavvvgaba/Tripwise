@@ -1,0 +1,54 @@
+import { create } from "zustand";
+
+import { createGroup, listGroups, setGroupArchived } from "@/lib/groups";
+import type { CurrencyCode } from "@/types/models";
+import type { SharedGroup } from "@/types/shared-group";
+
+type SharedGroupsState = {
+  groups: SharedGroup[];
+  isLoading: boolean;
+  error: string | null;
+  userId: string | null;
+  loadGroups: (userId: string) => Promise<void>;
+  createGroup: (name: string, currency: CurrencyCode) => Promise<SharedGroup>;
+  setArchived: (groupId: string, archived: boolean) => Promise<void>;
+  clear: () => void;
+};
+
+export const useSharedGroupsStore = create<SharedGroupsState>((set, get) => ({
+  groups: [],
+  isLoading: false,
+  error: null,
+  userId: null,
+  loadGroups: async (userId) => {
+    set({ groups: [], isLoading: true, error: null, userId });
+    try {
+      const groups = await listGroups(userId);
+      if (get().userId === userId) set({ groups, isLoading: false });
+    } catch (error) {
+      if (get().userId === userId) {
+        set({ error: error instanceof Error ? error.message : "Could not load groups", isLoading: false });
+      }
+    }
+  },
+  createGroup: async (name, currency) => {
+    const userId = get().userId;
+    if (!userId) throw new Error("Sign in required");
+    const group = await createGroup(name, currency);
+    if (get().userId === userId) set((state) => ({ groups: [group, ...state.groups] }));
+    return group;
+  },
+  setArchived: async (groupId, archived) => {
+    const userId = get().userId;
+    if (!userId) throw new Error("Sign in required");
+    const archivedAt = await setGroupArchived(userId, groupId, archived);
+    if (get().userId === userId) {
+      set((state) => ({
+        groups: state.groups.map((group) =>
+          group.id === groupId ? { ...group, archivedAt } : group,
+        ),
+      }));
+    }
+  },
+  clear: () => set({ groups: [], isLoading: false, error: null, userId: null }),
+}));

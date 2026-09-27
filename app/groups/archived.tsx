@@ -1,12 +1,17 @@
 import { Stack } from "expo-router";
-import { ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 
 import { EmptyState } from "@/components/empty-state";
 import { GroupCard } from "@/components/group-card";
-import { useGroupsStore } from "@/store/use-groups-store";
+import { useAuthStore } from "@/store/use-auth-store";
+import { useSharedGroupsStore } from "@/store/use-shared-groups-store";
 
 export default function ArchivedGroupsScreen() {
-  const groups = useGroupsStore((state) => state.groups);
+  const groups = useSharedGroupsStore((state) => state.groups);
+  const isLoading = useSharedGroupsStore((state) => state.isLoading);
+  const error = useSharedGroupsStore((state) => state.error);
+  const loadGroups = useSharedGroupsStore((state) => state.loadGroups);
+  const userId = useAuthStore((state) => state.session?.user.id);
   const archivedGroups = groups.filter((group) => group.archivedAt);
 
   return (
@@ -19,11 +24,20 @@ export default function ArchivedGroupsScreen() {
       >
         <View className="gap-1 px-1">
           <Text className="text-sm leading-5 text-muted">
-            Archived groups keep all historical expenses and balances intact, but are hidden from your active totals.
+            Archiving hides a group only for you. Other members can still see it.
           </Text>
         </View>
 
-        {archivedGroups.length > 0 ? (
+        {isLoading ? (
+          <ActivityIndicator />
+        ) : error ? (
+          <View className="card gap-3 p-5">
+            <Text className="text-sm text-coral">Could not load groups: {error}</Text>
+            <Pressable onPress={() => userId && void loadGroups(userId)}>
+              <Text className="font-semibold text-brand-700">Try again</Text>
+            </Pressable>
+          </View>
+        ) : archivedGroups.length > 0 ? (
           <View className="gap-3">
             {archivedGroups.map((group) => (
               <GroupCard key={group.id} group={group} />
@@ -31,7 +45,7 @@ export default function ArchivedGroupsScreen() {
           </View>
         ) : (
           <EmptyState
-            emoji="📦"
+            icon="archive-outline"
             title="No archived groups"
             message="When you archive a group, it will be kept safely here."
           />

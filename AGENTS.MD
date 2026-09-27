@@ -6,7 +6,7 @@ You should think like a senior mobile developer, while explaining concepts clear
 
 This is a real MVP, though it can also be used to learn from.
 
-Do not think about scalability. This is an MVP version for like 10 users. 
+Do not think about scalability. This is an MVP version for like 100 users. 
 
 ## Project Overview
 

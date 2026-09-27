@@ -1,15 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Link } from "expo-router";
-import { Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { PrimaryButton } from "@/components/primary-button";
 import { useThemeColors } from "@/constants/theme";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/use-auth-store";
 import { useGroupsStore } from "@/store/use-groups-store";
+import { useSharedGroupsStore } from "@/store/use-shared-groups-store";
 import { useSettingsStore } from "@/store/use-settings-store";
 import type { CurrencyCode } from "@/types/models";
-import { confirmAction, showError } from "@/utils/dialogs";
+import { showError } from "@/utils/dialogs";
 import { SUPPORTED_CURRENCIES } from "@/utils/money";
 
 export default function AccountScreen() {
@@ -17,19 +18,9 @@ export default function AccountScreen() {
   const accountEmail = useAuthStore((state) => state.session?.user.email);
   const defaultCurrency = useGroupsStore((state) => state.defaultCurrency);
   const setDefaultCurrency = useGroupsStore((state) => state.setDefaultCurrency);
-  const resetToSeedData = useGroupsStore((state) => state.resetToSeedData);
-  const groups = useGroupsStore((state) => state.groups);
+  const groups = useSharedGroupsStore((state) => state.groups);
   const themePreference = useSettingsStore((state) => state.themePreference);
   const setThemePreference = useSettingsStore((state) => state.setThemePreference);
-
-  function confirmReset() {
-    confirmAction(
-      "Reset demo data?",
-      "All groups, expenses, and balances will be restored to their initial seed state. This cannot be undone.",
-      "Reset to default",
-      resetToSeedData,
-    );
-  }
 
   async function signOut() {
     const { error } = await supabase.auth.signOut();
@@ -45,7 +36,7 @@ export default function AccountScreen() {
       <View className="gap-1 px-1">
         <Text className="text-2xl font-bold text-ink lg:text-3xl">Account & Settings</Text>
         <Text className="text-sm leading-5 text-muted">
-          Manage your account, preferences, and demo environment.
+          Manage your account, preferences, and groups.
         </Text>
       </View>
 
@@ -135,7 +126,7 @@ export default function AccountScreen() {
       </View>
 
       <Text className="px-1 text-xs leading-5 text-muted">
-        Groups and balances are still demo data stored {Platform.OS === "web" ? "in this browser" : "on this device"}. They are not linked to your account yet.
+        Groups are saved to your account. Invites, expenses, and balances will be connected in later steps.
       </Text>
 
       <View className="gap-3">
@@ -190,23 +181,11 @@ export default function AccountScreen() {
         </Link>
       </View>
 
-      <View className="gap-3">
-        <Text className="section-label px-1">Data & Debugging</Text>
-        <Pressable
-          accessibilityRole="button"
-          onPress={confirmReset}
-          className="min-h-12 flex-row items-center gap-2 self-start rounded-xl px-2 active:bg-surface"
-        >
-          <Ionicons name="refresh-outline" size={18} color={colors.coral} />
-          <Text className="text-sm font-semibold text-coral">Reset to demo data</Text>
-        </Pressable>
-      </View>
-
       <PrimaryButton label="Sign out" variant="secondary" onPress={signOut} />
 
       <View className="items-center gap-1 py-4">
         <Text className="text-xs font-medium text-muted">Tripwise · MVP v1.0.0</Text>
-        <Text className="text-[11px] text-muted">Account connected · Group data in demo mode</Text>
+        <Text className="text-[11px] text-muted">Account connected · Groups synced</Text>
       </View>
     </ScrollView>
   );

@@ -2,12 +2,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
-import { seedGroups, seedMembers } from "@/data/seed";
+import { seedMembers } from "@/data/seed";
 import type { CurrencyCode, Expense, Group, Member } from "@/types/models";
 
 type NewGroupInput = Pick<Group, "name"> & {
   currency?: Group["currency"];
-  emoji?: string;
   placeholderNames: string[];
 };
 
@@ -29,7 +28,6 @@ type GroupsState = {
   archiveGroup: (groupId: string) => void;
   unarchiveGroup: (groupId: string) => void;
   deleteGroup: (groupId: string) => void;
-  resetToSeedData: () => void;
 };
 
 const placeholderColors = ["#E8E5FF", "#FFE3EA", "#E1F0FF", "#FEECD9"];
@@ -60,21 +58,18 @@ function makePlaceholder(name: string, index: number): Member {
 export const useGroupsStore = create<GroupsState>()(
   persist(
     (set, get) => ({
-      groups: seedGroups,
-      currentUserId: "member-raghav",
+      groups: [],
+      currentUserId: "",
       defaultCurrency: "INR",
       setCurrentUserId: (userId) => set({ currentUserId: userId }),
       setDefaultCurrency: (currency) => set({ defaultCurrency: currency }),
-      resetToSeedData: () =>
-        set({ groups: seedGroups, currentUserId: "member-raghav", defaultCurrency: "INR" }),
-      createGroup: ({ name, emoji, currency, placeholderNames }) => {
+      createGroup: ({ name, currency, placeholderNames }) => {
         const groupId = makeId("group");
         const activeUserId = get().currentUserId;
         const owner = seedMembers.find((member) => member.id === activeUserId) ?? seedMembers[0];
         const group: Group = {
           id: groupId,
           name: name.trim(),
-          emoji,
           currency: currency ?? get().defaultCurrency ?? "INR",
           inviteCode: Math.random().toString(36).slice(2, 8).toUpperCase(),
           members: [
@@ -223,6 +218,13 @@ export const useGroupsStore = create<GroupsState>()(
     {
       name: "tripwise-groups",
       storage: createJSONStorage(() => AsyncStorage),
+      version: 1,
+      migrate: (persisted) => ({
+        groups: [],
+        currentUserId: "",
+        defaultCurrency: (persisted as Partial<GroupsState>).defaultCurrency ?? "INR",
+      }),
+      partialize: (state) => ({ defaultCurrency: state.defaultCurrency }),
     },
   ),
 );

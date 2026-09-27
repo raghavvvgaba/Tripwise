@@ -13,7 +13,6 @@ export const seedGroups: Group[] = [
   {
     id: "goa-trip",
     name: "Goa Trip",
-    emoji: "🌴",
     currency: "INR",
     members: seedMembers,
     inviteCode: "GOA24",
@@ -76,7 +75,6 @@ export const seedGroups: Group[] = [
   {
     id: "flat-expenses",
     name: "Flat expenses",
-    emoji: "🏠",
     currency: "INR",
     inviteCode: "FLAT7",
     members: [

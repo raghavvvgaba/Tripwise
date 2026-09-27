@@ -34,7 +34,6 @@ export type Expense = {
 export type Group = {
   id: string;
   name: string;
-  emoji?: string;
   currency: CurrencyCode;
   members: Member[];
   expenses: Expense[];

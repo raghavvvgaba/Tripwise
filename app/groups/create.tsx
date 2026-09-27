@@ -3,29 +3,36 @@ import { useState } from "react";
 import { KeyboardAvoidingView, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 
 import { PrimaryButton } from "@/components/primary-button";
+import { RouteModal } from "@/components/route-modal";
 import { useGroupsStore } from "@/store/use-groups-store";
+import { useSharedGroupsStore } from "@/store/use-shared-groups-store";
 import type { CurrencyCode } from "@/types/models";
+import { showError } from "@/utils/dialogs";
 import { SUPPORTED_CURRENCIES } from "@/utils/money";
 
 export default function CreateGroupScreen() {
-  const createGroup = useGroupsStore((state) => state.createGroup);
+  const createGroup = useSharedGroupsStore((state) => state.createGroup);
   const defaultCurrency = useGroupsStore((state) => state.defaultCurrency);
   const [name, setName] = useState("");
   const [currency, setCurrency] = useState<CurrencyCode>(defaultCurrency ?? "INR");
+  const [isSaving, setIsSaving] = useState(false);
 
-  function handleCreate() {
-    if (!name.trim()) return;
-
-    const groupId = createGroup({
-      name,
-      currency,
-      placeholderNames: [],
-    });
-    router.dismissTo("/");
-    router.push(`/groups/${groupId}`);
+  async function handleCreate() {
+    if (!name.trim() || isSaving) return;
+    setIsSaving(true);
+    try {
+      const group = await createGroup(name, currency);
+      router.dismissTo("/");
+      router.push(`/groups/${group.id}`);
+    } catch (error) {
+      showError("Could not create group", error instanceof Error ? error.message : "Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
+    <RouteModal title="New group">{(dismiss) => (
     <>
       <Stack.Screen
         options={{
@@ -34,7 +41,7 @@ export default function CreateGroupScreen() {
             <Pressable
               accessibilityLabel="Close new group"
               accessibilityRole="button"
-              onPress={() => router.back()}
+              onPress={dismiss}
               className="h-11 w-11 items-center justify-center rounded-full active:bg-line"
             >
               <Text className="text-3xl font-light leading-8 text-ink">×</Text>
@@ -88,9 +95,10 @@ export default function CreateGroupScreen() {
             </View>
           </View>
 
-          <PrimaryButton label="Create group" onPress={handleCreate} disabled={!name.trim()} />
+          <PrimaryButton label="Create group" onPress={handleCreate} disabled={!name.trim()} loading={isSaving} />
         </ScrollView>
       </KeyboardAvoidingView>
     </>
+    )}</RouteModal>
   );
 }
