@@ -1,6 +1,8 @@
+import { Ionicons } from "@expo/vector-icons";
 import { Link } from "expo-router";
 import { Pressable, Text, View } from "react-native";
 
+import { useThemeColors } from "@/constants/theme";
 import type { CurrencyCode, Expense, Member } from "@/types/models";
 import { formatExpenseDate } from "@/utils/date";
 import { formatMoney } from "@/utils/money";
@@ -13,7 +15,18 @@ type ExpenseRowProps = {
 };
 
 export function ExpenseRow({ expense, members, groupId, currency = "INR" }: ExpenseRowProps) {
+  const colors = useThemeColors();
   const payer = members.find((member) => member.id === expense.paidById);
+  const description = expense.description.toLowerCase();
+  const icon: keyof typeof Ionicons.glyphMap = expense.isSettlement
+    ? "swap-horizontal-outline"
+    : description.includes("hotel")
+      ? "bed-outline"
+      : description.includes("cab")
+        ? "car-outline"
+        : description.includes("dinner")
+          ? "restaurant-outline"
+          : "receipt-outline";
 
   return (
     <Link
@@ -22,17 +35,7 @@ export function ExpenseRow({ expense, members, groupId, currency = "INR" }: Expe
     >
       <Pressable className="flex-row items-center gap-3 py-4 active:opacity-60">
         <View className="h-11 w-11 items-center justify-center rounded-2xl bg-canvas">
-          <Text className="text-lg">
-            {expense.isSettlement
-              ? "🤝"
-              : expense.description.toLowerCase().includes("hotel")
-                ? "🏨"
-                : expense.description.toLowerCase().includes("cab")
-                  ? "🚕"
-                  : expense.description.toLowerCase().includes("dinner")
-                    ? "🍽️"
-                    : "🧾"}
-          </Text>
+          <Ionicons name={icon} size={21} color={colors["brand-700"]} />
         </View>
         <View className="flex-1 gap-1">
           <View className="flex-row items-center gap-2">

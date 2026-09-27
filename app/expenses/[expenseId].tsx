@@ -1,15 +1,18 @@
+import { Ionicons } from "@expo/vector-icons";
 import { Link, Stack, useLocalSearchParams } from "expo-router";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { EmptyState } from "@/components/empty-state";
 import { MemberAvatar } from "@/components/member-avatar";
 import { PrimaryButton } from "@/components/primary-button";
+import { useThemeColors } from "@/constants/theme";
 import { useGroupsStore } from "@/store/use-groups-store";
 import { confirmAction } from "@/utils/dialogs";
 import { formatExpenseDate, formatRelativeTime } from "@/utils/date";
 import { formatMoney } from "@/utils/money";
 
 export default function ExpenseDetailsScreen() {
+  const colors = useThemeColors();
   const { expenseId, groupId } = useLocalSearchParams<{ expenseId: string; groupId: string }>();
   const group = useGroupsStore((state) => state.groups.find((item) => item.id === groupId));
   const deleteExpense = useGroupsStore((state) => state.deleteExpense);
@@ -19,7 +22,7 @@ export default function ExpenseDetailsScreen() {
   if (!group || !expense) {
     return (
       <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerClassName="px-5 py-8">
-        <EmptyState emoji="🧾" title="Expense not found" message="It may no longer be available in this group." />
+        <EmptyState icon="receipt-outline" title="Expense not found" message="It may no longer be available in this group." />
       </ScrollView>
     );
   }
@@ -61,7 +64,7 @@ export default function ExpenseDetailsScreen() {
 
         <View className="card items-center gap-3 px-5 py-7">
           <View className="h-16 w-16 items-center justify-center rounded-3xl bg-brand-50">
-            <Text className="text-3xl">{expense.isSettlement ? "🤝" : "🧾"}</Text>
+            <Ionicons name={expense.isSettlement ? "swap-horizontal-outline" : "receipt-outline"} size={30} color={colors["brand-700"]} />
           </View>
           <View className="items-center gap-1">
             <Text className="text-center text-xl font-bold text-ink">{expense.description}</Text>

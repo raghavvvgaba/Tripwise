@@ -3,6 +3,7 @@ import { useState } from "react";
 import { KeyboardAvoidingView, ScrollView, Text, TextInput, View } from "react-native";
 
 import { PrimaryButton } from "@/components/primary-button";
+import { BrandIcon } from "@/components/brand-icon";
 import { supabase } from "@/lib/supabase";
 
 export default function SignInScreen() {
@@ -44,8 +45,8 @@ export default function SignInScreen() {
           contentContainerClassName="w-full max-w-5xl flex-grow self-center justify-center gap-6 px-5 py-10 md:px-8 lg:flex-row lg:items-center lg:gap-20"
         >
           <View className="gap-3 lg:flex-1">
-            <View className="mb-3 hidden h-12 w-12 items-center justify-center rounded-2xl bg-brand-600 lg:flex">
-              <Text className="text-2xl font-black text-white">t</Text>
+            <View className="mb-3 hidden h-12 w-12 lg:flex">
+              <BrandIcon size={48} />
             </View>
             <Text className="text-3xl font-bold tracking-tight text-ink lg:text-5xl">{isCreatingAccount ? "Create your account" : "Welcome to Tripwise"}</Text>
             <Text className="text-sm leading-5 text-muted lg:max-w-md lg:text-base lg:leading-7">Keep your shared expenses in one calm, clear place.</Text>

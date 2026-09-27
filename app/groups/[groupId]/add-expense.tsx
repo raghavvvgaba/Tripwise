@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 import { KeyboardAvoidingView, Pressable, ScrollView, Text, TextInput, View } from "react-native";
@@ -6,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { EmptyState } from "@/components/empty-state";
 import { MemberAvatar } from "@/components/member-avatar";
 import { PrimaryButton } from "@/components/primary-button";
+import { RouteModal } from "@/components/route-modal";
 import { useGroupsStore } from "@/store/use-groups-store";
 import type { ExpenseShare, SplitMode } from "@/types/models";
 import { formatMoney, getCurrencySymbol, roundMoney } from "@/utils/money";
@@ -56,9 +58,11 @@ export default function AddExpenseScreen() {
 
   if (!group) {
     return (
-      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerClassName="px-5 py-8">
-        <EmptyState emoji="🔎" title="Group not found" message="Return to your groups and try again." />
-      </ScrollView>
+      <RouteModal title="Add expense">{() => (
+        <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerClassName="px-5 py-8">
+          <EmptyState icon="search-outline" title="Group not found" message="Return to your groups and try again." />
+        </ScrollView>
+      )}</RouteModal>
     );
   }
 
@@ -102,6 +106,7 @@ export default function AddExpenseScreen() {
   }
 
   return (
+    <RouteModal title={existingExpense ? "Edit expense" : "Add expense"}>{() => (
     <>
       <Stack.Screen options={{ title: existingExpense ? "Edit expense" : "Add expense" }} />
       <KeyboardAvoidingView behavior={process.env.EXPO_OS === "ios" ? "padding" : undefined} className="flex-1">
@@ -196,7 +201,7 @@ export default function AddExpenseScreen() {
                   <View key={member.id}>
                     <Pressable onPress={() => toggleParticipant(member.id)} className="flex-row items-center gap-3 py-3">
                       <View className={`h-6 w-6 items-center justify-center rounded-lg border ${selected ? "border-brand-600 bg-brand-600" : "border-line bg-surface"}`}>
-                        {selected ? <Text className="text-xs font-bold text-white">✓</Text> : null}
+                        {selected ? <Ionicons name="checkmark" size={16} color="#FFFFFF" /> : null}
                       </View>
                       <MemberAvatar member={member} size="sm" />
                       <View className="flex-1">
@@ -270,5 +275,6 @@ export default function AddExpenseScreen() {
         </View>
       </KeyboardAvoidingView>
     </>
+    )}</RouteModal>
   );
 }

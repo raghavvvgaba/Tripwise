@@ -5,6 +5,7 @@ import { Pressable, Text, View } from "react-native";
 
 import { useAuthStore } from "@/store/use-auth-store";
 import { useThemeColors } from "@/constants/theme";
+import { BrandIcon } from "@/components/brand-icon";
 
 const navigation = [
   { href: "/" as const, label: "Groups", icon: "people-outline" as const, activeIcon: "people" as const },
@@ -15,8 +16,8 @@ const navigation = [
 function Brand() {
   return (
     <View className="flex-row items-center gap-3">
-      <View className="h-10 w-10 items-center justify-center rounded-2xl bg-brand-600">
-        <Text className="text-xl font-black text-white">t</Text>
+      <View className="h-10 w-10">
+        <BrandIcon />
       </View>
       <Text className="text-xl font-bold tracking-tight text-ink">tripwise</Text>
     </View>

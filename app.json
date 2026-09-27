@@ -5,18 +5,30 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "tripwise",
+    "icon": "./assets/tripwise-icon-light.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.tripwise.app"
+      "bundleIdentifier": "com.tripwise.app",
+      "icon": {
+        "light": "./assets/tripwise-icon-light.png",
+        "dark": "./assets/tripwise-icon-dark.png"
+      }
     },
     "android": {
       "package": "com.tripwise.app",
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "icon": "./assets/tripwise-icon-light.png",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/tripwise-icon-foreground.png",
+        "monochromeImage": "./assets/tripwise-icon-foreground.png",
+        "backgroundColor": "#111416"
+      }
     },
     "web": {
-      "bundler": "metro"
+      "bundler": "metro",
+      "favicon": "./assets/tripwise-icon-light.png"
     },
     "plugins": [
       "expo-router",

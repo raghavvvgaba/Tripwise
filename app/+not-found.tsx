@@ -6,7 +6,7 @@ import { EmptyState } from "@/components/empty-state";
 export default function NotFoundScreen() {
   return (
     <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerClassName="w-full max-w-2xl self-center gap-5 px-5 py-10 md:px-8">
-      <EmptyState emoji="🧭" title="Page not found" message="This screen does not exist or the link is no longer valid." />
+      <EmptyState icon="compass-outline" title="Page not found" message="This screen does not exist or the link is no longer valid." />
       <Link href="/" className="text-center font-semibold text-brand-700">
         Back to groups
       </Link>

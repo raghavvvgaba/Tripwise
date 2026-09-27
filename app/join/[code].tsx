@@ -13,7 +13,7 @@ export default function JoinGroupScreen() {
   if (!group) {
     return (
       <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerClassName="px-5 py-8">
-        <EmptyState emoji="🔗" title="Invite unavailable" message="Ask a group member for a fresh link." />
+        <EmptyState icon="link-outline" title="Invite unavailable" message="Ask a group member for a fresh link." />
       </ScrollView>
     );
   }

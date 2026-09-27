@@ -5,6 +5,7 @@ import { Platform, ScrollView, Share, Text, TextInput, View } from "react-native
 import { EmptyState } from "@/components/empty-state";
 import { MemberAvatar } from "@/components/member-avatar";
 import { PrimaryButton } from "@/components/primary-button";
+import { RouteModal } from "@/components/route-modal";
 import { useGroupsStore } from "@/store/use-groups-store";
 
 export default function InviteScreen() {
@@ -16,9 +17,11 @@ export default function InviteScreen() {
 
   if (!group) {
     return (
-      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerClassName="px-5 py-8">
-        <EmptyState emoji="🔗" title="Invite expired" message="Ask a group member for a fresh invite link." />
-      </ScrollView>
+      <RouteModal title="Invite to group">{() => (
+        <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerClassName="px-5 py-8">
+          <EmptyState icon="link-outline" title="Invite expired" message="Ask a group member for a fresh invite link." />
+        </ScrollView>
+      )}</RouteModal>
     );
   }
 
@@ -51,9 +54,11 @@ export default function InviteScreen() {
   }
 
   return (
+    <RouteModal title={`Invite to ${group.name}`}>{() => (
     <>
       <Stack.Screen options={{ title: `Invite to ${group.name}` }} />
       <ScrollView
+        className={Platform.OS === "web" ? "flex-1" : undefined}
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
         contentContainerClassName="w-full max-w-3xl self-center gap-6 px-5 pb-12 pt-5 md:px-8 lg:py-10"
@@ -116,5 +121,6 @@ export default function InviteScreen() {
         <PrimaryButton label="Done" onPress={() => router.dismissTo(`/groups/${group.id}`)} />
       </ScrollView>
     </>
+    )}</RouteModal>
   );
 }
