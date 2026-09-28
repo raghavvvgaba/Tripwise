@@ -142,9 +142,11 @@ export default function ActivityScreen() {
       );
     } else if (group.deletedAt) {
       return;
+    } else if (event.eventType === "expense_deleted") {
+      return;
     } else if ((event.eventType === "expense_added" || event.eventType === "expense_edited") && event.expenseId) {
       router.push({ pathname: "/expenses/[expenseId]", params: { expenseId: event.expenseId, groupId: group.id } });
-    } else {
+    } else if (event.eventType === "group_deleted" || event.eventType === "group_restored") {
       router.push(`/groups/${group.id}`);
     }
   }
@@ -197,26 +199,27 @@ export default function ActivityScreen() {
         <View className="card px-4">
           {items.map((item, index) => {
             const { event, group, actorName } = item;
-            const isExpense = event.eventType === "expense_added" || event.eventType === "expense_edited";
+            const isExpense = event.eventType === "expense_added" || event.eventType === "expense_edited" || event.eventType === "expense_deleted";
+            const isUnavailableExpense = isExpense && !event.expenseId;
             return (
               <View key={event.id}>
                 <Pressable
                   accessibilityRole="button"
-                  disabled={restoringId !== null || Boolean(group.deletedAt && event.eventType !== "group_deleted")}
+                  disabled={restoringId !== null || isUnavailableExpense || Boolean(group.deletedAt && event.eventType !== "group_deleted")}
                   onPress={() => openItem(item)}
                   className="flex-row items-center gap-3 py-4 active:opacity-60"
                 >
                   <View className="h-11 w-11 items-center justify-center rounded-2xl bg-canvas">
-                    <Ionicons name={isExpense ? "receipt-outline" : event.eventType === "group_deleted" ? "trash-outline" : "refresh-outline"} size={21} color={colors["brand-700"]} />
+                    <Ionicons name={event.eventType === "expense_deleted" || event.eventType === "group_deleted" ? "trash-outline" : isExpense ? "receipt-outline" : "refresh-outline"} size={21} color={colors["brand-700"]} />
                   </View>
                   <View className="flex-1 gap-0.5">
                     <Text className="font-semibold text-ink" numberOfLines={1}>
                       {isExpense
-                        ? `${actorName} ${event.eventType === "expense_edited" ? "edited" : "added"} “${event.description}”`
+                        ? `${actorName} ${event.eventType === "expense_deleted" ? "deleted" : event.eventType === "expense_edited" ? "edited" : "added"} “${event.description}”`
                         : `${actorName} ${event.eventType === "group_deleted" ? "deleted" : "restored"} ${group.name}`}
                     </Text>
                     <Text className="text-xs text-muted" numberOfLines={1}>
-                      {group.name} · {formatRelativeTime(event.createdAt)}{group.deletedAt && event.eventType === "group_deleted" ? " · Tap to restore" : ""}
+                      {group.name} · {formatRelativeTime(event.createdAt)}{group.deletedAt && event.eventType === "group_deleted" ? " · Tap to restore" : isUnavailableExpense && event.eventType !== "expense_deleted" ? " · Expense deleted" : ""}
                     </Text>
                   </View>
                   {isExpense && event.amountMinor !== null ? (

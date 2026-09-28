@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Link, Stack, useLocalSearchParams } from "expo-router";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { Link, router, Stack, useLocalSearchParams } from "expo-router";
+import { ActivityIndicator, ScrollView, Text, View } from "react-native";
 
 import { EmptyState } from "@/components/empty-state";
 import { MemberAvatar } from "@/components/member-avatar";
@@ -20,7 +20,6 @@ export default function ExpenseDetailsScreen() {
   const sharedGroup = useSharedGroupsStore((state) => state.groups.find((item) => item.id === groupId));
   const sharedLoading = useSharedGroupsStore((state) => state.isLoading);
   const deleteExpense = useGroupsStore((state) => state.deleteExpense);
-  const restoreExpense = useGroupsStore((state) => state.restoreExpense);
   const expense = group?.expenses.find((item) => item.id === expenseId);
 
   if (sharedGroup?.deletedAt) {
@@ -48,9 +47,12 @@ export default function ExpenseDetailsScreen() {
   function confirmDelete() {
     confirmAction(
       "Delete this expense?",
-      "Balances will update immediately. You can restore it from this screen before leaving.",
-      "Delete",
-      () => deleteExpense(group!.id, expense!.id),
+      "It will be removed from this group and balances will update. This cannot be undone.",
+      "Delete expense",
+      () => {
+        deleteExpense(group!.id, expense!.id);
+        router.dismissTo(`/groups/${group!.id}`);
+      },
     );
   }
 
@@ -62,18 +64,6 @@ export default function ExpenseDetailsScreen() {
         contentContainerClassName="w-full max-w-3xl self-center gap-6 px-5 pb-12 pt-5 md:px-8 lg:py-10"
         showsVerticalScrollIndicator={false}
       >
-        {expense.deletedAt ? (
-          <View className="flex-row items-center justify-between gap-4 rounded-2xl bg-red-50 px-4 py-3 dark:bg-red-950">
-            <View className="flex-1 gap-0.5">
-              <Text className="font-semibold text-red-700 dark:text-red-300">Expense deleted</Text>
-              <Text className="text-xs text-red-600 dark:text-red-200">It is excluded from balances.</Text>
-            </View>
-            <Pressable onPress={() => restoreExpense(group.id, expense.id)} className="rounded-xl bg-surface px-3 py-2">
-              <Text className="text-sm font-bold text-red-700 dark:text-red-300">Undo</Text>
-            </Pressable>
-          </View>
-        ) : null}
-
         <View className="card items-center gap-3 px-5 py-7">
           <View className="h-16 w-16 items-center justify-center rounded-3xl bg-brand-50">
             <Ionicons name={expense.isSettlement ? "swap-horizontal-outline" : "receipt-outline"} size={30} color={colors["brand-700"]} />
@@ -154,22 +144,18 @@ export default function ExpenseDetailsScreen() {
           ) : null}
         </View>
 
-        {!expense.deletedAt ? (
-          <View className="gap-3">
-            <Link
-              href={{
-                pathname: "/groups/[groupId]/add-expense",
-                params: { groupId: group.id, expenseId: expense.id },
-              }}
-              asChild
-            >
-              <PrimaryButton label="Edit expense" variant="secondary" />
-            </Link>
-            <PrimaryButton label="Delete expense" variant="danger" onPress={confirmDelete} />
-          </View>
-        ) : (
-          <PrimaryButton label="Restore expense" onPress={() => restoreExpense(group.id, expense.id)} />
-        )}
+        <View className="gap-3">
+          <Link
+            href={{
+              pathname: "/groups/[groupId]/add-expense",
+              params: { groupId: group.id, expenseId: expense.id },
+            }}
+            asChild
+          >
+            <PrimaryButton label="Edit expense" variant="secondary" />
+          </Link>
+          <PrimaryButton label="Delete expense" variant="danger" onPress={confirmDelete} />
+        </View>
       </ScrollView>
     </>
   );

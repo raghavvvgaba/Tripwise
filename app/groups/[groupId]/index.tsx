@@ -72,7 +72,6 @@ export default function GroupDetailsScreen() {
   const expenses = getActiveExpenses(group).sort(
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
   );
-  const deletedExpenses = group.expenses.filter((expense) => expense.deletedAt);
   const balances = getMemberBalances(group);
   const settlements = getSettlements(group);
   const currentBalance = balances.find((balance) => balance.member.id === currentUserId);
@@ -252,23 +251,6 @@ export default function GroupDetailsScreen() {
               <EmptyState icon="receipt-outline" title="No expenses yet" message="Add the first shared cost for this group." />
             )}
 
-            {deletedExpenses.length > 0 ? (
-              <View className="gap-2">
-                <Text className="section-label px-1">Recently deleted</Text>
-                {deletedExpenses.map((expense) => (
-                  <Link
-                    key={expense.id}
-                    href={{ pathname: "/expenses/[expenseId]", params: { expenseId: expense.id, groupId: group.id } }}
-                    asChild
-                  >
-                    <Pressable className="flex-row items-center justify-between rounded-2xl bg-red-50 px-4 py-3 active:bg-red-100 dark:bg-red-950 dark:active:bg-red-900">
-                      <Text className="font-medium text-red-700 dark:text-red-300">{expense.description}</Text>
-                      <Text className="text-sm font-semibold text-red-700 dark:text-red-300">View & restore</Text>
-                    </Pressable>
-                  </Link>
-                ))}
-              </View>
-            ) : null}
           </View>
         ) : null}
 

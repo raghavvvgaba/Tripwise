@@ -27,7 +27,6 @@ export type Expense = {
   addedById: string;
   editedAt?: string;
   editedById?: string;
-  deletedAt?: string;
   isSettlement?: boolean;
 };
 

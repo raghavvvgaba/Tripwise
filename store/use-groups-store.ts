@@ -22,7 +22,6 @@ type GroupsState = {
   addExpense: (groupId: string, input: NewExpenseInput) => string;
   updateExpense: (groupId: string, expenseId: string, input: NewExpenseInput) => void;
   deleteExpense: (groupId: string, expenseId: string) => void;
-  restoreExpense: (groupId: string, expenseId: string) => void;
   recordSettlement: (groupId: string, fromId: string, toId: string, amount: number) => string;
   addPlaceholderMember: (groupId: string, name: string) => void;
   archiveGroup: (groupId: string) => void;
@@ -130,27 +129,7 @@ export const useGroupsStore = create<GroupsState>()(
             group.id === groupId
               ? {
                   ...group,
-                  expenses: group.expenses.map((expense) =>
-                    expense.id === expenseId
-                      ? { ...expense, deletedAt: new Date().toISOString() }
-                      : expense,
-                  ),
-                }
-              : group,
-          ),
-        }));
-      },
-      restoreExpense: (groupId, expenseId) => {
-        set((state) => ({
-          groups: state.groups.map((group) =>
-            group.id === groupId
-              ? {
-                  ...group,
-                  expenses: group.expenses.map((expense) =>
-                    expense.id === expenseId
-                      ? { ...expense, deletedAt: undefined }
-                      : expense,
-                  ),
+                  expenses: group.expenses.filter((expense) => expense.id !== expenseId),
                 }
               : group,
           ),

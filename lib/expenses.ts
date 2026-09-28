@@ -117,3 +117,12 @@ export async function updateGroupExpense(input: UpdateGroupExpenseInput): Promis
 
   if (error) throw error;
 }
+
+export async function deleteGroupExpense(groupId: string, expenseId: string): Promise<void> {
+  const { error } = await supabase.rpc("delete_group_expense", {
+    p_group_id: groupId,
+    p_expense_id: expenseId,
+  });
+
+  if (error) throw error;
+}

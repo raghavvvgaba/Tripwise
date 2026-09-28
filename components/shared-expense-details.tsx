@@ -1,21 +1,24 @@
-import { Link, Stack, useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
+import { Link, router, Stack, useFocusEffect } from "expo-router";
+import { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 
 import { EmptyState } from "@/components/empty-state";
 import { PrimaryButton } from "@/components/primary-button";
 import { getGroupMembers, type GroupMember } from "@/lib/group-invites";
-import { getGroupExpense } from "@/lib/expenses";
+import { deleteGroupExpense, getGroupExpense } from "@/lib/expenses";
 import type { SharedExpense } from "@/types/shared-expense";
 import type { SharedGroup } from "@/types/shared-group";
 import { formatExpenseDate, formatRelativeTime } from "@/utils/date";
 import { formatMoney } from "@/utils/money";
+import { confirmAction, showError } from "@/utils/dialogs";
 
 export function SharedExpenseDetails({ group, expenseId }: { group: SharedGroup; expenseId: string }) {
   const [expense, setExpense] = useState<SharedExpense | null>(null);
   const [members, setMembers] = useState<GroupMember[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const deletingRef = useRef(false);
 
   useFocusEffect(useCallback(() => {
     let active = true;
@@ -34,6 +37,30 @@ export function SharedExpenseDetails({ group, expenseId }: { group: SharedGroup;
   }, [group.id, expenseId, loadAttempt]));
 
   const nameFor = (userId: string) => members.find((member) => member.userId === userId)?.name ?? "A member";
+
+  async function handleDelete() {
+    if (deletingRef.current) return;
+    deletingRef.current = true;
+    setIsDeleting(true);
+    try {
+      await deleteGroupExpense(group.id, expenseId);
+      router.dismissTo(`/groups/${group.id}`);
+    } catch (cause) {
+      showError("Could not delete expense", cause instanceof Error ? cause.message : "Please try again.");
+    } finally {
+      deletingRef.current = false;
+      setIsDeleting(false);
+    }
+  }
+
+  function confirmDelete() {
+    confirmAction(
+      "Delete this expense?",
+      "It will be removed for every group member and balances will update. This cannot be undone.",
+      "Delete expense",
+      () => void handleDelete(),
+    );
+  }
 
   return (
     <>
@@ -110,8 +137,9 @@ export function SharedExpenseDetails({ group, expenseId }: { group: SharedGroup;
               ) : null}
             </View>
             <Link href={{ pathname: "/groups/[groupId]/add-expense", params: { groupId: group.id, expenseId } }} asChild>
-              <PrimaryButton label="Edit expense" variant="secondary" />
+              <PrimaryButton label="Edit expense" variant="secondary" disabled={isDeleting} />
             </Link>
+            <PrimaryButton label="Delete expense" variant="danger" onPress={confirmDelete} loading={isDeleting} />
           </>
         )}
       </ScrollView>

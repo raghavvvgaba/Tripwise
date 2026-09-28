@@ -2,7 +2,7 @@ import type { Group, MemberBalance, Settlement } from "@/types/models";
 import { roundMoney } from "@/utils/money";
 
 export function getActiveExpenses(group: Group) {
-  return group.expenses.filter((expense) => !expense.deletedAt);
+  return [...group.expenses];
 }
 
 export function getGroupTotal(group: Group) {
