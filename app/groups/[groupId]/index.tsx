@@ -1,11 +1,12 @@
-import { Link, router, Stack, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { Link, router, Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useCallback, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 
 import { EmptyState } from "@/components/empty-state";
 import { ExpenseRow } from "@/components/expense-row";
 import { MemberAvatar } from "@/components/member-avatar";
 import { PrimaryButton } from "@/components/primary-button";
+import { getGroupMemberCount } from "@/lib/group-invites";
 import { useGroupsStore } from "@/store/use-groups-store";
 import { useSharedGroupsStore } from "@/store/use-shared-groups-store";
 import type { SharedGroup } from "@/types/shared-group";
@@ -191,11 +192,6 @@ export default function GroupDetailsScreen() {
                 ))}
               </View>
 
-              <View className="border-t border-line p-4">
-                <Link href={`/invite/${group.inviteCode}`} asChild>
-                  <PrimaryButton label="Invite members" variant="secondary" />
-                </Link>
-              </View>
             </View>
           ) : null}
         </View>
@@ -340,6 +336,22 @@ export default function GroupDetailsScreen() {
 function SharedGroupDetails({ group }: { group: SharedGroup }) {
   const setArchived = useSharedGroupsStore((state) => state.setArchived);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [memberCount, setMemberCount] = useState<number | null>(null);
+  const [memberError, setMemberError] = useState<string | null>(null);
+
+  const refreshMemberCount = useCallback(async () => {
+    try {
+      const count = await getGroupMemberCount(group.id);
+      setMemberCount(count);
+      setMemberError(null);
+    } catch (error) {
+      setMemberError(error instanceof Error ? error.message : "Could not load members.");
+    }
+  }, [group.id]);
+
+  useFocusEffect(useCallback(() => {
+    void refreshMemberCount();
+  }, [refreshMemberCount]));
 
   async function updateArchive(archived: boolean) {
     setIsUpdating(true);
@@ -374,13 +386,26 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
         <View className="card gap-2 p-5">
           <Text className="text-xl font-bold text-ink">{group.name}</Text>
           <Text className="text-sm text-muted">Default currency: {group.currency}</Text>
+          <View className="flex-row items-center justify-between gap-3 pt-2">
+            <Text className="font-semibold text-ink">
+              {memberCount === null ? "Members" : `${memberCount} ${memberCount === 1 ? "member" : "members"}`}
+            </Text>
+            <Pressable accessibilityRole="button" onPress={() => void refreshMemberCount()}>
+              <Text className="font-semibold text-brand-700">Refresh</Text>
+            </Pressable>
+          </View>
+          {memberError ? <Text selectable className="text-sm text-coral">{memberError}</Text> : null}
           {group.archivedAt ? <Text className="text-sm text-orange-700 dark:text-orange-300">Archived for you</Text> : null}
         </View>
+
+        <Link href={`/groups/${group.id}/invite`} asChild>
+          <PrimaryButton label="Invite members" variant="secondary" />
+        </Link>
 
         <EmptyState
           icon="receipt-outline"
           title="No shared expenses yet"
-          message="Invites and expenses will be connected to these real groups next."
+          message="Shared expenses will be connected to this group next."
         />
 
         {group.archivedAt ? (

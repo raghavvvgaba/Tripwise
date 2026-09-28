@@ -21,21 +21,28 @@ export async function listGroups(userId: string): Promise<SharedGroup[]> {
 }
 
 export async function createGroup(name: string, currency: CurrencyCode): Promise<SharedGroup> {
-  const { data, error } = await supabase
-    .from("groups")
-    .insert({ name: name.trim(), currency })
-    .select("id, name, currency, created_at")
-    .single();
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const { data, error } = await supabase
+      .from("groups")
+      .insert({ name: name.trim(), currency })
+      .select("id, name, currency, created_at")
+      .single();
 
-  if (error) throw error;
+    if (!error) {
+      return {
+        id: data.id,
+        name: data.name,
+        currency: data.currency as CurrencyCode,
+        createdAt: data.created_at,
+        archivedAt: null,
+      };
+    }
+    if (error.code !== "23505" || !error.message.includes("groups_invite_code_key") || attempt === 2) {
+      throw error;
+    }
+  }
 
-  return {
-    id: data.id,
-    name: data.name,
-    currency: data.currency as CurrencyCode,
-    createdAt: data.created_at,
-    archivedAt: null,
-  };
+  throw new Error("Could not create a unique invite code.");
 }
 
 export async function setGroupArchived(

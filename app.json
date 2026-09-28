@@ -11,6 +11,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.tripwise.app",
+      "associatedDomains": ["applinks:tripwise.raghavgaba.me"],
       "icon": {
         "light": "./assets/tripwise-icon-light.png",
         "dark": "./assets/tripwise-icon-dark.png"
@@ -18,6 +19,16 @@
     },
     "android": {
       "package": "com.tripwise.app",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            { "scheme": "https", "host": "tripwise.raghavgaba.me", "pathPrefix": "/join/" }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ],
       "predictiveBackGestureEnabled": false,
       "icon": "./assets/tripwise-icon-light.png",
       "adaptiveIcon": {

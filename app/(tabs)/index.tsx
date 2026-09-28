@@ -47,6 +47,15 @@ export default function GroupsScreen() {
         <View className="flex-row items-center justify-between px-1">
           <Text className="section-label">Your groups</Text>
           <View className="flex-row items-center gap-2">
+            <Link href="/join" asChild>
+              <Pressable
+                accessibilityLabel="Join a group with a code"
+                className="h-11 flex-row items-center gap-1.5 rounded-full border border-line bg-surface px-3 active:bg-canvas lg:rounded-xl lg:px-4"
+              >
+                <Ionicons name="enter-outline" size={17} color={colors["brand-700"]} />
+                <Text className="text-sm font-semibold text-brand-700">Join</Text>
+              </Pressable>
+            </Link>
             {archivedCount > 0 ? (
               <Link href="/groups/archived" asChild>
                 <Pressable

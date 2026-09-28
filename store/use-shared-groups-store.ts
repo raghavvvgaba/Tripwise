@@ -9,11 +9,13 @@ type SharedGroupsState = {
   isLoading: boolean;
   error: string | null;
   userId: string | null;
-  loadGroups: (userId: string) => Promise<void>;
+  loadGroups: (userId: string) => Promise<boolean>;
   createGroup: (name: string, currency: CurrencyCode) => Promise<SharedGroup>;
   setArchived: (groupId: string, archived: boolean) => Promise<void>;
   clear: () => void;
 };
+
+let latestLoadId = 0;
 
 export const useSharedGroupsStore = create<SharedGroupsState>((set, get) => ({
   groups: [],
@@ -21,14 +23,23 @@ export const useSharedGroupsStore = create<SharedGroupsState>((set, get) => ({
   error: null,
   userId: null,
   loadGroups: async (userId) => {
-    set({ groups: [], isLoading: true, error: null, userId });
+    const loadId = ++latestLoadId;
+    set((state) => ({
+      groups: state.userId === userId ? state.groups : [],
+      isLoading: true,
+      error: null,
+      userId,
+    }));
     try {
       const groups = await listGroups(userId);
-      if (get().userId === userId) set({ groups, isLoading: false });
+      if (get().userId !== userId || latestLoadId !== loadId) return false;
+      set({ groups, isLoading: false });
+      return true;
     } catch (error) {
-      if (get().userId === userId) {
+      if (get().userId === userId && latestLoadId === loadId) {
         set({ error: error instanceof Error ? error.message : "Could not load groups", isLoading: false });
       }
+      return false;
     }
   },
   createGroup: async (name, currency) => {
@@ -50,5 +61,8 @@ export const useSharedGroupsStore = create<SharedGroupsState>((set, get) => ({
       }));
     }
   },
-  clear: () => set({ groups: [], isLoading: false, error: null, userId: null }),
+  clear: () => {
+    latestLoadId++;
+    set({ groups: [], isLoading: false, error: null, userId: null });
+  },
 }));

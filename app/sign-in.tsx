@@ -1,17 +1,26 @@
-import { Stack } from "expo-router";
-import { useState } from "react";
+import { router, Stack, useLocalSearchParams } from "expo-router";
+import { useEffect, useState } from "react";
 import { KeyboardAvoidingView, ScrollView, Text, TextInput, View } from "react-native";
 
 import { PrimaryButton } from "@/components/primary-button";
 import { BrandIcon } from "@/components/brand-icon";
+import { isInviteCode, normalizeInviteCode } from "@/lib/group-invites";
 import { supabase } from "@/lib/supabase";
+import { useAuthStore } from "@/store/use-auth-store";
 
 export default function SignInScreen() {
+  const { inviteCode } = useLocalSearchParams<{ inviteCode?: string }>();
+  const session = useAuthStore((state) => state.session);
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (!session) return;
+    router.replace(isInviteCode(inviteCode) ? `/join/${normalizeInviteCode(inviteCode)}` : "/");
+  }, [session?.user.id, inviteCode]);
 
   async function submit() {
     const normalizedEmail = email.trim().toLowerCase();
