@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Link } from "expo-router";
+import { Link, useFocusEffect } from "expo-router";
+import { useCallback } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 
 import { EmptyState } from "@/components/empty-state";
@@ -15,8 +16,11 @@ export default function GroupsScreen() {
   const error = useSharedGroupsStore((state) => state.error);
   const loadGroups = useSharedGroupsStore((state) => state.loadGroups);
   const userId = useAuthStore((state) => state.session?.user.id);
-  const activeGroups = groups.filter((group) => !group.archivedAt);
-  const archivedCount = groups.filter((group) => group.archivedAt).length;
+  const activeGroups = groups.filter((group) => !group.deletedAt);
+
+  useFocusEffect(useCallback(() => {
+    if (userId) void loadGroups(userId);
+  }, [loadGroups, userId]));
 
   return (
     <ScrollView
@@ -37,9 +41,7 @@ export default function GroupsScreen() {
           <Text selectable className="text-3xl font-bold tracking-tight text-white">
             {activeGroups.length} active {activeGroups.length === 1 ? "group" : "groups"}
           </Text>
-          <Text className="text-sm leading-5 text-white/60">
-            {archivedCount} archived
-          </Text>
+          <Text className="text-sm leading-5 text-white/60">Shared expenses, all in one place</Text>
         </View>
       </View>
 
@@ -56,19 +58,6 @@ export default function GroupsScreen() {
                 <Text className="text-sm font-semibold text-brand-700">Join</Text>
               </Pressable>
             </Link>
-            {archivedCount > 0 ? (
-              <Link href="/groups/archived" asChild>
-                <Pressable
-                  accessibilityLabel={`${archivedCount} archived groups`}
-                  className="flex-row items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-2 active:bg-canvas"
-                >
-                  <Ionicons name="archive-outline" size={13} color={colors.muted} />
-                  <Text className="text-xs font-semibold text-muted">
-                    {archivedCount} archived
-                  </Text>
-                </Pressable>
-              </Link>
-            ) : null}
             <Link href="/groups/create" asChild>
               <Pressable
                 accessibilityLabel="Create group"

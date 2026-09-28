@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { Link, router, Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
@@ -6,6 +7,7 @@ import { EmptyState } from "@/components/empty-state";
 import { ExpenseRow } from "@/components/expense-row";
 import { MemberAvatar } from "@/components/member-avatar";
 import { PrimaryButton } from "@/components/primary-button";
+import { useThemeColors } from "@/constants/theme";
 import { getGroupMembers, type GroupMember } from "@/lib/group-invites";
 import { listGroupExpenses } from "@/lib/expenses";
 import { useGroupsStore } from "@/store/use-groups-store";
@@ -40,7 +42,11 @@ export default function GroupDetailsScreen() {
   const [view, setView] = useState<GroupView>("expenses");
   const [showMembers, setShowMembers] = useState(false);
 
-  if (sharedGroup) return <SharedGroupDetails key={sharedGroup.id} group={sharedGroup} />;
+  if (sharedGroup) {
+    return sharedGroup.deletedAt
+      ? <DeletedSharedGroup key={sharedGroup.id} group={sharedGroup} />
+      : <SharedGroupDetails key={sharedGroup.id} group={sharedGroup} />;
+  }
   if (sharedLoading) {
     return <View className="flex-1 items-center justify-center"><ActivityIndicator /></View>;
   }
@@ -338,9 +344,9 @@ export default function GroupDetailsScreen() {
 }
 
 function SharedGroupDetails({ group }: { group: SharedGroup }) {
-  const setArchived = useSharedGroupsStore((state) => state.setArchived);
+  const colors = useThemeColors();
   const currentUserId = useSharedGroupsStore((state) => state.userId);
-  const [isUpdating, setIsUpdating] = useState(false);
+  const loadGroups = useSharedGroupsStore((state) => state.loadGroups);
   const [members, setMembers] = useState<GroupMember[] | null>(null);
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
   const [memberError, setMemberError] = useState<string | null>(null);
@@ -377,40 +383,27 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
   }, [group.id]);
 
   useFocusEffect(useCallback(() => {
+    if (currentUserId) void loadGroups(currentUserId);
     void refreshMembers();
     void refreshExpenses();
-  }, [refreshMembers, refreshExpenses]));
+  }, [currentUserId, loadGroups, refreshMembers, refreshExpenses]));
 
   const balances = members && expenses ? getSharedMemberBalances(members, expenses) : null;
   const currentBalance = balances?.find((balance) => balance.member.userId === currentUserId);
   const totalMinor = expenses?.reduce((total, expense) => total + expense.amountMinor, 0);
 
-  async function updateArchive(archived: boolean) {
-    setIsUpdating(true);
-    try {
-      await setArchived(group.id, archived);
-    } catch (error) {
-      showError(
-        archived ? "Could not archive group" : "Could not restore group",
-        error instanceof Error ? error.message : "Please try again.",
-      );
-    } finally {
-      setIsUpdating(false);
-    }
-  }
-
-  function confirmArchive() {
-    confirmAction(
-      "Archive this group for you?",
-      "It will move to your Archived groups. Other members will still see it.",
-      "Archive",
-      () => void updateArchive(true),
-    );
-  }
-
   return (
     <>
-      <Stack.Screen options={{ title: group.name }} />
+      <Stack.Screen options={{
+        title: group.name,
+        headerRight: () => (
+          <Link href={`/groups/${group.id}/settings`} asChild>
+            <Pressable accessibilityRole="button" accessibilityLabel="Group settings" className="min-h-11 min-w-11 items-center justify-center">
+              <Ionicons name="settings-outline" size={22} color={colors.ink} />
+            </Pressable>
+          </Link>
+        ),
+      }} />
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         contentContainerClassName="w-full max-w-4xl self-center gap-6 px-5 pb-12 pt-5 md:px-8 lg:py-10"
@@ -461,7 +454,6 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
               ))}
             </View>
           ) : null}
-          {group.archivedAt ? <Text className="text-sm text-orange-700 dark:text-orange-300">Archived for you</Text> : null}
         </View>
 
         <Link href={`/groups/${group.id}/invite`} asChild>
@@ -490,11 +482,9 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
                 <Text className="font-semibold text-brand-700">Refresh</Text>
               </Pressable>
             </View>
-            {!group.archivedAt ? (
-              <Link href={`/groups/${group.id}/add-expense`} asChild>
-                <PrimaryButton label="Add expense" />
-              </Link>
-            ) : null}
+            <Link href={`/groups/${group.id}/add-expense`} asChild>
+              <PrimaryButton label="Add expense" />
+            </Link>
             {isLoadingExpenses && expenses === null ? <ActivityIndicator /> : null}
             {expenseError ? (
               <View className="card gap-2 p-4">
@@ -557,11 +547,33 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
           </View>
         )}
 
-        {group.archivedAt ? (
-          <PrimaryButton label="Restore group" variant="secondary" loading={isUpdating} onPress={() => void updateArchive(false)} />
-        ) : (
-          <PrimaryButton label="Archive group" variant="danger" loading={isUpdating} onPress={confirmArchive} />
-        )}
+      </ScrollView>
+    </>
+  );
+}
+
+function DeletedSharedGroup({ group }: { group: SharedGroup }) {
+  const restoreGroup = useSharedGroupsStore((state) => state.restoreGroup);
+  const [isRestoring, setIsRestoring] = useState(false);
+
+  async function restore() {
+    if (isRestoring) return;
+    setIsRestoring(true);
+    try {
+      await restoreGroup(group.id);
+    } catch (cause) {
+      showError("Could not restore group", cause instanceof Error ? cause.message : "Please try again.");
+    } finally {
+      setIsRestoring(false);
+    }
+  }
+
+  return (
+    <>
+      <Stack.Screen options={{ title: group.name }} />
+      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerClassName="w-full max-w-3xl self-center gap-5 px-5 pb-12 pt-5 md:px-8 lg:py-10">
+        <EmptyState icon="trash-outline" title="Group deleted" message="This group is hidden for all members. Restore it to see its expenses again." />
+        <PrimaryButton label="Restore group" loading={isRestoring} onPress={() => void restore()} />
       </ScrollView>
     </>
   );

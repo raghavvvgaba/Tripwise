@@ -62,10 +62,10 @@ export default function AddExpenseScreen() {
     (splitMode === "equal" || Math.abs(exactDifference) < 0.01);
 
   if (sharedGroup) {
-    if (sharedGroup.archivedAt || !sharedUserId) {
+    if (sharedGroup.deletedAt || !sharedUserId) {
       return <RouteModal title="Add expense">{() => (
         <ScrollView contentContainerClassName="px-5 py-8">
-          <EmptyState icon="archive-outline" title="Expense unavailable" message="Restore this group before adding an expense." />
+          <EmptyState icon="trash-outline" title="Expense unavailable" message="Restore this group before adding an expense." />
         </ScrollView>
       )}</RouteModal>;
     }

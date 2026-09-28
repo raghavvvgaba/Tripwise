@@ -23,6 +23,11 @@ export default function ExpenseDetailsScreen() {
   const restoreExpense = useGroupsStore((state) => state.restoreExpense);
   const expense = group?.expenses.find((item) => item.id === expenseId);
 
+  if (sharedGroup?.deletedAt) {
+    return <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerClassName="px-5 py-8">
+      <EmptyState icon="trash-outline" title="Group deleted" message="Restore the group to see its expenses again." />
+    </ScrollView>;
+  }
   if (sharedGroup && expenseId) return <SharedExpenseDetails key={expenseId} group={sharedGroup} expenseId={expenseId} />;
   if (sharedLoading && !group) return <View className="flex-1 items-center justify-center"><ActivityIndicator /></View>;
 

@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import { createGroup, listGroups, setGroupArchived } from "@/lib/groups";
+import { createGroup, deleteSharedGroup, listGroups, restoreSharedGroup } from "@/lib/groups";
 import type { CurrencyCode } from "@/types/models";
 import type { SharedGroup } from "@/types/shared-group";
 
@@ -11,7 +11,8 @@ type SharedGroupsState = {
   userId: string | null;
   loadGroups: (userId: string) => Promise<boolean>;
   createGroup: (name: string, currency: CurrencyCode) => Promise<SharedGroup>;
-  setArchived: (groupId: string, archived: boolean) => Promise<void>;
+  deleteGroup: (groupId: string) => Promise<void>;
+  restoreGroup: (groupId: string) => Promise<void>;
   clear: () => void;
 };
 
@@ -49,14 +50,26 @@ export const useSharedGroupsStore = create<SharedGroupsState>((set, get) => ({
     if (get().userId === userId) set((state) => ({ groups: [group, ...state.groups] }));
     return group;
   },
-  setArchived: async (groupId, archived) => {
+  deleteGroup: async (groupId) => {
     const userId = get().userId;
     if (!userId) throw new Error("Sign in required");
-    const archivedAt = await setGroupArchived(userId, groupId, archived);
+    const deletedAt = await deleteSharedGroup(groupId);
     if (get().userId === userId) {
       set((state) => ({
         groups: state.groups.map((group) =>
-          group.id === groupId ? { ...group, archivedAt } : group,
+          group.id === groupId ? { ...group, deletedAt } : group,
+        ),
+      }));
+    }
+  },
+  restoreGroup: async (groupId) => {
+    const userId = get().userId;
+    if (!userId) throw new Error("Sign in required");
+    await restoreSharedGroup(groupId);
+    if (get().userId === userId) {
+      set((state) => ({
+        groups: state.groups.map((group) =>
+          group.id === groupId ? { ...group, deletedAt: null } : group,
         ),
       }));
     }

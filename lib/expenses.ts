@@ -15,12 +15,7 @@ type ExpenseRow = {
   expense_shares: { user_id: string; amount_minor: number }[];
 };
 
-export type ActivityExpense = Pick<SharedExpense, "id" | "groupId" | "description" | "amountMinor" | "createdById" | "createdAt">;
-
-type ActivityExpenseRow = Pick<ExpenseRow, "id" | "group_id" | "description" | "amount_minor" | "created_by" | "created_at">;
-
 const EXPENSE_SELECT = "id, group_id, description, amount_minor, paid_by, split_mode, expense_date, note, created_by, created_at, expense_shares(user_id, amount_minor)";
-const ACTIVITY_SELECT = "id, group_id, description, amount_minor, created_by, created_at";
 
 function toExpense(row: ExpenseRow): SharedExpense {
   return {
@@ -52,30 +47,6 @@ export async function listGroupExpenses(groupId: string): Promise<SharedExpense[
 
   if (error) throw error;
   return (data ?? []).map(toExpense);
-}
-
-export async function listActivityExpenses(offset: number, pageSize = 20): Promise<{ expenses: ActivityExpense[]; hasMore: boolean }> {
-  const { data, error, count } = await supabase
-    .from("expenses")
-    .select(ACTIVITY_SELECT, { count: "exact" })
-    .order("created_at", { ascending: false })
-    .order("id", { ascending: false })
-    .range(offset, offset + pageSize - 1)
-    .overrideTypes<ActivityExpenseRow[], { merge: false }>();
-
-  if (error) throw error;
-  const page = data ?? [];
-  return {
-    expenses: page.map((row) => ({
-      id: row.id,
-      groupId: row.group_id,
-      description: row.description,
-      amountMinor: row.amount_minor,
-      createdById: row.created_by,
-      createdAt: row.created_at,
-    })),
-    hasMore: count !== null && offset + page.length < count,
-  };
 }
 
 export async function getGroupExpense(groupId: string, expenseId: string): Promise<SharedExpense> {

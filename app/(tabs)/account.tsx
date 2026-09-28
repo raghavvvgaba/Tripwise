@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Link } from "expo-router";
+import { Link, useFocusEffect } from "expo-router";
+import { useCallback } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { PrimaryButton } from "@/components/primary-button";
@@ -26,8 +27,14 @@ export default function AccountScreen() {
   const defaultCurrency = useGroupsStore((state) => state.defaultCurrency);
   const setDefaultCurrency = useGroupsStore((state) => state.setDefaultCurrency);
   const groups = useSharedGroupsStore((state) => state.groups);
+  const loadGroups = useSharedGroupsStore((state) => state.loadGroups);
+  const userId = useAuthStore((state) => state.session?.user.id);
   const themePreference = useSettingsStore((state) => state.themePreference);
   const setThemePreference = useSettingsStore((state) => state.setThemePreference);
+
+  useFocusEffect(useCallback(() => {
+    if (userId) void loadGroups(userId);
+  }, [loadGroups, userId]));
 
   async function signOut() {
     const { error } = await supabase.auth.signOut();
@@ -133,7 +140,7 @@ export default function AccountScreen() {
       </View>
 
       <Text className="px-1 text-xs leading-5 text-muted">
-        Groups are saved to your account. Invites, expenses, and balances will be connected in later steps.
+        Groups, expenses, and balances are saved to your account.
       </Text>
 
       <View className="gap-3">
@@ -170,16 +177,16 @@ export default function AccountScreen() {
 
       <View className="gap-3">
         <Text className="section-label px-1">Groups management</Text>
-        <Link href="/groups/archived" asChild>
+        <Link href="/groups/deleted" asChild>
           <Pressable className="flex-row items-center justify-between rounded-2xl bg-surface p-4 active:bg-canvas">
             <View className="flex-row items-center gap-3">
               <View className="h-10 w-10 items-center justify-center rounded-xl bg-canvas">
-                <Ionicons name="archive-outline" size={20} color={colors.ink} />
+                <Ionicons name="trash-outline" size={20} color={colors.ink} />
               </View>
               <View>
-                <Text className="font-semibold text-ink">Archived groups</Text>
+                <Text className="font-semibold text-ink">Deleted groups</Text>
                 <Text className="text-xs text-muted">
-                  {groups.filter((g) => g.archivedAt).length} archived
+                  {groups.filter((g) => g.deletedAt).length} deleted · Restorable by any member
                 </Text>
               </View>
             </View>

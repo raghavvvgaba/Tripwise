@@ -1,5 +1,7 @@
 import { Alert, Platform } from "react-native";
 
+import { useConfirmDialogStore } from "@/store/use-confirm-dialog-store";
+
 export function confirmAction(
   title: string,
   message: string,
@@ -8,7 +10,7 @@ export function confirmAction(
   destructive = true,
 ) {
   if (Platform.OS === "web") {
-    if (window.confirm(`${title}\n\n${message}`)) onConfirm();
+    useConfirmDialogStore.getState().show({ title, message, actionLabel, onConfirm, destructive });
     return;
   }
 

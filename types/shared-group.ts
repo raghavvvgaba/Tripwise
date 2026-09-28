@@ -5,5 +5,5 @@ export type SharedGroup = {
   name: string;
   currency: CurrencyCode;
   createdAt: string;
-  archivedAt: string | null;
+  deletedAt: string | null;
 };

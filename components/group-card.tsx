@@ -31,7 +31,7 @@ export function GroupCard({ group }: GroupCardProps) {
           </Text>
           <View className="self-start rounded-full bg-canvas px-2.5 py-1">
             <Text className="text-xs font-semibold text-muted">
-              {group.archivedAt ? `Archived · ${group.currency}` : `${group.currency} · Shared group`}
+              {group.currency} · Shared group
             </Text>
           </View>
         </View>

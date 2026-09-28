@@ -11,6 +11,7 @@ import { useAuthStore } from "@/store/use-auth-store";
 import { useSharedGroupsStore } from "@/store/use-shared-groups-store";
 import { useSettingsStore } from "@/store/use-settings-store";
 import { WebAppShell } from "@/components/web-app-shell";
+import { WebConfirmDialog } from "@/components/web-confirm-dialog";
 import { resolveTheme, themeColors, themeVariables } from "@/constants/theme";
 
 export default function RootLayout() {
@@ -75,8 +76,9 @@ export default function RootLayout() {
           <Stack.Screen name="account/change-email" options={{ title: "Change email" }} />
           <Stack.Screen name="account/change-password" options={{ title: "Change password" }} />
           <Stack.Screen name="groups/create" options={{ title: "New group", presentation: Platform.OS === "web" ? "transparentModal" : "modal", headerShown: Platform.OS !== "web", animation: Platform.OS === "web" ? "none" : undefined }} />
-          <Stack.Screen name="groups/archived" options={{ title: "Archived groups" }} />
+          <Stack.Screen name="groups/deleted" options={{ title: "Deleted groups" }} />
           <Stack.Screen name="groups/[groupId]/index" options={{ title: "Group" }} />
+          <Stack.Screen name="groups/[groupId]/settings" options={{ title: "Group settings" }} />
           <Stack.Screen name="groups/[groupId]/add-expense" options={{ title: "Add expense", presentation: Platform.OS === "web" ? "transparentModal" : "modal", headerShown: Platform.OS !== "web", animation: Platform.OS === "web" ? "none" : undefined }} />
           <Stack.Screen name="expenses/[expenseId]" options={{ title: "Expense" }} />
           <Stack.Screen name="groups/[groupId]/invite" options={{ title: "Invite members", presentation: Platform.OS === "web" ? "transparentModal" : "modal", headerShown: Platform.OS !== "web", animation: Platform.OS === "web" ? "none" : undefined }} />
@@ -89,6 +91,7 @@ export default function RootLayout() {
       <StatusBar style={scheme === "dark" ? "light" : "dark"} />
       <ThemeProvider value={navigationTheme}>
         {Platform.OS === "web" && session ? <WebAppShell>{screens}</WebAppShell> : screens}
+        <WebConfirmDialog />
       </ThemeProvider>
     </View>
   );

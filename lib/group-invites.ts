@@ -40,6 +40,7 @@ export async function getGroupInvite(groupId: string): Promise<{ name: string; c
     .from("groups")
     .select("name, invite_code")
     .eq("id", groupId)
+    .is("deleted_at", null)
     .single();
 
   if (error) throw error;
