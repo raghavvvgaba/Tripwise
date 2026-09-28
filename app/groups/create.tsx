@@ -1,9 +1,11 @@
+import { Ionicons } from "@expo/vector-icons";
 import { router, Stack } from "expo-router";
 import { useState } from "react";
-import { KeyboardAvoidingView, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { KeyboardAvoidingView, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 
 import { PrimaryButton } from "@/components/primary-button";
 import { RouteModal } from "@/components/route-modal";
+import { themeColors, themeVariables, useThemeColors } from "@/constants/theme";
 import { useGroupsStore } from "@/store/use-groups-store";
 import { useSharedGroupsStore } from "@/store/use-shared-groups-store";
 import type { CurrencyCode } from "@/types/models";
@@ -11,11 +13,14 @@ import { showError } from "@/utils/dialogs";
 import { SUPPORTED_CURRENCIES } from "@/utils/money";
 
 export default function CreateGroupScreen() {
+  const colors = useThemeColors();
   const createGroup = useSharedGroupsStore((state) => state.createGroup);
   const defaultCurrency = useGroupsStore((state) => state.defaultCurrency);
   const [name, setName] = useState("");
   const [currency, setCurrency] = useState<CurrencyCode>(defaultCurrency ?? "INR");
+  const [isCurrencyOpen, setIsCurrencyOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const selectedCurrency = SUPPORTED_CURRENCIES.find((item) => item.code === currency) ?? SUPPORTED_CURRENCIES[0];
 
   async function handleCreate() {
     if (!name.trim() || isSaving) return;
@@ -25,7 +30,10 @@ export default function CreateGroupScreen() {
       router.dismissTo("/");
       router.push(`/groups/${group.id}`);
     } catch (error) {
-      showError("Could not create group", error instanceof Error ? error.message : "Please try again.");
+      const message = error && typeof error === "object" && "message" in error && typeof error.message === "string"
+        ? error.message
+        : "Please try again.";
+      showError("Could not create group", message);
     } finally {
       setIsSaving(false);
     }
@@ -69,35 +77,83 @@ export default function CreateGroupScreen() {
           </View>
 
           <View className="gap-2">
-            <Text className="section-label">Default currency</Text>
-            <View className="gap-2">
-              {SUPPORTED_CURRENCIES.map((curr) => {
-                const isSelected = currency === curr.code;
-                return (
-                  <Pressable
-                    key={curr.code}
-                    onPress={() => setCurrency(curr.code)}
-                    className={`min-h-14 flex-row items-center justify-between rounded-xl border px-4 ${
-                      isSelected
-                        ? "border-brand-500 bg-brand-50"
-                        : "border-line bg-surface active:bg-canvas"
-                    }`}
-                  >
-                    <Text className={`text-base font-semibold ${isSelected ? "text-brand-700" : "text-ink"}`}>
-                      {curr.label}
-                    </Text>
-                    <Text className={`font-semibold ${isSelected ? "text-brand-700" : "text-muted"}`}>
-                      {curr.code} · {curr.symbol}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+            <Text className="section-label">Group currency</Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Group currency, ${selectedCurrency.label}`}
+              accessibilityState={{ expanded: isCurrencyOpen }}
+              onPress={() => setIsCurrencyOpen(true)}
+              className={`min-h-14 flex-row items-center justify-between rounded-xl border bg-surface px-4 active:bg-canvas ${
+                isCurrencyOpen ? "border-brand-500" : "border-line"
+              }`}
+            >
+              <View className="flex-1 flex-row items-center gap-3">
+                <Text className="text-lg font-semibold text-ink">{selectedCurrency.symbol}</Text>
+                <Text className="text-base font-semibold text-ink">{selectedCurrency.code}</Text>
+                <Text className="flex-1 text-sm text-muted" numberOfLines={1}>{selectedCurrency.label}</Text>
+              </View>
+              <Ionicons name={isCurrencyOpen ? "chevron-up" : "chevron-down"} size={18} color={colors.muted} />
+            </Pressable>
           </View>
 
           <PrimaryButton label="Create group" onPress={handleCreate} disabled={!name.trim()} loading={isSaving} />
         </ScrollView>
       </KeyboardAvoidingView>
+      <Modal transparent visible={isCurrencyOpen} animationType="slide" onRequestClose={() => setIsCurrencyOpen(false)}>
+        <View className="flex-1 justify-end" style={colors === themeColors.dark ? themeVariables.dark : themeVariables.light}>
+          <Pressable
+            accessibilityLabel="Close currency options"
+            onPress={() => setIsCurrencyOpen(false)}
+            className="absolute inset-0 bg-black/40"
+          />
+          <View className="rounded-t-3xl border-t border-line bg-surface px-5 pb-10 pt-5">
+            <View className="w-full max-w-2xl self-center gap-4">
+              <View className="flex-row items-center justify-between">
+                <Text className="text-lg font-bold text-ink">Choose currency</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Close currency options"
+                  onPress={() => setIsCurrencyOpen(false)}
+                  className="h-10 w-10 items-center justify-center rounded-full active:bg-canvas"
+                >
+                  <Ionicons name="close" size={22} color={colors.muted} />
+                </Pressable>
+              </View>
+              <View className="overflow-hidden rounded-xl border border-line">
+                {SUPPORTED_CURRENCIES.map((curr) => {
+                  const isSelected = currency === curr.code;
+                  return (
+                    <Pressable
+                      key={curr.code}
+                      accessibilityRole="radio"
+                      accessibilityLabel={`${curr.label}, ${curr.code}`}
+                      accessibilityState={{ selected: isSelected }}
+                      onPress={() => {
+                        setCurrency(curr.code);
+                        setIsCurrencyOpen(false);
+                      }}
+                      className={`min-h-14 flex-row items-center gap-3 px-4 active:bg-canvas ${
+                        isSelected ? "bg-brand-50" : "bg-surface"
+                      }`}
+                    >
+                      <Text className={`w-6 text-lg font-semibold ${isSelected ? "text-brand-700" : "text-ink"}`}>
+                        {curr.symbol}
+                      </Text>
+                      <Text className={`w-12 font-semibold ${isSelected ? "text-brand-700" : "text-ink"}`}>
+                        {curr.code}
+                      </Text>
+                      <Text className={`flex-1 text-sm ${isSelected ? "text-brand-700" : "text-muted"}`}>
+                        {curr.label}
+                      </Text>
+                      {isSelected ? <Ionicons name="checkmark" size={18} color={colors["brand-700"]} /> : null}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </>
     )}</RouteModal>
   );

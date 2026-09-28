@@ -1,10 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useThemeColors } from "@/constants/theme";
 
 export default function TabsLayout() {
   const colors = useThemeColors();
   return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top']}>
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -61,5 +63,6 @@ export default function TabsLayout() {
         }}
       />
     </Tabs>
+    </SafeAreaView>
   );
 }
