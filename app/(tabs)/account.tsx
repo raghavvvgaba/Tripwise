@@ -16,6 +16,13 @@ import { SUPPORTED_CURRENCIES } from "@/utils/money";
 export default function AccountScreen() {
   const colors = useThemeColors();
   const accountEmail = useAuthStore((state) => state.session?.user.email);
+  const accountName = useAuthStore((state) => {
+    const metadata = state.session?.user.user_metadata;
+    const name: unknown = metadata?.name;
+    const fullName: unknown = metadata?.full_name;
+    if (typeof name === "string" && name.trim()) return name.trim();
+    return typeof fullName === "string" && fullName.trim() ? fullName.trim() : null;
+  });
   const defaultCurrency = useGroupsStore((state) => state.defaultCurrency);
   const setDefaultCurrency = useGroupsStore((state) => state.setDefaultCurrency);
   const groups = useSharedGroupsStore((state) => state.groups);
@@ -42,11 +49,11 @@ export default function AccountScreen() {
 
       <View className="card flex-row items-center gap-4 p-4">
         <View className="h-12 w-12 items-center justify-center rounded-full bg-brand-50">
-          <Text className="text-lg font-bold text-brand-700">{accountEmail?.[0]?.toUpperCase() ?? "?"}</Text>
+          <Text className="text-lg font-bold text-brand-700">{(accountName ?? accountEmail)?.[0]?.toUpperCase() ?? "?"}</Text>
         </View>
         <View className="min-w-0 flex-1 gap-0.5">
-          <Text selectable numberOfLines={1} className="text-base font-semibold text-ink">{accountEmail ?? "Signed in"}</Text>
-          <Text className="text-xs text-muted">Signed in</Text>
+          <Text selectable numberOfLines={1} className="text-base font-semibold text-ink">{accountName ?? accountEmail ?? "Signed in"}</Text>
+          <Text selectable numberOfLines={1} className="text-xs text-muted">{accountEmail ?? "Signed in"}</Text>
         </View>
       </View>
 

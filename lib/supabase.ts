@@ -49,7 +49,8 @@ export const supabase = createClient(supabaseUrl, supabasePublishableKey, {
     storage: process.env.EXPO_OS === "web" ? AsyncStorage : secureSessionStorage,
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false,
+    detectSessionInUrl: process.env.EXPO_OS === "web",
+    flowType: "pkce",
   },
 });
 
