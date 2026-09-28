@@ -1,12 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Link, Stack, useLocalSearchParams } from "expo-router";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 
 import { EmptyState } from "@/components/empty-state";
 import { MemberAvatar } from "@/components/member-avatar";
 import { PrimaryButton } from "@/components/primary-button";
+import { SharedExpenseDetails } from "@/components/shared-expense-details";
 import { useThemeColors } from "@/constants/theme";
 import { useGroupsStore } from "@/store/use-groups-store";
+import { useSharedGroupsStore } from "@/store/use-shared-groups-store";
 import { confirmAction } from "@/utils/dialogs";
 import { formatExpenseDate, formatRelativeTime } from "@/utils/date";
 import { formatMoney } from "@/utils/money";
@@ -15,9 +17,14 @@ export default function ExpenseDetailsScreen() {
   const colors = useThemeColors();
   const { expenseId, groupId } = useLocalSearchParams<{ expenseId: string; groupId: string }>();
   const group = useGroupsStore((state) => state.groups.find((item) => item.id === groupId));
+  const sharedGroup = useSharedGroupsStore((state) => state.groups.find((item) => item.id === groupId));
+  const sharedLoading = useSharedGroupsStore((state) => state.isLoading);
   const deleteExpense = useGroupsStore((state) => state.deleteExpense);
   const restoreExpense = useGroupsStore((state) => state.restoreExpense);
   const expense = group?.expenses.find((item) => item.id === expenseId);
+
+  if (sharedGroup && expenseId) return <SharedExpenseDetails key={expenseId} group={sharedGroup} expenseId={expenseId} />;
+  if (sharedLoading && !group) return <View className="flex-1 items-center justify-center"><ActivityIndicator /></View>;
 
   if (!group || !expense) {
     return (

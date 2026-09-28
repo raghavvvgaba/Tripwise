@@ -1,14 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
-import { KeyboardAvoidingView, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { EmptyState } from "@/components/empty-state";
 import { MemberAvatar } from "@/components/member-avatar";
 import { PrimaryButton } from "@/components/primary-button";
 import { RouteModal } from "@/components/route-modal";
+import { SharedExpenseForm } from "@/components/shared-expense-form";
 import { useGroupsStore } from "@/store/use-groups-store";
+import { useSharedGroupsStore } from "@/store/use-shared-groups-store";
 import type { ExpenseShare, SplitMode } from "@/types/models";
 import { formatMoney, getCurrencySymbol, roundMoney } from "@/utils/money";
 
@@ -27,6 +29,9 @@ export default function AddExpenseScreen() {
   const insets = useSafeAreaInsets();
   const { groupId, expenseId } = useLocalSearchParams<{ groupId: string; expenseId?: string }>();
   const group = useGroupsStore((state) => state.groups.find((item) => item.id === groupId));
+  const sharedGroup = useSharedGroupsStore((state) => state.groups.find((item) => item.id === groupId));
+  const sharedLoading = useSharedGroupsStore((state) => state.isLoading);
+  const sharedUserId = useSharedGroupsStore((state) => state.userId);
   const currentUserId = useGroupsStore((state) => state.currentUserId);
   const addExpense = useGroupsStore((state) => state.addExpense);
   const updateExpense = useGroupsStore((state) => state.updateExpense);
@@ -55,6 +60,21 @@ export default function AddExpenseScreen() {
     numericAmount > 0 &&
     participantIds.length > 0 &&
     (splitMode === "equal" || Math.abs(exactDifference) < 0.01);
+
+  if (sharedGroup) {
+    if (sharedGroup.archivedAt || !sharedUserId) {
+      return <RouteModal title="Add expense">{() => (
+        <ScrollView contentContainerClassName="px-5 py-8">
+          <EmptyState icon="archive-outline" title="Expense unavailable" message="Restore this group before adding an expense." />
+        </ScrollView>
+      )}</RouteModal>;
+    }
+    return <SharedExpenseForm key={sharedGroup.id} group={sharedGroup} currentUserId={sharedUserId} />;
+  }
+
+  if (sharedLoading && !group) {
+    return <View className="flex-1 items-center justify-center"><ActivityIndicator /></View>;
+  }
 
   if (!group) {
     return (

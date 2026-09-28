@@ -47,3 +47,12 @@ export function formatMoney(amount: number, currency: CurrencyCode = "INR", show
 export function roundMoney(amount: number) {
   return Math.round((amount + Number.EPSILON) * 100) / 100;
 }
+
+export function parseMoneyToMinor(value: string): number | null {
+  const trimmed = value.trim();
+  if (!/^\d+(?:[.,]\d{1,2})?$/.test(trimmed)) return null;
+
+  const [whole, decimal = ""] = trimmed.split(/[.,]/);
+  const amount = Number(whole) * 100 + Number(decimal.padEnd(2, "0"));
+  return Number.isSafeInteger(amount) ? amount : null;
+}

@@ -21,6 +21,16 @@ type InvitePreviewRow = {
   member_count: number;
 };
 
+type GroupMemberRow = {
+  user_id: string;
+  name: string | null;
+};
+
+export type GroupMember = {
+  userId: string;
+  name: string;
+};
+
 export function isInviteCode(value: unknown): value is string {
   return typeof value === "string" && INVITE_CODE_PATTERN.test(normalizeInviteCode(value));
 }
@@ -69,4 +79,17 @@ export async function getGroupMemberCount(groupId: string): Promise<number> {
   if (error) throw error;
   if (data === null) throw new Error("Group membership is unavailable.");
   return data;
+}
+
+export async function getGroupMembers(groupId: string): Promise<GroupMember[]> {
+  const { data, error } = await supabase
+    .rpc("group_member_names", { p_group_id: groupId });
+
+  if (error) throw error;
+  if (!Array.isArray(data)) throw new Error("Group members are unavailable.");
+
+  return data.map((member: GroupMemberRow) => ({
+    userId: member.user_id,
+    name: member.name?.trim() || "Unnamed member",
+  }));
 }

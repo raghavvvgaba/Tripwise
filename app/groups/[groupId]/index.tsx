@@ -6,14 +6,18 @@ import { EmptyState } from "@/components/empty-state";
 import { ExpenseRow } from "@/components/expense-row";
 import { MemberAvatar } from "@/components/member-avatar";
 import { PrimaryButton } from "@/components/primary-button";
-import { getGroupMemberCount } from "@/lib/group-invites";
+import { getGroupMembers, type GroupMember } from "@/lib/group-invites";
+import { listGroupExpenses } from "@/lib/expenses";
 import { useGroupsStore } from "@/store/use-groups-store";
 import { useSharedGroupsStore } from "@/store/use-shared-groups-store";
 import type { SharedGroup } from "@/types/shared-group";
+import type { SharedExpense } from "@/types/shared-expense";
 import type { Settlement } from "@/types/models";
 import { confirmAction, showError } from "@/utils/dialogs";
 import { getActiveExpenses, getGroupTotal, getMemberBalances, getSettlements } from "@/utils/balances";
 import { formatMoney } from "@/utils/money";
+import { formatExpenseDate } from "@/utils/date";
+import { getSharedMemberBalances } from "@/utils/shared-expenses";
 
 type GroupView = "expenses" | "balances" | "settle";
 
@@ -36,7 +40,7 @@ export default function GroupDetailsScreen() {
   const [view, setView] = useState<GroupView>("expenses");
   const [showMembers, setShowMembers] = useState(false);
 
-  if (sharedGroup) return <SharedGroupDetails group={sharedGroup} />;
+  if (sharedGroup) return <SharedGroupDetails key={sharedGroup.id} group={sharedGroup} />;
   if (sharedLoading) {
     return <View className="flex-1 items-center justify-center"><ActivityIndicator /></View>;
   }
@@ -335,23 +339,51 @@ export default function GroupDetailsScreen() {
 
 function SharedGroupDetails({ group }: { group: SharedGroup }) {
   const setArchived = useSharedGroupsStore((state) => state.setArchived);
+  const currentUserId = useSharedGroupsStore((state) => state.userId);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [memberCount, setMemberCount] = useState<number | null>(null);
+  const [members, setMembers] = useState<GroupMember[] | null>(null);
+  const [isLoadingMembers, setIsLoadingMembers] = useState(false);
   const [memberError, setMemberError] = useState<string | null>(null);
+  const [expenses, setExpenses] = useState<SharedExpense[] | null>(null);
+  const [isLoadingExpenses, setIsLoadingExpenses] = useState(false);
+  const [expenseError, setExpenseError] = useState<string | null>(null);
+  const [sharedView, setSharedView] = useState<"expenses" | "balances">("expenses");
 
-  const refreshMemberCount = useCallback(async () => {
+  const refreshMembers = useCallback(async () => {
+    setIsLoadingMembers(true);
     try {
-      const count = await getGroupMemberCount(group.id);
-      setMemberCount(count);
+      const nextMembers = await getGroupMembers(group.id);
+      setMembers(nextMembers);
       setMemberError(null);
     } catch (error) {
+      setMembers(null);
       setMemberError(error instanceof Error ? error.message : "Could not load members.");
+    } finally {
+      setIsLoadingMembers(false);
+    }
+  }, [group.id]);
+
+  const refreshExpenses = useCallback(async () => {
+    setIsLoadingExpenses(true);
+    try {
+      setExpenses(await listGroupExpenses(group.id));
+      setExpenseError(null);
+    } catch (error) {
+      setExpenses(null);
+      setExpenseError(error instanceof Error ? error.message : "Could not load expenses.");
+    } finally {
+      setIsLoadingExpenses(false);
     }
   }, [group.id]);
 
   useFocusEffect(useCallback(() => {
-    void refreshMemberCount();
-  }, [refreshMemberCount]));
+    void refreshMembers();
+    void refreshExpenses();
+  }, [refreshMembers, refreshExpenses]));
+
+  const balances = members && expenses ? getSharedMemberBalances(members, expenses) : null;
+  const currentBalance = balances?.find((balance) => balance.member.userId === currentUserId);
+  const totalMinor = expenses?.reduce((total, expense) => total + expense.amountMinor, 0);
 
   async function updateArchive(archived: boolean) {
     setIsUpdating(true);
@@ -384,17 +416,51 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
         contentContainerClassName="w-full max-w-4xl self-center gap-6 px-5 pb-12 pt-5 md:px-8 lg:py-10"
       >
         <View className="card gap-2 p-5">
-          <Text className="text-xl font-bold text-ink">{group.name}</Text>
-          <Text className="text-sm text-muted">Default currency: {group.currency}</Text>
+          <View className="flex-row items-start justify-between gap-4">
+            <View className="flex-1 gap-1">
+              <Text className="text-xl font-bold text-ink">{group.name}</Text>
+              <Text className="text-sm text-muted">Default currency: {group.currency}</Text>
+            </View>
+            {totalMinor !== undefined ? (
+              <View className="items-end gap-1">
+                <Text className="text-xs text-muted">Total spending</Text>
+                <Text selectable className="text-xl font-bold text-ink">{formatMoney(totalMinor / 100, group.currency)}</Text>
+              </View>
+            ) : null}
+          </View>
+          {currentBalance ? (
+            <Text className={`pt-2 font-semibold ${currentBalance.netMinor >= 0 ? "text-brand-700" : "text-coral"}`}>
+              {currentBalance.netMinor > 0
+                ? `You are owed ${formatMoney(currentBalance.netMinor / 100, group.currency)}`
+                : currentBalance.netMinor < 0
+                  ? `You owe ${formatMoney(-currentBalance.netMinor / 100, group.currency)}`
+                  : "You are settled up"}
+            </Text>
+          ) : null}
           <View className="flex-row items-center justify-between gap-3 pt-2">
             <Text className="font-semibold text-ink">
-              {memberCount === null ? "Members" : `${memberCount} ${memberCount === 1 ? "member" : "members"}`}
+              {members === null ? "Members" : `${members.length} ${members.length === 1 ? "member" : "members"}`}
             </Text>
-            <Pressable accessibilityRole="button" onPress={() => void refreshMemberCount()}>
+            <Pressable accessibilityRole="button" disabled={isLoadingMembers} onPress={() => void refreshMembers()}>
               <Text className="font-semibold text-brand-700">Refresh</Text>
             </Pressable>
           </View>
+          {isLoadingMembers && members === null ? <ActivityIndicator className="self-start" /> : null}
           {memberError ? <Text selectable className="text-sm text-coral">{memberError}</Text> : null}
+          {members ? (
+            <View className="gap-3 pt-2">
+              {members.map((member) => (
+                <View key={member.userId} className="flex-row items-center gap-3">
+                  <View className="h-9 w-9 items-center justify-center rounded-full bg-brand-50">
+                    <Text className="text-sm font-bold text-brand-700">{member.name[0]?.toUpperCase()}</Text>
+                  </View>
+                  <Text className="flex-1 font-medium text-ink">
+                    {member.name}{member.userId === currentUserId ? " (you)" : ""}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
           {group.archivedAt ? <Text className="text-sm text-orange-700 dark:text-orange-300">Archived for you</Text> : null}
         </View>
 
@@ -402,11 +468,94 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
           <PrimaryButton label="Invite members" variant="secondary" />
         </Link>
 
-        <EmptyState
-          icon="receipt-outline"
-          title="No shared expenses yet"
-          message="Shared expenses will be connected to this group next."
-        />
+        <View className="flex-row rounded-2xl bg-line p-1">
+          {(["expenses", "balances"] as const).map((option) => (
+            <Pressable
+              key={option}
+              onPress={() => setSharedView(option)}
+              className={`min-h-11 flex-1 items-center justify-center rounded-xl ${sharedView === option ? "bg-surface" : ""}`}
+            >
+              <Text className={`font-semibold ${sharedView === option ? "text-ink" : "text-muted"}`}>
+                {option === "expenses" ? "Expenses" : "Balances"}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        {sharedView === "expenses" ? (
+          <View className="gap-4">
+            <View className="flex-row items-center justify-between px-1">
+              <Text className="section-label">Group expenses</Text>
+              <Pressable accessibilityRole="button" disabled={isLoadingExpenses} onPress={() => void refreshExpenses()}>
+                <Text className="font-semibold text-brand-700">Refresh</Text>
+              </Pressable>
+            </View>
+            {!group.archivedAt ? (
+              <Link href={`/groups/${group.id}/add-expense`} asChild>
+                <PrimaryButton label="Add expense" />
+              </Link>
+            ) : null}
+            {isLoadingExpenses && expenses === null ? <ActivityIndicator /> : null}
+            {expenseError ? (
+              <View className="card gap-2 p-4">
+                <Text selectable className="text-sm text-coral">{expenseError}</Text>
+                <Pressable onPress={() => void refreshExpenses()}>
+                  <Text className="font-semibold text-brand-700">Retry</Text>
+                </Pressable>
+              </View>
+            ) : null}
+            {expenses && !expenseError && expenses.length === 0 ? (
+              <EmptyState icon="receipt-outline" title="No shared expenses yet" message="Add the first shared cost for this group." />
+            ) : null}
+            {expenses && expenses.length > 0 ? (
+              <View className="card px-4">
+                {expenses.map((expense, index) => (
+                  <View key={expense.id}>
+                    <Link href={{ pathname: "/expenses/[expenseId]", params: { expenseId: expense.id, groupId: group.id } }} asChild>
+                      <Pressable className="min-h-16 flex-row items-center gap-3 py-3 active:opacity-60">
+                        <View className="flex-1 gap-1">
+                          <Text className="font-semibold text-ink" numberOfLines={1}>{expense.description}</Text>
+                          <Text className="text-xs text-muted" numberOfLines={1}>
+                            {members?.find((member) => member.userId === expense.paidById)?.name ?? "A member"} paid · {formatExpenseDate(`${expense.expenseDate}T00:00:00`)}
+                          </Text>
+                        </View>
+                        <Text selectable className="font-bold text-ink">{formatMoney(expense.amountMinor / 100, group.currency)}</Text>
+                      </Pressable>
+                    </Link>
+                    {index < expenses.length - 1 ? <View className="h-px bg-line" /> : null}
+                  </View>
+                ))}
+              </View>
+            ) : null}
+          </View>
+        ) : (
+          <View className="gap-3">
+            {expenseError ? <Text selectable className="px-1 text-sm text-coral">{expenseError}</Text> : null}
+            {balances === null && !memberError && !expenseError ? <ActivityIndicator /> : null}
+            {balances ? (
+              <View className="card px-4">
+                {balances.map((balance, index) => (
+                  <View key={balance.member.userId}>
+                    <View className="flex-row items-center gap-3 py-4">
+                      <View className="flex-1 gap-1">
+                        <Text className="font-semibold text-ink">
+                          {balance.member.name}{balance.member.userId === currentUserId ? " (you)" : ""}
+                        </Text>
+                        <Text className="text-xs text-muted">
+                          Paid {formatMoney(balance.paidMinor / 100, group.currency)} · Share {formatMoney(balance.shareMinor / 100, group.currency)}
+                        </Text>
+                      </View>
+                      <Text selectable className={`font-bold ${balance.netMinor >= 0 ? "text-brand-700" : "text-coral"}`}>
+                        {formatMoney(balance.netMinor / 100, group.currency, true)}
+                      </Text>
+                    </View>
+                    {index < balances.length - 1 ? <View className="h-px bg-line" /> : null}
+                  </View>
+                ))}
+              </View>
+            ) : null}
+          </View>
+        )}
 
         {group.archivedAt ? (
           <PrimaryButton label="Restore group" variant="secondary" loading={isUpdating} onPress={() => void updateArchive(false)} />
