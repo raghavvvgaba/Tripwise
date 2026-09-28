@@ -1,4 +1,4 @@
--- Run once in your Supabase project's SQL Editor.
+-- Fresh database: run this first in your Supabase project's SQL Editor.
 begin;
 
 create table public.groups (
@@ -29,15 +29,32 @@ grant select on public.group_members to authenticated;
 grant insert (group_id, user_id) on public.group_members to authenticated;
 grant update (archived_at) on public.group_members to authenticated;
 
+-- Keep membership lookup outside the group_members RLS policy. Otherwise its
+-- insert policy reads groups, whose select policy reads group_members again.
+-- Do not expose app_private through the Data API.
+create schema if not exists app_private;
+grant usage on schema app_private to authenticated;
+
+create function app_private.user_group_ids()
+returns setof uuid
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select gm.group_id
+  from public.group_members gm
+  where gm.user_id = (select auth.uid());
+$$;
+
+revoke all on function app_private.user_group_ids() from public, anon, authenticated;
+grant execute on function app_private.user_group_ids() to authenticated;
+
 create policy "Members can read groups"
 on public.groups for select to authenticated
 using (
   created_by = (select auth.uid())
-  or exists (
-    select 1 from public.group_members gm
-    where gm.group_id = groups.id
-      and gm.user_id = (select auth.uid())
-  )
+  or id in (select app_private.user_group_ids())
 );
 
 create policy "Users can create groups"
