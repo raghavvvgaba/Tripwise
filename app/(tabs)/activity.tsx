@@ -24,15 +24,58 @@ export default function ActivityScreen() {
   const userId = useAuthStore((state) => state.session?.user.id);
   const loadGroups = useSharedGroupsStore((state) => state.loadGroups);
   const requestId = useRef(0);
+  const nextOffset = useRef(0);
+  const loadingMore = useRef(false);
+  const namesByGroup = useRef(new Map<string, Map<string, string>>());
   const [items, setItems] = useState<ActivityItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pageError, setPageError] = useState<string | null>(null);
+
+  const loadPage = useCallback(async (offset: number, groups: SharedGroup[], currentUserId: string) => {
+    const page = await listActivityExpenses(offset);
+    const groupById = new Map(groups.map((group) => [group.id, group]));
+    const groupIds = [...new Set(
+      page.expenses
+        .filter((expense) => expense.createdById !== currentUserId && !namesByGroup.current.has(expense.groupId))
+        .map((expense) => expense.groupId),
+    )];
+    const memberResults = await Promise.allSettled(groupIds.map((groupId) => getGroupMembers(groupId)));
+
+    memberResults.forEach((result, index) => {
+      if (result.status === "fulfilled") {
+        namesByGroup.current.set(groupIds[index], new Map(result.value.map((member) => [member.userId, member.name])));
+      }
+    });
+
+    const pageItems: ActivityItem[] = page.expenses.flatMap((expense) => {
+      const group = groupById.get(expense.groupId);
+      if (!group) return [];
+      return [{
+        expense,
+        group,
+        creatorName: expense.createdById === currentUserId
+          ? "You"
+          : namesByGroup.current.get(group.id)?.get(expense.createdById) ?? "A member",
+      }];
+    });
+
+    return { ...page, pageItems };
+  }, []);
 
   const refresh = useCallback(async () => {
     if (!userId) return;
     const currentRequest = ++requestId.current;
+    nextOffset.current = 0;
+    loadingMore.current = false;
+    namesByGroup.current.clear();
     setIsLoading(true);
+    setIsLoadingMore(false);
+    setHasMore(false);
     setError(null);
+    setPageError(null);
     setItems(null);
 
     try {
@@ -42,33 +85,12 @@ export default function ActivityScreen() {
       }
 
       const groups = useSharedGroupsStore.getState().groups;
-      const expenses = await listActivityExpenses();
-      const groupById = new Map(groups.map((group) => [group.id, group]));
-      const groupIds = [...new Set(
-        expenses.filter((expense) => expense.createdById !== userId).map((expense) => expense.groupId),
-      )];
-      const memberResults = await Promise.allSettled(groupIds.map((groupId) => getGroupMembers(groupId)));
-      const namesByGroup = new Map<string, Map<string, string>>();
-
-      memberResults.forEach((result, index) => {
-        if (result.status === "fulfilled") {
-          namesByGroup.set(groupIds[index], new Map(result.value.map((member) => [member.userId, member.name])));
-        }
-      });
-
-      const nextItems: ActivityItem[] = expenses.flatMap((expense) => {
-        const group = groupById.get(expense.groupId);
-        if (!group) return [];
-        return [{
-          expense,
-          group,
-          creatorName: expense.createdById === userId
-            ? "You"
-            : namesByGroup.get(group.id)?.get(expense.createdById) ?? "A member",
-        }];
-      });
-
-      if (requestId.current === currentRequest) setItems(nextItems);
+      const page = await loadPage(0, groups, userId);
+      if (requestId.current === currentRequest) {
+        nextOffset.current = page.expenses.length;
+        setItems(page.pageItems);
+        setHasMore(page.hasMore);
+      }
     } catch (loadError) {
       if (requestId.current === currentRequest) {
         setError(loadError instanceof Error ? loadError.message : "Could not load activity.");
@@ -76,7 +98,34 @@ export default function ActivityScreen() {
     } finally {
       if (requestId.current === currentRequest) setIsLoading(false);
     }
-  }, [loadGroups, userId]);
+  }, [loadGroups, loadPage, userId]);
+
+  const loadMore = useCallback(async () => {
+    if (!userId || !hasMore || loadingMore.current) return;
+    const currentRequest = requestId.current;
+    loadingMore.current = true;
+    setIsLoadingMore(true);
+    setPageError(null);
+
+    try {
+      const groups = useSharedGroupsStore.getState().groups;
+      const page = await loadPage(nextOffset.current, groups, userId);
+      if (requestId.current === currentRequest) {
+        nextOffset.current += page.expenses.length;
+        setItems((previous) => [...(previous ?? []), ...page.pageItems]);
+        setHasMore(page.hasMore);
+      }
+    } catch (loadError) {
+      if (requestId.current === currentRequest) {
+        setPageError(loadError instanceof Error ? loadError.message : "Could not load more activity.");
+      }
+    } finally {
+      if (requestId.current === currentRequest) {
+        loadingMore.current = false;
+        setIsLoadingMore(false);
+      }
+    }
+  }, [hasMore, loadPage, userId]);
 
   useFocusEffect(useCallback(() => {
     void refresh();
@@ -138,8 +187,20 @@ export default function ActivityScreen() {
             </View>
           ))}
         </View>
-      ) : items && !error ? (
+      ) : items && !error && !hasMore ? (
         <EmptyState icon="flash-outline" title="No activity yet" message="Expenses added to your groups will appear here." />
+      ) : null}
+
+      {pageError ? <Text selectable className="text-center text-sm text-coral">{pageError}</Text> : null}
+      {items && hasMore ? (
+        <Pressable
+          accessibilityRole="button"
+          disabled={isLoadingMore}
+          onPress={() => void loadMore()}
+          className="min-h-11 items-center justify-center rounded-2xl border border-line bg-surface px-5 py-3 active:opacity-60"
+        >
+          {isLoadingMore ? <ActivityIndicator color={colors["brand-600"]} /> : <Text className="font-semibold text-brand-700">Load more</Text>}
+        </Pressable>
       ) : null}
     </ScrollView>
   );
