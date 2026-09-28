@@ -14,5 +14,7 @@ export type SharedExpense = {
   note: string | null;
   createdById: string;
   createdAt: string;
+  updatedById: string | null;
+  updatedAt: string | null;
   shares: SharedExpenseShare[];
 };

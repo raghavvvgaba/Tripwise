@@ -142,7 +142,7 @@ export default function ActivityScreen() {
       );
     } else if (group.deletedAt) {
       return;
-    } else if (event.eventType === "expense_added" && event.expenseId) {
+    } else if ((event.eventType === "expense_added" || event.eventType === "expense_edited") && event.expenseId) {
       router.push({ pathname: "/expenses/[expenseId]", params: { expenseId: event.expenseId, groupId: group.id } });
     } else {
       router.push(`/groups/${group.id}`);
@@ -197,7 +197,7 @@ export default function ActivityScreen() {
         <View className="card px-4">
           {items.map((item, index) => {
             const { event, group, actorName } = item;
-            const isExpense = event.eventType === "expense_added";
+            const isExpense = event.eventType === "expense_added" || event.eventType === "expense_edited";
             return (
               <View key={event.id}>
                 <Pressable
@@ -212,7 +212,7 @@ export default function ActivityScreen() {
                   <View className="flex-1 gap-0.5">
                     <Text className="font-semibold text-ink" numberOfLines={1}>
                       {isExpense
-                        ? `${actorName} added “${event.description}”`
+                        ? `${actorName} ${event.eventType === "expense_edited" ? "edited" : "added"} “${event.description}”`
                         : `${actorName} ${event.eventType === "group_deleted" ? "deleted" : "restored"} ${group.name}`}
                     </Text>
                     <Text className="text-xs text-muted" numberOfLines={1}>

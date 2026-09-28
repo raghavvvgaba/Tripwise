@@ -8,6 +8,7 @@ For a fresh Supabase database, run these files in order in the SQL Editor:
 4. `03_group_member_names.sql`
 5. `04_group_expenses.sql`
 6. `05_group_deletion.sql`
+7. `06_expense_editing.sql`
 
 Each file is intended to run once. Future schema changes should get a new numbered file; do not edit an earlier file after it has been applied to a database.
 
@@ -24,5 +25,7 @@ Run `03_group_member_names.sql` after `02_short_invite_codes.sql`. It adds a mem
 Run `04_group_expenses.sql` after `03_group_member_names.sql`. It adds shared expenses, member-only read policies, and an atomic add-expense function. Apply it before running an app build that adds shared expenses. Existing SQL files should not be rerun.
 
 Run `05_group_deletion.sql` after `04_group_expenses.sql`. It replaces personal archiving with shared, reversible deletion, returns previously archived memberships to active groups, records group and expense activity, and blocks invites and new expenses while a group is deleted. Apply it before running an app build with Delete group or Activity recovery.
+
+Run `06_expense_editing.sql` after `05_group_deletion.sql`. It adds edit attribution, an atomic member-only edit function, and expense edit events in Activity. Apply it before running an app build that edits shared expenses.
 
 These files are currently applied manually through the SQL Editor; the numbers document their order but do not track which files a database has run.

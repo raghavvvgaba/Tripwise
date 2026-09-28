@@ -69,7 +69,7 @@ export default function AddExpenseScreen() {
         </ScrollView>
       )}</RouteModal>;
     }
-    return <SharedExpenseForm key={sharedGroup.id} group={sharedGroup} currentUserId={sharedUserId} />;
+    return <SharedExpenseForm key={`${sharedGroup.id}:${expenseId ?? "new"}`} group={sharedGroup} currentUserId={sharedUserId} expenseId={expenseId} />;
   }
 
   if (sharedLoading && !group) {

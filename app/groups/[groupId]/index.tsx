@@ -29,6 +29,16 @@ const views: { id: GroupView; label: string }[] = [
   { id: "settle", label: "Settle" },
 ];
 
+function participantSummary(expense: SharedExpense, members: GroupMember[] | null, currentUserId: string | null): string {
+  const names = expense.shares.map((share) =>
+    share.userId === currentUserId
+      ? "you"
+      : members?.find((member) => member.userId === share.userId)?.name ?? "a member",
+  );
+  if (names.length <= 2) return `Split among ${names.join(" and ")}`;
+  return `Split among ${names.slice(0, 2).join(", ")} + ${names.length - 2}`;
+}
+
 export default function GroupDetailsScreen() {
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
   const sharedGroup = useSharedGroupsStore((state) => state.groups.find((item) => item.id === groupId));
@@ -504,9 +514,15 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
                     <Link href={{ pathname: "/expenses/[expenseId]", params: { expenseId: expense.id, groupId: group.id } }} asChild>
                       <Pressable className="min-h-16 flex-row items-center gap-3 py-3 active:opacity-60">
                         <View className="flex-1 gap-1">
-                          <Text className="font-semibold text-ink" numberOfLines={1}>{expense.description}</Text>
+                          <View className="flex-row items-center gap-2">
+                            <Text className="flex-shrink font-semibold text-ink" numberOfLines={1}>{expense.description}</Text>
+                            {expense.updatedAt ? <Text className="text-xs font-semibold text-brand-700">Edited</Text> : null}
+                          </View>
                           <Text className="text-xs text-muted" numberOfLines={1}>
                             {members?.find((member) => member.userId === expense.paidById)?.name ?? "A member"} paid · {formatExpenseDate(`${expense.expenseDate}T00:00:00`)}
+                          </Text>
+                          <Text className="text-xs text-muted" numberOfLines={1}>
+                            {participantSummary(expense, members, currentUserId)}
                           </Text>
                         </View>
                         <Text selectable className="font-bold text-ink">{formatMoney(expense.amountMinor / 100, group.currency)}</Text>

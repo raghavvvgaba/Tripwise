@@ -7,7 +7,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PrimaryButton } from "@/components/primary-button";
 import { RouteModal } from "@/components/route-modal";
 import { getGroupMembers, type GroupMember } from "@/lib/group-invites";
-import { createGroupExpense } from "@/lib/expenses";
+import { createGroupExpense, getGroupExpense, updateGroupExpense } from "@/lib/expenses";
+import type { SharedExpense } from "@/types/shared-expense";
 import type { SharedGroup } from "@/types/shared-group";
 import { formatMoney, getCurrencySymbol, parseMoneyToMinor } from "@/utils/money";
 
@@ -16,11 +17,12 @@ function localDate(): string {
   return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 }
 
-export function SharedExpenseForm({ group, currentUserId }: { group: SharedGroup; currentUserId: string }) {
+export function SharedExpenseForm({ group, currentUserId, expenseId }: { group: SharedGroup; currentUserId: string; expenseId?: string }) {
   const insets = useSafeAreaInsets();
   const [members, setMembers] = useState<GroupMember[] | null>(null);
   const [memberError, setMemberError] = useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
+  const [existingExpense, setExistingExpense] = useState<SharedExpense | null>(null);
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
   const [paidById, setPaidById] = useState(currentUserId);
@@ -37,20 +39,31 @@ export function SharedExpenseForm({ group, currentUserId }: { group: SharedGroup
     let active = true;
     setMembers(null);
     setMemberError(null);
-    void getGroupMembers(group.id).then((nextMembers) => {
+    void Promise.all([
+      getGroupMembers(group.id),
+      expenseId ? getGroupExpense(group.id, expenseId) : Promise.resolve(null),
+    ]).then(([nextMembers, expense]) => {
       if (!active) return;
       if (!nextMembers.some((member) => member.userId === currentUserId)) {
         setMemberError("You are no longer a member of this group.");
         return;
       }
+      setExistingExpense(expense);
       setMembers(nextMembers);
-      setPaidById(currentUserId);
-      setParticipantIds(nextMembers.map((member) => member.userId));
+      setPaidById(expense?.paidById ?? currentUserId);
+      setParticipantIds(expense?.shares.map((share) => share.userId) ?? nextMembers.map((member) => member.userId));
+      if (expense) {
+        setDescription(expense.description);
+        setAmount(String(expense.amountMinor / 100));
+        setSplitMode(expense.splitMode);
+        setExactAmounts(Object.fromEntries(expense.shares.map((share) => [share.userId, String(share.amountMinor / 100)])));
+        setNote(expense.note ?? "");
+      }
     }).catch((error: unknown) => {
       if (active) setMemberError(error instanceof Error ? error.message : "Could not load group members.");
     });
     return () => { active = false; };
-  }, [group.id, currentUserId, loadAttempt]);
+  }, [group.id, currentUserId, expenseId, loadAttempt]);
 
   const selectedMembers = useMemo(
     () => members?.filter((member) => participantIds.includes(member.userId)) ?? [],
@@ -67,6 +80,7 @@ export function SharedExpenseForm({ group, currentUserId }: { group: SharedGroup
     selectedMembers.length > 0 &&
     Boolean(members?.some((member) => member.userId === paidById)) &&
     note.length <= 2000 &&
+    (!expenseId || existingExpense !== null) &&
     (splitMode === "equal" || exactValid);
 
   function toggleParticipant(userId: string) {
@@ -79,18 +93,27 @@ export function SharedExpenseForm({ group, currentUserId }: { group: SharedGroup
     setIsSaving(true);
     setSaveError(null);
     try {
-      await createGroupExpense({
+      const input = {
         groupId: group.id,
         description: description.trim(),
         amountMinor,
         paidById,
         memberIds: selectedMembers.map((member) => member.userId),
         splitMode,
-        expenseDate: localDate(),
         exactAmountsMinor: splitMode === "exact" ? exactMinor.map((value) => value ?? 0) : null,
         note: note.trim(),
-      });
-      router.dismissTo(`/groups/${group.id}`);
+      };
+      if (existingExpense) {
+        await updateGroupExpense({
+          ...input,
+          expenseId: existingExpense.id,
+          expectedUpdatedAt: existingExpense.updatedAt,
+        });
+        router.dismissTo({ pathname: "/expenses/[expenseId]", params: { groupId: group.id, expenseId: existingExpense.id } });
+      } else {
+        await createGroupExpense({ ...input, expenseDate: localDate() });
+        router.dismissTo(`/groups/${group.id}`);
+      }
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Could not save the expense. Please try again.");
     } finally {
@@ -100,9 +123,9 @@ export function SharedExpenseForm({ group, currentUserId }: { group: SharedGroup
   }
 
   return (
-    <RouteModal title="Add expense">{() => (
+    <RouteModal title={expenseId ? "Edit expense" : "Add expense"}>{() => (
       <>
-        <Stack.Screen options={{ title: "Add expense" }} />
+        <Stack.Screen options={{ title: expenseId ? "Edit expense" : "Add expense" }} />
         <KeyboardAvoidingView behavior={process.env.EXPO_OS === "ios" ? "padding" : undefined} className="flex-1">
           <ScrollView
             className="flex-1"
@@ -116,7 +139,7 @@ export function SharedExpenseForm({ group, currentUserId }: { group: SharedGroup
               <View className="gap-2">
                 <Text className="section-label">What was it for?</Text>
                 <TextInput
-                  autoFocus
+                  autoFocus={!expenseId}
                   className="field"
                   placeholder="Cab to hotel"
                   placeholderTextColor="#9AA39D"
@@ -284,7 +307,9 @@ export function SharedExpenseForm({ group, currentUserId }: { group: SharedGroup
                 </View>
 
                 <View className="rounded-2xl bg-brand-50 px-4 py-3">
-                  <Text className="text-sm text-brand-700">Date is set automatically to today.</Text>
+                  <Text className="text-sm text-brand-700">
+                    {existingExpense ? "The original expense date stays the same." : "Date is set automatically to today."}
+                  </Text>
                 </View>
               </>
             ) : null}
@@ -295,7 +320,7 @@ export function SharedExpenseForm({ group, currentUserId }: { group: SharedGroup
             style={{ paddingBottom: Math.max(insets.bottom, 12) }}
           >
             {saveError ? <Text selectable className="text-sm text-coral">{saveError}</Text> : null}
-            <PrimaryButton label="Add expense" onPress={() => void handleSave()} disabled={!isValid} loading={isSaving} />
+            <PrimaryButton label={expenseId ? "Save changes" : "Add expense"} onPress={() => void handleSave()} disabled={!isValid} loading={isSaving} />
           </View>
         </KeyboardAvoidingView>
       </>

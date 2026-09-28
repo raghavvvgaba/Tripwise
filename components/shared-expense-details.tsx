@@ -1,13 +1,14 @@
-import { Stack } from "expo-router";
-import { useEffect, useState } from "react";
+import { Link, Stack, useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 
 import { EmptyState } from "@/components/empty-state";
+import { PrimaryButton } from "@/components/primary-button";
 import { getGroupMembers, type GroupMember } from "@/lib/group-invites";
 import { getGroupExpense } from "@/lib/expenses";
 import type { SharedExpense } from "@/types/shared-expense";
 import type { SharedGroup } from "@/types/shared-group";
-import { formatExpenseDate } from "@/utils/date";
+import { formatExpenseDate, formatRelativeTime } from "@/utils/date";
 import { formatMoney } from "@/utils/money";
 
 export function SharedExpenseDetails({ group, expenseId }: { group: SharedGroup; expenseId: string }) {
@@ -16,7 +17,7 @@ export function SharedExpenseDetails({ group, expenseId }: { group: SharedGroup;
   const [error, setError] = useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     let active = true;
     setExpense(null);
     setError(null);
@@ -30,7 +31,7 @@ export function SharedExpenseDetails({ group, expenseId }: { group: SharedGroup;
         if (active) setError(loadError instanceof Error ? loadError.message : "Could not load this expense.");
       });
     return () => { active = false; };
-  }, [group.id, expenseId, loadAttempt]);
+  }, [group.id, expenseId, loadAttempt]));
 
   const nameFor = (userId: string) => members.find((member) => member.userId === userId)?.name ?? "A member";
 
@@ -100,7 +101,17 @@ export function SharedExpenseDetails({ group, expenseId }: { group: SharedGroup;
               </View>
             ) : null}
 
-            <Text className="px-1 text-xs text-muted">Added by {nameFor(expense.createdById)}</Text>
+            <View className="gap-1 px-1">
+              <Text className="text-xs text-muted">Added by {nameFor(expense.createdById)}</Text>
+              {expense.updatedAt ? (
+                <Text className="text-xs text-muted">
+                  Last edited by {expense.updatedById ? nameFor(expense.updatedById) : "a group member"} · {formatRelativeTime(expense.updatedAt)}
+                </Text>
+              ) : null}
+            </View>
+            <Link href={{ pathname: "/groups/[groupId]/add-expense", params: { groupId: group.id, expenseId } }} asChild>
+              <PrimaryButton label="Edit expense" variant="secondary" />
+            </Link>
           </>
         )}
       </ScrollView>

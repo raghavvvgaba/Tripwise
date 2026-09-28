@@ -12,10 +12,12 @@ type ExpenseRow = {
   note: string | null;
   created_by: string;
   created_at: string;
+  updated_by: string | null;
+  updated_at: string | null;
   expense_shares: { user_id: string; amount_minor: number }[];
 };
 
-const EXPENSE_SELECT = "id, group_id, description, amount_minor, paid_by, split_mode, expense_date, note, created_by, created_at, expense_shares(user_id, amount_minor)";
+const EXPENSE_SELECT = "id, group_id, description, amount_minor, paid_by, split_mode, expense_date, note, created_by, created_at, updated_by, updated_at, expense_shares(user_id, amount_minor)";
 
 function toExpense(row: ExpenseRow): SharedExpense {
   return {
@@ -29,6 +31,8 @@ function toExpense(row: ExpenseRow): SharedExpense {
     note: row.note,
     createdById: row.created_by,
     createdAt: row.created_at,
+    updatedById: row.updated_by,
+    updatedAt: row.updated_at,
     shares: row.expense_shares.map((share) => ({
       userId: share.user_id,
       amountMinor: share.amount_minor,
@@ -90,4 +94,26 @@ export async function createGroupExpense(input: CreateGroupExpenseInput): Promis
   if (error) throw error;
   if (typeof data !== "string") throw new Error("The expense could not be saved.");
   return data;
+}
+
+export type UpdateGroupExpenseInput = Omit<CreateGroupExpenseInput, "expenseDate"> & {
+  expenseId: string;
+  expectedUpdatedAt: string | null;
+};
+
+export async function updateGroupExpense(input: UpdateGroupExpenseInput): Promise<void> {
+  const { error } = await supabase.rpc("update_group_expense", {
+    p_group_id: input.groupId,
+    p_expense_id: input.expenseId,
+    p_description: input.description,
+    p_amount_minor: input.amountMinor,
+    p_paid_by: input.paidById,
+    p_member_ids: input.memberIds,
+    p_split_mode: input.splitMode,
+    p_exact_amounts_minor: input.exactAmountsMinor,
+    p_note: input.note,
+    p_expected_updated_at: input.expectedUpdatedAt,
+  });
+
+  if (error) throw error;
 }
