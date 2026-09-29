@@ -4,7 +4,7 @@ export type GroupActivityEvent = {
   id: string;
   groupId: string;
   actorId: string;
-  eventType: "expense_added" | "expense_edited" | "expense_deleted" | "payment_recorded" | "group_deleted" | "group_restored";
+  eventType: "expense_added" | "expense_edited" | "expense_deleted" | "payment_recorded" | "payment_deleted" | "group_deleted" | "group_restored";
   expenseId: string | null;
   description: string | null;
   amountMinor: number | null;

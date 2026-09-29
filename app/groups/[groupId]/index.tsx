@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Link, router, Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 
 import { EmptyState } from "@/components/empty-state";
@@ -9,12 +9,12 @@ import { PrimaryButton } from "@/components/primary-button";
 import { useThemeColors } from "@/constants/theme";
 import { getGroupMembers, type GroupMember } from "@/lib/group-invites";
 import { listGroupExpenses } from "@/lib/expenses";
-import { listGroupPayments } from "@/lib/payments";
+import { deleteGroupPayment, listGroupPayments } from "@/lib/payments";
 import { useSharedGroupsStore } from "@/store/use-shared-groups-store";
 import type { SharedGroup } from "@/types/shared-group";
 import type { SharedExpense } from "@/types/shared-expense";
 import type { SharedPayment } from "@/types/shared-payment";
-import { showError } from "@/utils/dialogs";
+import { confirmAction, showError } from "@/utils/dialogs";
 import { formatMoney } from "@/utils/money";
 import { formatExpenseDate, formatPaymentDate, formatRelativeTime } from "@/utils/date";
 import { getSharedMemberBalances, getSharedSettlements, type SharedSettlement } from "@/utils/shared-expenses";
@@ -71,6 +71,9 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
   const [payments, setPayments] = useState<SharedPayment[] | null>(null);
   const [isLoadingPayments, setIsLoadingPayments] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [deletingPaymentId, setDeletingPaymentId] = useState<string | null>(null);
+  const deletingPayment = useRef(false);
+  const paymentReadVersion = useRef(0);
   const [sharedView, setSharedView] = useState<GroupView>("expenses");
 
   const refreshMembers = useCallback(async () => {
@@ -101,17 +104,40 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
   }, [group.id]);
 
   const refreshPayments = useCallback(async () => {
+    const version = ++paymentReadVersion.current;
     setIsLoadingPayments(true);
     try {
-      setPayments(await listGroupPayments(group.id));
-      setPaymentError(null);
+      const nextPayments = await listGroupPayments(group.id);
+      if (version === paymentReadVersion.current) {
+        setPayments(nextPayments);
+        setPaymentError(null);
+      }
     } catch (error) {
-      setPayments(null);
-      setPaymentError(error instanceof Error ? error.message : "Could not load payments.");
+      if (version === paymentReadVersion.current) {
+        setPayments(null);
+        setPaymentError(error instanceof Error ? error.message : "Could not load payments.");
+      }
     } finally {
-      setIsLoadingPayments(false);
+      if (version === paymentReadVersion.current) setIsLoadingPayments(false);
     }
   }, [group.id]);
+
+  async function removePayment(payment: SharedPayment) {
+    if (deletingPayment.current || (currentUserId !== payment.payerId && currentUserId !== payment.recipientId)) return;
+    deletingPayment.current = true;
+    setDeletingPaymentId(payment.id);
+    try {
+      await deleteGroupPayment(group.id, payment.id);
+      ++paymentReadVersion.current;
+      setPayments((previous) => previous?.filter((item) => item.id !== payment.id) ?? null);
+      await refreshPayments();
+    } catch (error) {
+      showError("Could not delete payment", error instanceof Error ? error.message : "Please try again.");
+    } finally {
+      deletingPayment.current = false;
+      setDeletingPaymentId(null);
+    }
+  }
 
   useFocusEffect(useCallback(() => {
     if (currentUserId) void loadGroups(currentUserId);
@@ -136,14 +162,14 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
           <Text className="flex-1 font-semibold text-ink">{fromName} pay{fromName === "You" ? "" : "s"} {toName}</Text>
           <Text selectable className="font-bold text-ink">{formatMoney(settlement.amountMinor / 100, group.currency)}</Text>
         </View>
-        <Link href={{ pathname: "/groups/[groupId]/record-payment", params: {
+        {currentUserId === settlement.from.userId || currentUserId === settlement.to.userId ? <Link href={{ pathname: "/groups/[groupId]/record-payment", params: {
           groupId: group.id,
           payerId: settlement.from.userId,
           recipientId: settlement.to.userId,
           amountMinor: String(settlement.amountMinor),
         } }} asChild>
           <PrimaryButton label="Record payment" variant="secondary" />
-        </Link>
+        </Link> : null}
       </View>
     );
   }
@@ -295,6 +321,22 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
                           <Text className="text-xs text-muted">
                             Paid on {formatPaymentDate(payment.paymentDate)} · Recorded by {payment.recordedById === currentUserId ? "you" : members?.find((member) => member.userId === payment.recordedById)?.name ?? "a member"} {formatRelativeTime(payment.createdAt)}
                           </Text>
+                          {currentUserId === payment.payerId || currentUserId === payment.recipientId ? (
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityLabel={`Delete payment of ${formatMoney(payment.amountMinor / 100, group.currency)}`}
+                              disabled={deletingPaymentId !== null}
+                              onPress={() => confirmAction(
+                                "Delete this payment?",
+                                `Remove this recorded payment of ${formatMoney(payment.amountMinor / 100, group.currency)} and update everyone's balances? This cannot be undone. It does not reverse money transferred outside the app.`,
+                                "Delete payment",
+                                () => void removePayment(payment),
+                              )}
+                              className="min-h-11 justify-center self-start"
+                            >
+                              <Text className="text-sm font-semibold text-coral">{deletingPaymentId === payment.id ? "Deleting…" : "Delete payment"}</Text>
+                            </Pressable>
+                          ) : null}
                         </View>
                         <Text selectable className="font-bold text-ink">{formatMoney(payment.amountMinor / 100, group.currency)}</Text>
                       </View>

@@ -8,7 +8,7 @@ import { PrimaryButton } from "@/components/primary-button";
 import { RouteModal } from "@/components/route-modal";
 import { getGroupMembers, type GroupMember } from "@/lib/group-invites";
 import { listGroupExpenses } from "@/lib/expenses";
-import { listGroupPayments, recordGroupPayment } from "@/lib/payments";
+import { createPaymentRequestId, listGroupPayments, PaymentError, recordGroupPayment, type RecordPaymentInput } from "@/lib/payments";
 import { useSharedGroupsStore } from "@/store/use-shared-groups-store";
 import { formatMoney, getCurrencySymbol, parseMoneyToMinor } from "@/utils/money";
 import { getSharedMemberBalances } from "@/utils/shared-expenses";
@@ -37,12 +37,18 @@ export default function RecordPaymentScreen() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const savingRef = useRef(false);
+  const pendingRequest = useRef<RecordPaymentInput | null>(null);
+  const [hasPendingRequest, setHasPendingRequest] = useState(false);
+  const [isDuplicate, setIsDuplicate] = useState(false);
+  const canRecord = currentUserId === payerId || currentUserId === recipientId;
 
   useEffect(() => {
-    if (!group || group.deletedAt) {
+    if (!group || group.deletedAt || !canRecord) {
       setIsLoading(false);
       return;
     }
+    setIsLoading(true);
+    setLoadError(null);
     let active = true;
     void Promise.all([
       getGroupMembers(group.id),
@@ -72,7 +78,7 @@ export default function RecordPaymentScreen() {
       if (active) setIsLoading(false);
     });
     return () => { active = false; };
-  }, [group?.id, group?.deletedAt, payerId, recipientId, amountMinor]);
+  }, [group?.id, group?.deletedAt, payerId, recipientId, amountMinor, canRecord]);
 
   const parsedAmount = parseMoneyToMinor(amount);
   const today = localDateString();
@@ -80,17 +86,43 @@ export default function RecordPaymentScreen() {
     && parseLocalDate(paymentDate) !== null && paymentDate <= today;
 
   async function save() {
-    if (!group || !details || !isValid || parsedAmount === null || savingRef.current) return;
+    if (!group || !details || !canRecord || savingRef.current) return;
+    if (!pendingRequest.current && (!isValid || parsedAmount === null)) return;
     savingRef.current = true;
     setIsSaving(true);
     setSaveError(null);
     try {
       const now = new Date();
-      if (paymentDate > localDateString(now)) throw new Error("Payment date cannot be in the future.");
-      await recordGroupPayment(group.id, details.payer.userId, details.recipient.userId, parsedAmount, paymentDate, now.getTimezoneOffset());
+      if (!pendingRequest.current) {
+        if (parsedAmount === null) return;
+        if (paymentDate > localDateString(now)) throw new Error("Payment date cannot be in the future.");
+        pendingRequest.current = {
+          groupId: group.id,
+          payerId: details.payer.userId,
+          recipientId: details.recipient.userId,
+          amountMinor: parsedAmount,
+          paymentDate,
+          timezoneOffsetMinutes: now.getTimezoneOffset(),
+          requestId: createPaymentRequestId(),
+        };
+        setHasPendingRequest(true);
+      }
+      await recordGroupPayment(pendingRequest.current, isDuplicate);
       router.dismissTo(`/groups/${group.id}`);
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "Could not record the payment.");
+      if (error instanceof PaymentError && error.code === "23505") {
+        setIsDuplicate(true);
+        setSaveError(null);
+      } else {
+        setSaveError(error instanceof Error ? error.message : "Could not record the payment.");
+        // A database rejection rolled back. Unknown/network failures may have
+        // committed: preserve the exact request and reuse its ID on retry.
+        if (error instanceof PaymentError && /^[0-9A-Z]{5}$/.test(error.code) && !error.code.startsWith("08")) {
+          pendingRequest.current = null;
+          setHasPendingRequest(false);
+          setIsDuplicate(false);
+        }
+      }
     } finally {
       savingRef.current = false;
       setIsSaving(false);
@@ -105,6 +137,8 @@ export default function RecordPaymentScreen() {
           <ScrollView contentInsetAdjustmentBehavior="automatic" keyboardShouldPersistTaps="handled" contentContainerClassName="w-full max-w-2xl self-center gap-5 px-5 pb-8 pt-5 md:px-8 lg:py-10">
             {!group || group.deletedAt ? (
               <EmptyState icon="alert-circle-outline" title="Group unavailable" message="Return to the group and try again." />
+            ) : !canRecord ? (
+              <EmptyState icon="lock-closed-outline" title="Payment unavailable" message="Only the sender or recipient can record this payment." />
             ) : isLoading ? <ActivityIndicator /> : loadError ? (
               <View className="card gap-4 p-5">
                 <Text selectable className="text-sm text-coral">{loadError}</Text>
@@ -129,6 +163,7 @@ export default function RecordPaymentScreen() {
                         placeholder="0"
                         placeholderTextColor="#9AA39D"
                         value={amount}
+                        editable={!hasPendingRequest && !isSaving}
                         onChangeText={setAmount}
                         accessibilityLabel="Amount paid"
                       />
@@ -143,7 +178,7 @@ export default function RecordPaymentScreen() {
                   </View>
                   <View className="gap-2">
                     <Text className="section-label">Paid on</Text>
-                    <PaymentDateField value={paymentDate} maxDate={today} onChange={setPaymentDate} />
+                    <PaymentDateField value={paymentDate} maxDate={today} onChange={setPaymentDate} disabled={hasPendingRequest || isSaving} />
                     {paymentDate && (!parseLocalDate(paymentDate) || paymentDate > today) ? (
                       <Text className="text-sm text-coral">Choose today or an earlier date.</Text>
                     ) : null}
@@ -151,7 +186,16 @@ export default function RecordPaymentScreen() {
                 </View>
                 <Text className="px-1 text-sm text-muted">This records money already paid outside the app. It does not send money.</Text>
                 {saveError ? <Text selectable className="text-sm text-coral">{saveError}</Text> : null}
-                <PrimaryButton label="Record payment" loading={isSaving} disabled={!isValid} onPress={() => void save()} />
+                {isDuplicate ? (
+                  <View className="card gap-2 p-4">
+                    <Text className="font-semibold text-ink">Similar payment already recorded</Text>
+                    <Text className="text-sm leading-5 text-muted">A payment with these people, amount, and date already exists. Check Recorded payments in the group. Record another only if you made a separate transfer.</Text>
+                  </View>
+                ) : hasPendingRequest && saveError ? (
+                  <Text className="text-sm leading-5 text-muted">The payment may have been saved. Retry to check the same request safely, or return to the group to check Recorded payments.</Text>
+                ) : null}
+                <PrimaryButton label={isDuplicate ? "Record another payment" : hasPendingRequest ? "Retry payment" : "Record payment"} loading={isSaving} disabled={!hasPendingRequest && !isValid} onPress={() => void save()} />
+                {hasPendingRequest ? <PrimaryButton label="Back to group" variant="secondary" disabled={isSaving} onPress={() => router.dismissTo(`/groups/${group.id}`)} /> : null}
               </>
             ) : null}
           </ScrollView>

@@ -11,9 +11,10 @@ type PaymentDateFieldProps = {
   value: string;
   maxDate: string;
   onChange: (value: string) => void;
+  disabled?: boolean;
 };
 
-export function PaymentDateField({ value, maxDate, onChange }: PaymentDateFieldProps) {
+export function PaymentDateField({ value, maxDate, onChange, disabled = false }: PaymentDateFieldProps) {
   const [isOpen, setIsOpen] = useState(false);
   const colors = useThemeColors();
   const themePreference = useSettingsStore((state) => state.themePreference);
@@ -36,11 +37,11 @@ export function PaymentDateField({ value, maxDate, onChange }: PaymentDateFieldP
 
   return (
     <View className="gap-2">
-      <Pressable accessibilityRole="button" accessibilityLabel={`Paid on ${formatPaymentDate(value)}`} onPress={openPicker} className="field flex-row items-center justify-between gap-3">
+      <Pressable disabled={disabled} accessibilityRole="button" accessibilityLabel={`Paid on ${formatPaymentDate(value)}`} onPress={openPicker} className="field flex-row items-center justify-between gap-3">
         <Text className="font-semibold text-ink">{value === maxDate ? `Today, ${formatPaymentDate(value)}` : formatPaymentDate(value)}</Text>
         <Ionicons name="calendar-outline" size={20} color={colors["brand-700"]} />
       </Pressable>
-      {Platform.OS === "ios" && isOpen ? (
+      {Platform.OS === "ios" && isOpen && !disabled ? (
         <View className="card overflow-hidden p-2">
           <DateTimePicker
             value={selectedDate}

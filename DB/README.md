@@ -16,6 +16,7 @@ For a fresh Supabase database, run these files in order in the SQL Editor:
 12. `11_group_cover_policy_fix.sql`
 13. `12_group_cover_thumbnails.sql`
 14. `13_remove_group_archiving.sql`
+15. `14_payment_safety.sql`
 
 Each file is intended to run once. Future schema changes should get a new numbered file; do not edit an earlier file after it has been applied to a database.
 
@@ -50,3 +51,9 @@ Run `12_group_cover_thumbnails.sql` after `11_group_cover_policy_fix.sql`, befor
 Run `13_remove_group_archiving.sql` after `12_group_cover_thumbnails.sql`. It removes the retired membership archive column and updates the add-expense function to rely on membership and the existing deleted-group guard. Shared deletion, recovery, expenses, and payments are preserved. Archive references in earlier SQL files remain only as migration history; do not rerun or rewrite those files.
 
 These files are currently applied manually through the SQL Editor; the numbers document their order but do not track which files a database has run.
+
+Run `14_payment_safety.sql` after `13_remove_group_archiving.sql`, before running this app build. It replaces the old payment RPC signature: only the sender or recipient may record or delete a payment. Request IDs make retries idempotent, and identical active payment details require explicit confirmation. Deletion excludes the payment from balances and lists and adds an Activity event. The internal cancelled row retains its request ID to prevent retries from recreating it; there is no restore action.
+
+## Local payment regression checks
+
+With PostgreSQL binaries (`initdb`, `pg_ctl`, `psql`) installed, run `python3 DB/tests/payment_safety.py`. It creates and removes an isolated temporary database, uses local Auth/Storage stubs, applies all numbered migrations, and checks payment permissions, duplicate/concurrent requests, deletion, Activity, and date/balance validation. It does not connect to Supabase.
