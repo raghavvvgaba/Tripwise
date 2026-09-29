@@ -5,6 +5,7 @@ export type SharedGroup = {
   name: string;
   currency: CurrencyCode;
   coverPath: string | null;
+  coverThumbnailPath: string | null;
   createdAt: string;
   deletedAt: string | null;
 };

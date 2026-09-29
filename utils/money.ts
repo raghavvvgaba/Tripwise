@@ -44,10 +44,6 @@ export function formatMoney(amount: number, currency: CurrencyCode = "INR", show
   return `${amount > 0 ? "+" : "−"}${config.symbol}${value}`;
 }
 
-export function roundMoney(amount: number) {
-  return Math.round((amount + Number.EPSILON) * 100) / 100;
-}
-
 export function parseMoneyToMinor(value: string): number | null {
   const trimmed = value.trim();
   if (!/^\d+(?:[.,]\d{1,2})?$/.test(trimmed)) return null;

@@ -13,7 +13,7 @@ type SharedGroupsState = {
   createGroup: (name: string, currency: CurrencyCode) => Promise<SharedGroup>;
   deleteGroup: (groupId: string) => Promise<void>;
   restoreGroup: (groupId: string) => Promise<void>;
-  setCover: (groupId: string, coverPath: string | null) => Promise<void>;
+  setCover: (groupId: string, coverPath: string | null, coverThumbnailPath: string | null) => Promise<void>;
   clear: () => void;
 };
 
@@ -75,14 +75,14 @@ export const useSharedGroupsStore = create<SharedGroupsState>((set, get) => ({
       }));
     }
   },
-  setCover: async (groupId, coverPath) => {
+  setCover: async (groupId, coverPath, coverThumbnailPath) => {
     const userId = get().userId;
     if (!userId) throw new Error("Sign in required");
-    await updateGroupCover(groupId, coverPath);
+    await updateGroupCover(groupId, coverPath, coverThumbnailPath);
     if (get().userId === userId) {
       set((state) => ({
         groups: state.groups.map((group) =>
-          group.id === groupId ? { ...group, coverPath } : group,
+          group.id === groupId ? { ...group, coverPath, coverThumbnailPath } : group,
         ),
       }));
     }

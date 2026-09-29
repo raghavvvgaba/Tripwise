@@ -7,13 +7,13 @@ import type { SharedGroup } from "@/types/shared-group";
 
 export function GroupCover({ group, compact = false }: { group: SharedGroup; compact?: boolean }) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const path = compact ? group.coverThumbnailPath ?? group.coverPath : group.coverPath;
 
   useEffect(() => {
     let active = true;
     setImageUrl(null);
     let refresh: ReturnType<typeof setInterval> | undefined;
-    if (group.coverPath) {
-      const path = group.coverPath;
+    if (path) {
       const load = () => {
         void getGroupCoverUrl(path)
           .then((url) => { if (active) setImageUrl(url); })
@@ -26,7 +26,7 @@ export function GroupCover({ group, compact = false }: { group: SharedGroup; com
       active = false;
       if (refresh) clearInterval(refresh);
     };
-  }, [group.coverPath]);
+  }, [path]);
 
   return (
     <View className={`${compact ? "h-28 w-24 shrink-0 rounded-2xl" : "h-48 w-full rounded-3xl"} items-center justify-center overflow-hidden bg-[#FB6B21]`}>

@@ -5,7 +5,7 @@ import type { SharedGroup } from "@/types/shared-group";
 export async function listGroups(userId: string): Promise<SharedGroup[]> {
   const { data, error } = await supabase
     .from("groups")
-    .select("id, name, currency, cover_path, created_at, deleted_at, group_members!inner(user_id)")
+    .select("id, name, currency, cover_path, cover_thumbnail_path, created_at, deleted_at, group_members!inner(user_id)")
     .eq("group_members.user_id", userId)
     .order("created_at", { ascending: false });
 
@@ -16,6 +16,7 @@ export async function listGroups(userId: string): Promise<SharedGroup[]> {
     name: group.name,
     currency: group.currency as CurrencyCode,
     coverPath: group.cover_path,
+    coverThumbnailPath: group.cover_thumbnail_path,
     createdAt: group.created_at,
     deletedAt: group.deleted_at,
   }));
@@ -26,7 +27,7 @@ export async function createGroup(name: string, currency: CurrencyCode): Promise
     const { data, error } = await supabase
       .from("groups")
       .insert({ name: name.trim(), currency })
-      .select("id, name, currency, cover_path, created_at, deleted_at")
+      .select("id, name, currency, cover_path, cover_thumbnail_path, created_at, deleted_at")
       .single();
 
     if (!error) {
@@ -35,6 +36,7 @@ export async function createGroup(name: string, currency: CurrencyCode): Promise
         name: data.name,
         currency: data.currency as CurrencyCode,
         coverPath: data.cover_path,
+        coverThumbnailPath: data.cover_thumbnail_path,
         createdAt: data.created_at,
         deletedAt: data.deleted_at,
       };
@@ -47,10 +49,10 @@ export async function createGroup(name: string, currency: CurrencyCode): Promise
   throw new Error("Could not create a unique invite code.");
 }
 
-export async function updateGroupCover(groupId: string, coverPath: string | null): Promise<void> {
+export async function updateGroupCover(groupId: string, coverPath: string | null, coverThumbnailPath: string | null): Promise<void> {
   const { data, error } = await supabase
     .from("groups")
-    .update({ cover_path: coverPath })
+    .update({ cover_path: coverPath, cover_thumbnail_path: coverThumbnailPath })
     .eq("id", groupId)
     .select("id")
     .single();

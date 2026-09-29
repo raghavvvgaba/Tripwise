@@ -14,6 +14,8 @@ For a fresh Supabase database, run these files in order in the SQL Editor:
 10. `09_payment_dates.sql`
 11. `10_group_covers.sql`
 12. `11_group_cover_policy_fix.sql`
+13. `12_group_cover_thumbnails.sql`
+14. `13_remove_group_archiving.sql`
 
 Each file is intended to run once. Future schema changes should get a new numbered file; do not edit an earlier file after it has been applied to a database.
 
@@ -42,5 +44,9 @@ Run `09_payment_dates.sql` after `08_group_payments.sql`. It adds the date the p
 Create a private Storage bucket named exactly `Group-cover-images`, then run `10_group_covers.sql` after `09_payment_dates.sql` has been applied. It adds a cover path on shared groups and member-only Storage policies to the existing bucket. Configure the bucket to accept JPG, PNG, and WebP files up to 4 MB. Apply the SQL before running an app build with group cover photos.
 
 Run `11_group_cover_policy_fix.sql` after `10_group_covers.sql`. It repairs the Storage policies to check the uploaded object's path instead of the group's name. Apply this repair even when all three cover policies already exist; counting policy names does not verify their conditions.
+
+Run `12_group_cover_thumbnails.sql` after `11_group_cover_policy_fix.sql`, before running the app with compressed covers. New photo uploads save a JPEG cover with a maximum dimension of 1200 pixels and a cropped 300-pixel-wide card thumbnail. Both paths are saved together, and active files are protected from cleanup. Existing photos keep using their original cover until replaced; no automatic backfill is performed.
+
+Run `13_remove_group_archiving.sql` after `12_group_cover_thumbnails.sql`. It removes the retired membership archive column and updates the add-expense function to rely on membership and the existing deleted-group guard. Shared deletion, recovery, expenses, and payments are preserved. Archive references in earlier SQL files remain only as migration history; do not rerun or rewrite those files.
 
 These files are currently applied manually through the SQL Editor; the numbers document their order but do not track which files a database has run.

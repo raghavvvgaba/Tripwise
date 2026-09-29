@@ -6,7 +6,7 @@ import { ActivityIndicator, ScrollView, Text, View } from "react-native";
 import { EmptyState } from "@/components/empty-state";
 import { GroupCover } from "@/components/group-cover";
 import { PrimaryButton } from "@/components/primary-button";
-import { removeGroupCoverFile, uploadGroupCover } from "@/lib/group-covers";
+import { removeGroupCoverFiles, uploadGroupCover } from "@/lib/group-covers";
 import { useSharedGroupsStore } from "@/store/use-shared-groups-store";
 import { confirmAction, showError } from "@/utils/dialogs";
 
@@ -25,22 +25,22 @@ export default function GroupSettingsScreen() {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
-        quality: 0.8,
+        quality: 1,
         preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
       });
       if (result.canceled || !result.assets[0]) return;
 
       setIsSavingCover(true);
       stage = "upload";
-      const path = await uploadGroupCover(group.id, result.assets[0]);
+      const { coverPath, coverThumbnailPath } = await uploadGroupCover(group.id, result.assets[0]);
       try {
         stage = "group update";
-        await setCover(group.id, path);
+        await setCover(group.id, coverPath, coverThumbnailPath);
       } catch (error) {
-        await removeGroupCoverFile(path).catch(() => undefined);
+        await removeGroupCoverFiles([coverPath, coverThumbnailPath]).catch(() => undefined);
         throw error;
       }
-      if (group.coverPath) await removeGroupCoverFile(group.coverPath).catch(() => undefined);
+      await removeGroupCoverFiles([group.coverPath, group.coverThumbnailPath]).catch(() => undefined);
     } catch (error) {
       const title = stage === "upload" ? "Could not upload cover photo"
         : stage === "group update" ? "Could not save cover photo"
@@ -55,9 +55,9 @@ export default function GroupSettingsScreen() {
     if (!group?.coverPath || isSavingCover) return;
     setIsSavingCover(true);
     try {
-      const oldPath = group.coverPath;
-      await setCover(group.id, null);
-      await removeGroupCoverFile(oldPath).catch(() => undefined);
+      const oldPaths = [group.coverPath, group.coverThumbnailPath];
+      await setCover(group.id, null, null);
+      await removeGroupCoverFiles(oldPaths).catch(() => undefined);
     } catch (error) {
       showError("Could not remove cover photo", error instanceof Error ? error.message : "Please try again.");
     } finally {
@@ -95,7 +95,7 @@ export default function GroupSettingsScreen() {
             <View className="gap-3">
               <Text className="section-label px-1">Cover photo</Text>
               <GroupCover group={group} />
-              <Text className="text-sm text-muted">Visible to group members. JPG, PNG, or WebP, up to 4 MB.</Text>
+              <Text className="text-sm text-muted">Visible to group members. Photos are resized and compressed automatically.</Text>
               <PrimaryButton
                 label={group.coverPath ? "Change cover photo" : "Add cover photo"}
                 icon="image-outline"

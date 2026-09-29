@@ -64,9 +64,9 @@ export function WebAppShell({ children }: { children: ReactNode }) {
           <View className="h-8 w-8 items-center justify-center rounded-xl bg-brand-50">
             <Ionicons name="lock-closed-outline" size={17} color={colors["brand-700"]} />
           </View>
-          <Text className="text-sm font-bold text-ink">Your demo workspace</Text>
+          <Text className="text-sm font-bold text-ink">Your shared workspace</Text>
           <Text className="text-xs leading-5 text-muted">
-            Groups and expenses are saved in this browser for now.
+            Groups and expenses are saved to your account.
           </Text>
         </View>
       </View>
