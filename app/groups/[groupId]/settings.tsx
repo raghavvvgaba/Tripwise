@@ -1,9 +1,12 @@
 import { router, Stack, useLocalSearchParams } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
 import { useState } from "react";
 import { ActivityIndicator, ScrollView, Text, View } from "react-native";
 
 import { EmptyState } from "@/components/empty-state";
+import { GroupCover } from "@/components/group-cover";
 import { PrimaryButton } from "@/components/primary-button";
+import { removeGroupCoverFile, uploadGroupCover } from "@/lib/group-covers";
 import { useSharedGroupsStore } from "@/store/use-shared-groups-store";
 import { confirmAction, showError } from "@/utils/dialogs";
 
@@ -12,7 +15,49 @@ export default function GroupSettingsScreen() {
   const group = useSharedGroupsStore((state) => state.groups.find((item) => item.id === groupId));
   const isLoading = useSharedGroupsStore((state) => state.isLoading);
   const deleteGroup = useSharedGroupsStore((state) => state.deleteGroup);
+  const setCover = useSharedGroupsStore((state) => state.setCover);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSavingCover, setIsSavingCover] = useState(false);
+
+  async function chooseCover() {
+    if (!group || isSavingCover) return;
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        quality: 0.8,
+        preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
+      });
+      if (result.canceled || !result.assets[0]) return;
+
+      setIsSavingCover(true);
+      const path = await uploadGroupCover(group.id, result.assets[0]);
+      try {
+        await setCover(group.id, path);
+      } catch (error) {
+        await removeGroupCoverFile(path).catch(() => undefined);
+        throw error;
+      }
+      if (group.coverPath) await removeGroupCoverFile(group.coverPath).catch(() => undefined);
+    } catch (error) {
+      showError("Could not update cover photo", error instanceof Error ? error.message : "Please try again.");
+    } finally {
+      setIsSavingCover(false);
+    }
+  }
+
+  async function removeCover() {
+    if (!group?.coverPath || isSavingCover) return;
+    setIsSavingCover(true);
+    try {
+      const oldPath = group.coverPath;
+      await setCover(group.id, null);
+      await removeGroupCoverFile(oldPath).catch(() => undefined);
+    } catch (error) {
+      showError("Could not remove cover photo", error instanceof Error ? error.message : "Please try again.");
+    } finally {
+      setIsSavingCover(false);
+    }
+  }
 
   async function removeGroup() {
     if (!group || isDeleting) return;
@@ -40,6 +85,25 @@ export default function GroupSettingsScreen() {
             <View className="card gap-1 p-5">
               <Text className="text-lg font-bold text-ink">{group.name}</Text>
               <Text className="text-sm text-muted">{group.currency} · Shared group</Text>
+            </View>
+            <View className="gap-3">
+              <Text className="section-label px-1">Cover photo</Text>
+              <GroupCover group={group} />
+              <Text className="text-sm text-muted">Visible to group members. JPG, PNG, or WebP, up to 4 MB.</Text>
+              <PrimaryButton
+                label={group.coverPath ? "Change cover photo" : "Add cover photo"}
+                icon="image-outline"
+                loading={isSavingCover}
+                onPress={() => void chooseCover()}
+              />
+              {group.coverPath ? (
+                <PrimaryButton
+                  label="Remove cover photo"
+                  variant="secondary"
+                  disabled={isSavingCover}
+                  onPress={() => void removeCover()}
+                />
+              ) : null}
             </View>
             <View className="gap-3">
               <Text className="section-label px-1">Group management</Text>

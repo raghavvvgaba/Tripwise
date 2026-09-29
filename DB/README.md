@@ -12,6 +12,7 @@ For a fresh Supabase database, run these files in order in the SQL Editor:
 8. `07_expense_deletion.sql`
 9. `08_group_payments.sql`
 10. `09_payment_dates.sql`
+11. `10_group_covers.sql`
 
 Each file is intended to run once. Future schema changes should get a new numbered file; do not edit an earlier file after it has been applied to a database.
 
@@ -36,5 +37,7 @@ Run `07_expense_deletion.sql` after `06_expense_editing.sql`. It adds permanent,
 Run `08_group_payments.sql` after `07_expense_deletion.sql`. It adds recorded group payments, a member-only payment function that checks current balances, and payment events in Activity. Payments remain in a deleted group and return when the group is restored. Apply it before running an app build with shared settlements.
 
 Run `09_payment_dates.sql` after `08_group_payments.sql`. It adds the date the payment happened, backfills existing payments with their UTC recording date, and validates new dates against the recorder's local day. Activity remains ordered by its `created_at` recording time.
+
+Create a private Storage bucket named exactly `Group-cover-images`, then run `10_group_covers.sql` after `09_payment_dates.sql` has been applied. It adds a cover path on shared groups and member-only Storage policies to the existing bucket. Configure the bucket to accept JPG, PNG, and WebP files up to 4 MB. Apply the SQL before running an app build with group cover photos.
 
 These files are currently applied manually through the SQL Editor; the numbers document their order but do not track which files a database has run.

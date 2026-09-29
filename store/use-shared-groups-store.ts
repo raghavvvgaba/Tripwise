@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import { createGroup, deleteSharedGroup, listGroups, restoreSharedGroup } from "@/lib/groups";
+import { createGroup, deleteSharedGroup, listGroups, restoreSharedGroup, updateGroupCover } from "@/lib/groups";
 import type { CurrencyCode } from "@/types/models";
 import type { SharedGroup } from "@/types/shared-group";
 
@@ -13,6 +13,7 @@ type SharedGroupsState = {
   createGroup: (name: string, currency: CurrencyCode) => Promise<SharedGroup>;
   deleteGroup: (groupId: string) => Promise<void>;
   restoreGroup: (groupId: string) => Promise<void>;
+  setCover: (groupId: string, coverPath: string | null) => Promise<void>;
   clear: () => void;
 };
 
@@ -70,6 +71,18 @@ export const useSharedGroupsStore = create<SharedGroupsState>((set, get) => ({
       set((state) => ({
         groups: state.groups.map((group) =>
           group.id === groupId ? { ...group, deletedAt: null } : group,
+        ),
+      }));
+    }
+  },
+  setCover: async (groupId, coverPath) => {
+    const userId = get().userId;
+    if (!userId) throw new Error("Sign in required");
+    await updateGroupCover(groupId, coverPath);
+    if (get().userId === userId) {
+      set((state) => ({
+        groups: state.groups.map((group) =>
+          group.id === groupId ? { ...group, coverPath } : group,
         ),
       }));
     }
