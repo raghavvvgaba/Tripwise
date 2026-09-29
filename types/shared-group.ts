@@ -4,6 +4,7 @@ export type SharedGroup = {
   id: string;
   name: string;
   currency: CurrencyCode;
+  coverPath: string | null;
   createdAt: string;
   deletedAt: string | null;
 };

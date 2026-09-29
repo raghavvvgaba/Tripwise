@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-nati
 
 import { EmptyState } from "@/components/empty-state";
 import { ExpenseRow } from "@/components/expense-row";
+import { GroupCover } from "@/components/group-cover";
 import { MemberAvatar } from "@/components/member-avatar";
 import { PrimaryButton } from "@/components/primary-button";
 import { useThemeColors } from "@/constants/theme";
@@ -400,6 +401,7 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
         contentInsetAdjustmentBehavior="automatic"
         contentContainerClassName="w-full max-w-4xl self-center gap-6 px-5 pb-12 pt-5 md:px-8 lg:py-10"
       >
+        <GroupCover group={group} />
         <View className="card gap-2 p-5">
           <View className="flex-row items-start justify-between gap-4">
             <View className="flex-1 gap-1">
