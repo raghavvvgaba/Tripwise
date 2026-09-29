@@ -21,6 +21,7 @@ export default function GroupSettingsScreen() {
 
   async function chooseCover() {
     if (!group || isSavingCover) return;
+    let stage: string = "picker";
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
@@ -30,8 +31,10 @@ export default function GroupSettingsScreen() {
       if (result.canceled || !result.assets[0]) return;
 
       setIsSavingCover(true);
+      stage = "upload";
       const path = await uploadGroupCover(group.id, result.assets[0]);
       try {
+        stage = "group update";
         await setCover(group.id, path);
       } catch (error) {
         await removeGroupCoverFile(path).catch(() => undefined);
@@ -39,7 +42,10 @@ export default function GroupSettingsScreen() {
       }
       if (group.coverPath) await removeGroupCoverFile(group.coverPath).catch(() => undefined);
     } catch (error) {
-      showError("Could not update cover photo", error instanceof Error ? error.message : "Please try again.");
+      const title = stage === "upload" ? "Could not upload cover photo"
+        : stage === "group update" ? "Could not save cover photo"
+          : "Could not open photo library";
+      showError(title, error instanceof Error ? error.message : "Please try again.");
     } finally {
       setIsSavingCover(false);
     }

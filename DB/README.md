@@ -13,6 +13,7 @@ For a fresh Supabase database, run these files in order in the SQL Editor:
 9. `08_group_payments.sql`
 10. `09_payment_dates.sql`
 11. `10_group_covers.sql`
+12. `11_group_cover_policy_fix.sql`
 
 Each file is intended to run once. Future schema changes should get a new numbered file; do not edit an earlier file after it has been applied to a database.
 
@@ -39,5 +40,7 @@ Run `08_group_payments.sql` after `07_expense_deletion.sql`. It adds recorded gr
 Run `09_payment_dates.sql` after `08_group_payments.sql`. It adds the date the payment happened, backfills existing payments with their UTC recording date, and validates new dates against the recorder's local day. Activity remains ordered by its `created_at` recording time.
 
 Create a private Storage bucket named exactly `Group-cover-images`, then run `10_group_covers.sql` after `09_payment_dates.sql` has been applied. It adds a cover path on shared groups and member-only Storage policies to the existing bucket. Configure the bucket to accept JPG, PNG, and WebP files up to 4 MB. Apply the SQL before running an app build with group cover photos.
+
+Run `11_group_cover_policy_fix.sql` after `10_group_covers.sql`. It repairs the Storage policies to check the uploaded object's path instead of the group's name. Apply this repair even when all three cover policies already exist; counting policy names does not verify their conditions.
 
 These files are currently applied manually through the SQL Editor; the numbers document their order but do not track which files a database has run.
