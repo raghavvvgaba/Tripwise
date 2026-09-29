@@ -10,7 +10,7 @@ import { getGroupMembers } from "@/lib/group-invites";
 import { useAuthStore } from "@/store/use-auth-store";
 import { useSharedGroupsStore } from "@/store/use-shared-groups-store";
 import type { SharedGroup } from "@/types/shared-group";
-import { formatRelativeTime } from "@/utils/date";
+import { formatPaymentDate, formatRelativeTime } from "@/utils/date";
 import { formatMoney } from "@/utils/money";
 import { confirmAction, showError } from "@/utils/dialogs";
 
@@ -42,7 +42,7 @@ export default function ActivityScreen() {
     const groupById = new Map(groups.map((group) => [group.id, group]));
     const groupIds = [...new Set(
       page.events
-        .filter((event) => event.actorId !== currentUserId && !namesByGroup.current.has(event.groupId))
+        .filter((event) => (event.actorId !== currentUserId || event.eventType === "payment_recorded") && !namesByGroup.current.has(event.groupId))
         .map((event) => event.groupId),
     )];
     const memberResults = await Promise.allSettled(groupIds.map((groupId) => getGroupMembers(groupId)));
@@ -144,6 +144,8 @@ export default function ActivityScreen() {
       return;
     } else if (event.eventType === "expense_deleted") {
       return;
+    } else if (event.eventType === "payment_recorded") {
+      router.push(`/groups/${group.id}`);
     } else if ((event.eventType === "expense_added" || event.eventType === "expense_edited") && event.expenseId) {
       router.push({ pathname: "/expenses/[expenseId]", params: { expenseId: event.expenseId, groupId: group.id } });
     } else if (event.eventType === "group_deleted" || event.eventType === "group_restored") {
@@ -178,7 +180,7 @@ export default function ActivityScreen() {
       <View className="flex-row items-start justify-between gap-4 px-1">
         <View className="flex-1 gap-1">
           <Text className="text-2xl font-bold text-ink lg:text-3xl">Recent Activity</Text>
-          <Text className="text-sm leading-5 text-muted">Expenses and group changes across all your groups.</Text>
+          <Text className="text-sm leading-5 text-muted">Expenses, payments, and group changes across all your groups.</Text>
         </View>
         <Pressable accessibilityRole="button" disabled={isLoading} onPress={() => void refresh()} className="min-h-11 justify-center">
           <Text className="font-semibold text-brand-700">Refresh</Text>
@@ -201,6 +203,9 @@ export default function ActivityScreen() {
             const { event, group, actorName } = item;
             const isExpense = event.eventType === "expense_added" || event.eventType === "expense_edited" || event.eventType === "expense_deleted";
             const isUnavailableExpense = isExpense && !event.expenseId;
+            const memberNames = namesByGroup.current.get(group.id);
+            const payerName = event.paymentFromId === userId ? "you" : memberNames?.get(event.paymentFromId ?? "") ?? "a member";
+            const recipientName = event.paymentToId === userId ? "you" : memberNames?.get(event.paymentToId ?? "") ?? "a member";
             return (
               <View key={event.id}>
                 <Pressable
@@ -210,19 +215,30 @@ export default function ActivityScreen() {
                   className="flex-row items-center gap-3 py-4 active:opacity-60"
                 >
                   <View className="h-11 w-11 items-center justify-center rounded-2xl bg-canvas">
-                    <Ionicons name={event.eventType === "expense_deleted" || event.eventType === "group_deleted" ? "trash-outline" : isExpense ? "receipt-outline" : "refresh-outline"} size={21} color={colors["brand-700"]} />
+                    <Ionicons name={event.eventType === "expense_deleted" || event.eventType === "group_deleted" ? "trash-outline" : event.eventType === "payment_recorded" ? "swap-horizontal-outline" : isExpense ? "receipt-outline" : "refresh-outline"} size={21} color={colors["brand-700"]} />
                   </View>
                   <View className="flex-1 gap-0.5">
                     <Text className="font-semibold text-ink" numberOfLines={1}>
                       {isExpense
                         ? `${actorName} ${event.eventType === "expense_deleted" ? "deleted" : event.eventType === "expense_edited" ? "edited" : "added"} “${event.description}”`
+                        : event.eventType === "payment_recorded"
+                          ? `${actorName} recorded a payment`
                         : `${actorName} ${event.eventType === "group_deleted" ? "deleted" : "restored"} ${group.name}`}
                     </Text>
-                    <Text className="text-xs text-muted" numberOfLines={1}>
-                      {group.name} · {formatRelativeTime(event.createdAt)}{group.deletedAt && event.eventType === "group_deleted" ? " · Tap to restore" : isUnavailableExpense && event.eventType !== "expense_deleted" ? " · Expense deleted" : ""}
-                    </Text>
+                    {event.eventType === "payment_recorded" ? (
+                      <>
+                        <Text className="text-xs text-muted" numberOfLines={1}>{group.name} · Recorded {formatRelativeTime(event.createdAt)}</Text>
+                        <Text className="text-xs text-muted" numberOfLines={1}>
+                          Paid on {event.paymentDate ? formatPaymentDate(event.paymentDate) : "an earlier date"} · {payerName} → {recipientName}
+                        </Text>
+                      </>
+                    ) : (
+                      <Text className="text-xs text-muted" numberOfLines={1}>
+                        {group.name} · {formatRelativeTime(event.createdAt)}{group.deletedAt && event.eventType === "group_deleted" ? " · Tap to restore" : isUnavailableExpense && event.eventType !== "expense_deleted" ? " · Expense deleted" : ""}
+                      </Text>
+                    )}
                   </View>
-                  {isExpense && event.amountMinor !== null ? (
+                  {(isExpense || event.eventType === "payment_recorded") && event.amountMinor !== null ? (
                     <Text selectable className="text-base font-bold text-ink">
                       {formatMoney(event.amountMinor / 100, group.currency)}
                     </Text>
@@ -234,7 +250,7 @@ export default function ActivityScreen() {
           })}
         </View>
       ) : items && !error && !hasMore ? (
-        <EmptyState icon="flash-outline" title="No activity yet" message="Expenses and group changes will appear here." />
+        <EmptyState icon="flash-outline" title="No activity yet" message="Expenses, payments, and group changes will appear here." />
       ) : null}
 
       {pageError ? <Text selectable className="text-center text-sm text-coral">{pageError}</Text> : null}

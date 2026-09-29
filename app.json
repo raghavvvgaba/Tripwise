@@ -11,7 +11,9 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.tripwise.app",
-      "associatedDomains": ["applinks:tripwise.raghavgaba.me"],
+      "associatedDomains": [
+        "applinks:tripwise.raghavgaba.me"
+      ],
       "icon": {
         "light": "./assets/tripwise-icon-light.png",
         "dark": "./assets/tripwise-icon-dark.png"
@@ -24,9 +26,16 @@
           "action": "VIEW",
           "autoVerify": true,
           "data": [
-            { "scheme": "https", "host": "tripwise.raghavgaba.me", "pathPrefix": "/join/" }
+            {
+              "scheme": "https",
+              "host": "tripwise.raghavgaba.me",
+              "pathPrefix": "/join/"
+            }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ],
       "predictiveBackGestureEnabled": false,
@@ -43,7 +52,8 @@
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store"
+      "expo-secure-store",
+      "@react-native-community/datetimepicker"
     ]
   }
 }

@@ -4,10 +4,13 @@ export type GroupActivityEvent = {
   id: string;
   groupId: string;
   actorId: string;
-  eventType: "expense_added" | "expense_edited" | "expense_deleted" | "group_deleted" | "group_restored";
+  eventType: "expense_added" | "expense_edited" | "expense_deleted" | "payment_recorded" | "group_deleted" | "group_restored";
   expenseId: string | null;
   description: string | null;
   amountMinor: number | null;
+  paymentFromId: string | null;
+  paymentToId: string | null;
+  paymentDate: string | null;
   createdAt: string;
 };
 
@@ -19,6 +22,9 @@ type GroupActivityRow = {
   expense_id: string | null;
   description: string | null;
   amount_minor: number | null;
+  payment_from: string | null;
+  payment_to: string | null;
+  payment_date: string | null;
   created_at: string;
 };
 
@@ -26,7 +32,7 @@ export async function listGroupActivity(offset: number): Promise<{ events: Group
   const pageSize = 20;
   const { data, error, count } = await supabase
     .from("group_activity")
-    .select("id, group_id, actor_id, event_type, expense_id, description, amount_minor, created_at", { count: "exact" })
+    .select("id, group_id, actor_id, event_type, expense_id, description, amount_minor, payment_from, payment_to, payment_date, created_at", { count: "exact" })
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
     .range(offset, offset + pageSize - 1)
@@ -43,6 +49,9 @@ export async function listGroupActivity(offset: number): Promise<{ events: Group
       expenseId: row.expense_id,
       description: row.description,
       amountMinor: row.amount_minor,
+      paymentFromId: row.payment_from,
+      paymentToId: row.payment_to,
+      paymentDate: row.payment_date,
       createdAt: row.created_at,
     })),
     hasMore: count !== null && offset + rows.length < count,

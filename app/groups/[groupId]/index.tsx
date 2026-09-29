@@ -10,16 +10,18 @@ import { PrimaryButton } from "@/components/primary-button";
 import { useThemeColors } from "@/constants/theme";
 import { getGroupMembers, type GroupMember } from "@/lib/group-invites";
 import { listGroupExpenses } from "@/lib/expenses";
+import { listGroupPayments } from "@/lib/payments";
 import { useGroupsStore } from "@/store/use-groups-store";
 import { useSharedGroupsStore } from "@/store/use-shared-groups-store";
 import type { SharedGroup } from "@/types/shared-group";
 import type { SharedExpense } from "@/types/shared-expense";
+import type { SharedPayment } from "@/types/shared-payment";
 import type { Settlement } from "@/types/models";
 import { confirmAction, showError } from "@/utils/dialogs";
 import { getActiveExpenses, getGroupTotal, getMemberBalances, getSettlements } from "@/utils/balances";
 import { formatMoney } from "@/utils/money";
-import { formatExpenseDate } from "@/utils/date";
-import { getSharedMemberBalances } from "@/utils/shared-expenses";
+import { formatExpenseDate, formatPaymentDate, formatRelativeTime } from "@/utils/date";
+import { getSharedMemberBalances, getSharedSettlements, type SharedSettlement } from "@/utils/shared-expenses";
 
 type GroupView = "expenses" | "balances" | "settle";
 
@@ -345,7 +347,10 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
   const [expenses, setExpenses] = useState<SharedExpense[] | null>(null);
   const [isLoadingExpenses, setIsLoadingExpenses] = useState(false);
   const [expenseError, setExpenseError] = useState<string | null>(null);
-  const [sharedView, setSharedView] = useState<"expenses" | "balances">("expenses");
+  const [payments, setPayments] = useState<SharedPayment[] | null>(null);
+  const [isLoadingPayments, setIsLoadingPayments] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [sharedView, setSharedView] = useState<GroupView>("expenses");
 
   const refreshMembers = useCallback(async () => {
     setIsLoadingMembers(true);
@@ -374,15 +379,53 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
     }
   }, [group.id]);
 
+  const refreshPayments = useCallback(async () => {
+    setIsLoadingPayments(true);
+    try {
+      setPayments(await listGroupPayments(group.id));
+      setPaymentError(null);
+    } catch (error) {
+      setPayments(null);
+      setPaymentError(error instanceof Error ? error.message : "Could not load payments.");
+    } finally {
+      setIsLoadingPayments(false);
+    }
+  }, [group.id]);
+
   useFocusEffect(useCallback(() => {
     if (currentUserId) void loadGroups(currentUserId);
     void refreshMembers();
     void refreshExpenses();
-  }, [currentUserId, loadGroups, refreshMembers, refreshExpenses]));
+    void refreshPayments();
+  }, [currentUserId, loadGroups, refreshMembers, refreshExpenses, refreshPayments]));
 
-  const balances = members && expenses ? getSharedMemberBalances(members, expenses) : null;
+  const balances = members && expenses && payments ? getSharedMemberBalances(members, expenses, payments) : null;
+  const settlements = balances ? getSharedSettlements(balances) : null;
+  const yourSettlements = settlements?.filter((item) => item.from.userId === currentUserId || item.to.userId === currentUserId) ?? [];
+  const otherSettlements = settlements?.filter((item) => item.from.userId !== currentUserId && item.to.userId !== currentUserId) ?? [];
   const currentBalance = balances?.find((balance) => balance.member.userId === currentUserId);
   const totalMinor = expenses?.reduce((total, expense) => total + expense.amountMinor, 0);
+
+  function settlementCard(settlement: SharedSettlement) {
+    const fromName = settlement.from.userId === currentUserId ? "You" : settlement.from.name;
+    const toName = settlement.to.userId === currentUserId ? "you" : settlement.to.name;
+    return (
+      <View key={`${settlement.from.userId}-${settlement.to.userId}`} className="card gap-3 p-4">
+        <View className="flex-row items-center justify-between gap-3">
+          <Text className="flex-1 font-semibold text-ink">{fromName} pay{fromName === "You" ? "" : "s"} {toName}</Text>
+          <Text selectable className="font-bold text-ink">{formatMoney(settlement.amountMinor / 100, group.currency)}</Text>
+        </View>
+        <Link href={{ pathname: "/groups/[groupId]/record-payment", params: {
+          groupId: group.id,
+          payerId: settlement.from.userId,
+          recipientId: settlement.to.userId,
+          amountMinor: String(settlement.amountMinor),
+        } }} asChild>
+          <PrimaryButton label="Record payment" variant="secondary" />
+        </Link>
+      </View>
+    );
+  }
 
   return (
     <>
@@ -453,14 +496,14 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
         </Link>
 
         <View className="flex-row rounded-2xl bg-line p-1">
-          {(["expenses", "balances"] as const).map((option) => (
+          {views.map((option) => (
             <Pressable
-              key={option}
-              onPress={() => setSharedView(option)}
-              className={`min-h-11 flex-1 items-center justify-center rounded-xl ${sharedView === option ? "bg-surface" : ""}`}
+              key={option.id}
+              onPress={() => setSharedView(option.id)}
+              className={`min-h-11 flex-1 items-center justify-center rounded-xl ${sharedView === option.id ? "bg-surface" : ""}`}
             >
-              <Text className={`font-semibold ${sharedView === option ? "text-ink" : "text-muted"}`}>
-                {option === "expenses" ? "Expenses" : "Balances"}
+              <Text className={`font-semibold ${sharedView === option.id ? "text-ink" : "text-muted"}`}>
+                {option.label}
               </Text>
             </Pressable>
           ))}
@@ -515,11 +558,36 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
                 ))}
               </View>
             ) : null}
+            {paymentError ? <Text selectable className="px-1 text-sm text-coral">{paymentError}</Text> : null}
+            {payments && payments.length > 0 ? (
+              <View className="gap-3 pt-2">
+                <Text className="section-label px-1">Recorded payments</Text>
+                <View className="card px-4">
+                  {payments.map((payment, index) => (
+                    <View key={payment.id}>
+                      <View className="flex-row items-center gap-3 py-4">
+                        <View className="flex-1 gap-1">
+                          <Text className="font-semibold text-ink" numberOfLines={1}>
+                            {members?.find((member) => member.userId === payment.payerId)?.name ?? "A member"} paid {members?.find((member) => member.userId === payment.recipientId)?.name ?? "a member"}
+                          </Text>
+                          <Text className="text-xs text-muted">
+                            Paid on {formatPaymentDate(payment.paymentDate)} · Recorded by {payment.recordedById === currentUserId ? "you" : members?.find((member) => member.userId === payment.recordedById)?.name ?? "a member"} {formatRelativeTime(payment.createdAt)}
+                          </Text>
+                        </View>
+                        <Text selectable className="font-bold text-ink">{formatMoney(payment.amountMinor / 100, group.currency)}</Text>
+                      </View>
+                      {index < payments.length - 1 ? <View className="h-px bg-line" /> : null}
+                    </View>
+                  ))}
+                </View>
+              </View>
+            ) : null}
           </View>
-        ) : (
+        ) : sharedView === "balances" ? (
           <View className="gap-3">
             {expenseError ? <Text selectable className="px-1 text-sm text-coral">{expenseError}</Text> : null}
-            {balances === null && !memberError && !expenseError ? <ActivityIndicator /> : null}
+            {paymentError ? <Text selectable className="px-1 text-sm text-coral">{paymentError}</Text> : null}
+            {balances === null && !memberError && !expenseError && !paymentError ? <ActivityIndicator /> : null}
             {balances ? (
               <View className="card px-4">
                 {balances.map((balance, index) => (
@@ -530,7 +598,7 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
                           {balance.member.name}{balance.member.userId === currentUserId ? " (you)" : ""}
                         </Text>
                         <Text className="text-xs text-muted">
-                          Paid {formatMoney(balance.paidMinor / 100, group.currency)} · Share {formatMoney(balance.shareMinor / 100, group.currency)}
+                          Expenses paid {formatMoney(balance.paidMinor / 100, group.currency)} · Share {formatMoney(balance.shareMinor / 100, group.currency)}
                         </Text>
                       </View>
                       <Text selectable className={`font-bold ${balance.netMinor >= 0 ? "text-brand-700" : "text-coral"}`}>
@@ -541,6 +609,43 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
                   </View>
                 ))}
               </View>
+            ) : null}
+          </View>
+        ) : (
+          <View className="gap-5">
+            <View className="flex-row items-center justify-between px-1">
+              <Text className="section-label">Suggested payments</Text>
+              <Pressable accessibilityRole="button" disabled={isLoadingMembers || isLoadingExpenses || isLoadingPayments} onPress={() => {
+                void refreshMembers();
+                void refreshExpenses();
+                void refreshPayments();
+              }}>
+                <Text className="font-semibold text-brand-700">Refresh</Text>
+              </Pressable>
+            </View>
+            <Text className="px-1 text-sm text-muted">Pay outside the app, then record it here to update everyone’s balances.</Text>
+            {memberError ? <Text selectable className="px-1 text-sm text-coral">{memberError}</Text> : null}
+            {expenseError ? <Text selectable className="px-1 text-sm text-coral">{expenseError}</Text> : null}
+            {paymentError ? <Text selectable className="px-1 text-sm text-coral">{paymentError}</Text> : null}
+            {settlements === null && !memberError && !expenseError && !paymentError ? <ActivityIndicator /> : null}
+            {settlements && settlements.length === 0 ? (
+              <EmptyState icon="checkmark-circle-outline" title="All settled up" message="There are no payments to record right now." />
+            ) : null}
+            {settlements && settlements.length > 0 ? (
+              <>
+                <View className="gap-3">
+                  <Text className="section-label px-1">Your payments</Text>
+                  {yourSettlements.length > 0 ? yourSettlements.map(settlementCard) : (
+                    <Text className="px-1 text-sm text-muted">You’re settled up.</Text>
+                  )}
+                </View>
+                {otherSettlements.length > 0 ? (
+                  <View className="gap-3">
+                    <Text className="section-label px-1">Other group payments</Text>
+                    {otherSettlements.map(settlementCard)}
+                  </View>
+                ) : null}
+              </>
             ) : null}
           </View>
         )}

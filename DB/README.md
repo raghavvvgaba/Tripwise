@@ -10,6 +10,8 @@ For a fresh Supabase database, run these files in order in the SQL Editor:
 6. `05_group_deletion.sql`
 7. `06_expense_editing.sql`
 8. `07_expense_deletion.sql`
+9. `08_group_payments.sql`
+10. `09_payment_dates.sql`
 
 Each file is intended to run once. Future schema changes should get a new numbered file; do not edit an earlier file after it has been applied to a database.
 
@@ -30,5 +32,9 @@ Run `05_group_deletion.sql` after `04_group_expenses.sql`. It replaces personal 
 Run `06_expense_editing.sql` after `05_group_deletion.sql`. It adds edit attribution, an atomic member-only edit function, and expense edit events in Activity. Apply it before running an app build that edits shared expenses.
 
 Run `07_expense_deletion.sql` after `06_expense_editing.sql`. It adds permanent, member-only expense deletion. Expense shares are removed, earlier Activity entries remain as unlinked snapshots, and a deletion event is recorded for all group members. There is no expense restore action.
+
+Run `08_group_payments.sql` after `07_expense_deletion.sql`. It adds recorded group payments, a member-only payment function that checks current balances, and payment events in Activity. Payments remain in a deleted group and return when the group is restored. Apply it before running an app build with shared settlements.
+
+Run `09_payment_dates.sql` after `08_group_payments.sql`. It adds the date the payment happened, backfills existing payments with their UTC recording date, and validates new dates against the recorder's local day. Activity remains ordered by its `created_at` recording time.
 
 These files are currently applied manually through the SQL Editor; the numbers document their order but do not track which files a database has run.
