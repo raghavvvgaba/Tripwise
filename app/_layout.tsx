@@ -79,6 +79,7 @@ export default function RootLayout() {
           <Stack.Screen name="groups/deleted" options={{ title: "Deleted groups" }} />
           <Stack.Screen name="groups/[groupId]/index" options={{ title: "Group" }} />
           <Stack.Screen name="groups/[groupId]/settings" options={{ title: "Group settings" }} />
+          <Stack.Screen name="groups/[groupId]/members" options={{ title: "Members", headerShown: false }} />
           <Stack.Screen name="groups/[groupId]/add-expense" options={{ title: "Add expense", presentation: Platform.OS === "web" ? "transparentModal" : "modal", headerShown: Platform.OS !== "web", animation: Platform.OS === "web" ? "none" : undefined }} />
           <Stack.Screen name="groups/[groupId]/record-payment" options={{ title: "Record payment", presentation: Platform.OS === "web" ? "transparentModal" : "modal", headerShown: Platform.OS !== "web", animation: Platform.OS === "web" ? "none" : undefined }} />
           <Stack.Screen name="expenses/[expenseId]" options={{ title: "Expense" }} />

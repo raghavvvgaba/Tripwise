@@ -22,11 +22,11 @@
   }
 
   .card {
-    @apply rounded-3xl border border-line bg-surface;
+    @apply rounded-xl border border-line bg-surface;
   }
 
   .field {
-    @apply min-h-14 rounded-2xl border border-line bg-surface px-4 text-base text-ink;
+    @apply min-h-14 rounded-xl border border-line bg-surface px-4 text-base text-ink;
   }
 
   .section-label {

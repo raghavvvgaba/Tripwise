@@ -5,7 +5,7 @@ import { Image, View } from "react-native";
 import { getGroupCoverUrl } from "@/lib/group-covers";
 import type { SharedGroup } from "@/types/shared-group";
 
-export function GroupCover({ group, compact = false }: { group: SharedGroup; compact?: boolean }) {
+export function GroupCover({ group, compact = false, hero = false }: { group: SharedGroup; compact?: boolean; hero?: boolean }) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const path = compact ? group.coverThumbnailPath ?? group.coverPath : group.coverPath;
 
@@ -28,8 +28,14 @@ export function GroupCover({ group, compact = false }: { group: SharedGroup; com
     };
   }, [path]);
 
+  const sizeClass = hero
+    ? "absolute inset-0 h-full w-full"
+    : compact
+      ? "h-28 w-24 shrink-0 rounded-2xl"
+      : "h-48 w-full rounded-3xl";
+
   return (
-    <View className={`${compact ? "h-28 w-24 shrink-0 rounded-2xl" : "h-48 w-full rounded-3xl"} items-center justify-center overflow-hidden bg-[#FB6B21]`}>
+    <View className={`${sizeClass} items-center justify-center overflow-hidden bg-[#FB6B21]`}>
       <View className={`absolute -top-10 rotate-[28deg] bg-[#FFB292] ${compact ? "-left-12 h-24 w-40" : "-left-12 h-44 w-[120%]"}`} />
       <View className={`absolute -bottom-12 -left-12 -rotate-[28deg] bg-[#FF9B72] ${compact ? "h-20 w-40" : "h-36 w-[80%]"}`} />
       <Ionicons name="airplane-outline" size={compact ? 43 : 68} color="#FFFFFF" />

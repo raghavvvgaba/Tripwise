@@ -38,7 +38,7 @@ export function PrimaryButton({
     <Pressable
       accessibilityRole="button"
       disabled={isDisabled}
-      className={`min-h-14 flex-row items-center justify-center rounded-2xl px-5 ${icon ? "gap-2" : ""} ${containerClasses[variant]} ${isDisabled ? "opacity-50" : ""} ${className}`}
+      className={`min-h-14 flex-row items-center justify-center rounded-xl px-5 ${icon ? "gap-2" : ""} ${containerClasses[variant]} ${isDisabled ? "opacity-50" : ""} ${className}`}
       {...props}
     >
       {loading ? (

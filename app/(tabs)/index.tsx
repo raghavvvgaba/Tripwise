@@ -33,7 +33,7 @@ export default function GroupsScreen() {
         <Text className="text-sm text-muted">A clear view of every shared expense.</Text>
       </View>
 
-      <View className="overflow-hidden rounded-3xl bg-[#17201B] p-6 lg:p-8">
+      <View className="overflow-hidden rounded-xl bg-[#1A1A1A] p-6 lg:p-8">
         <View className="absolute -right-8 -top-10 h-32 w-32 rounded-full bg-brand-600 opacity-50" />
         <View className="absolute -bottom-20 right-28 h-36 w-36 rounded-full border border-white/10" />
         <View className="gap-2">

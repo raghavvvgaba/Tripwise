@@ -21,7 +21,8 @@ module.exports = {
           600: "rgb(var(--color-brand-600) / <alpha-value>)",
           700: "rgb(var(--color-brand-700) / <alpha-value>)"
         },
-        coral: "rgb(var(--color-coral) / <alpha-value>)"
+        coral: "rgb(var(--color-coral) / <alpha-value>)",
+        positive: "rgb(var(--color-positive) / <alpha-value>)"
       }
     }
   },
