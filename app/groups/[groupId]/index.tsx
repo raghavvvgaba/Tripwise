@@ -2,8 +2,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useClayTheme } from "@/constants/clay-theme";
 import { getGroupMembers, type GroupMember } from "@/lib/group-invites";
 import { listGroupExpenses } from "@/lib/expenses";
 import { deleteGroupPayment, listGroupPayments } from "@/lib/payments";
@@ -39,11 +40,13 @@ function MemberAvatar({
   index = 0,
   size = 36,
   ringColor,
+  bg,
 }: {
   name: string;
   index?: number;
   size?: number;
   ringColor?: string;
+  bg?: string;
 }) {
   const color = ringColor ?? AVATAR_RING_COLORS[index % AVATAR_RING_COLORS.length];
   const initial = (name.trim()[0] || "?").toUpperCase();
@@ -55,8 +58,9 @@ function MemberAvatar({
         borderRadius: size / 2,
         borderColor: color,
         borderWidth: 2,
+        backgroundColor: bg ?? "#2C274B",
       }}
-      className="items-center justify-center bg-[#2C274B]"
+      className="items-center justify-center"
     >
       <Text className="text-xs font-black text-white">{initial}</Text>
     </View>
@@ -64,7 +68,7 @@ function MemberAvatar({
 }
 
 /** Avatar stack for the ticket card */
-function AvatarStack({ members }: { members: GroupMember[] }) {
+function AvatarStack({ members, canvasBg }: { members: GroupMember[]; canvasBg: string }) {
   const visibleMembers = members.slice(0, 5);
   const extraCount = members.length - visibleMembers.length;
 
@@ -77,8 +81,13 @@ function AvatarStack({ members }: { members: GroupMember[] }) {
       ))}
       {extraCount > 0 ? (
         <View
-          style={{ marginLeft: -10, zIndex: 5 }}
-          className="h-[30px] w-[30px] items-center justify-center rounded-full border-2 border-[#F5D298] bg-[#181528]"
+          style={{
+            marginLeft: -10,
+            zIndex: 5,
+            borderColor: "#F5D298",
+            backgroundColor: canvasBg,
+          }}
+          className="h-[30px] w-[30px] items-center justify-center rounded-full border-2"
         >
           <Text className="text-[10px] font-black text-white">+{extraCount}</Text>
         </View>
@@ -116,18 +125,30 @@ function ClayEmptyState({
   title: string;
   message: string;
 }) {
+  const clay = useClayTheme();
   return (
-    <View className="items-center gap-2.5 rounded-3xl border border-white/10 bg-[#262243] px-8 py-10">
-      <View className="h-16 w-16 items-center justify-center rounded-2xl border border-white/10 bg-[#322C54]">
+    <View
+      style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+      className="items-center gap-2.5 rounded-3xl border px-8 py-10 shadow-sm"
+    >
+      <View
+        style={{ backgroundColor: clay.squircle, borderColor: clay.cardBorder }}
+        className="h-16 w-16 items-center justify-center rounded-2xl border"
+      >
         <Ionicons name={icon} size={28} color="#F5D298" />
       </View>
-      <Text className="text-center text-lg font-bold text-white">{title}</Text>
-      <Text className="text-center text-sm leading-5 text-[#A59ECB]">{message}</Text>
+      <Text style={{ color: clay.textPrimary }} className="text-center text-lg font-bold">
+        {title}
+      </Text>
+      <Text style={{ color: clay.textMuted }} className="text-center text-sm leading-5">
+        {message}
+      </Text>
     </View>
   );
 }
 
 export default function GroupDetailsScreen() {
+  const clay = useClayTheme();
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
   const group = useSharedGroupsStore((state) => state.groups.find((item) => item.id === groupId));
   const isLoading = useSharedGroupsStore((state) => state.isLoading);
@@ -140,7 +161,7 @@ export default function GroupDetailsScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#181528" }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: clay.canvas }}>
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator color="#F5D298" size="large" />
         </View>
@@ -149,7 +170,7 @@ export default function GroupDetailsScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#181528" }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: clay.canvas }}>
       <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerClassName="px-5 py-8">
         <ClayEmptyState icon="search-outline" title="Group not found" message="This group may have been removed." />
       </ScrollView>
@@ -160,6 +181,8 @@ export default function GroupDetailsScreen() {
 // ─── Main Group View ────────────────────────────────────────────────────────
 
 function SharedGroupDetails({ group }: { group: SharedGroup }) {
+  const insets = useSafeAreaInsets();
+  const clay = useClayTheme();
   const currentUserId = useSharedGroupsStore((state) => state.userId);
   const loadGroups = useSharedGroupsStore((state) => state.loadGroups);
   const [members, setMembers] = useState<GroupMember[] | null>(null);
@@ -256,18 +279,18 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
 
   // ── Balance summary logic ──
   let balanceAmountText = "—";
-  let balanceColor = "#FFFFFF";
+  let balanceColor: string = clay.textPrimary;
 
   if (currentBalance) {
     if (currentBalance.netMinor > 0) {
       balanceAmountText = `+${formatMoney(currentBalance.netMinor / 100, group.currency)}`;
-      balanceColor = "#4ADE80";
+      balanceColor = clay.badgePositiveText;
     } else if (currentBalance.netMinor < 0) {
       balanceAmountText = `-${formatMoney(-currentBalance.netMinor / 100, group.currency)}`;
-      balanceColor = "#FB7185";
+      balanceColor = clay.badgeNegativeText;
     } else {
       balanceAmountText = formatMoney(0, group.currency);
-      balanceColor = "#FFFFFF";
+      balanceColor = clay.textPrimary;
     }
   }
 
@@ -279,17 +302,21 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
     return (
       <View
         key={`${settlement.from.userId}-${settlement.to.userId}`}
-        className="gap-3.5 rounded-3xl border border-white/10 bg-[#262243] p-4"
+        style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+        className="gap-3.5 rounded-3xl border p-4 shadow-sm"
       >
         <View className="flex-row items-center gap-3">
-          <View className="h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-[#322C54]">
-            <Ionicons name="swap-horizontal" size={20} color="#F5D298" />
+          <View
+            style={{ backgroundColor: clay.squircle, borderColor: clay.cardBorder }}
+            className="h-11 w-11 items-center justify-center rounded-2xl border"
+          >
+            <Ionicons name="swap-horizontal" size={20} color={clay.isDark ? "#F5D298" : "#9A6B1C"} />
           </View>
           <View className="flex-1 gap-0.5">
-            <Text className="text-sm font-bold text-white">
+            <Text style={{ color: clay.textPrimary }} className="text-sm font-bold">
               {fromName} pay{fromName === "You" ? "" : "s"} {toName}
             </Text>
-            <Text selectable className="text-base font-extrabold text-[#F5D298]">
+            <Text selectable style={{ color: clay.isDark ? "#F5D298" : "#9A6B1C" }} className="text-base font-extrabold">
               {formatMoney(settlement.amountMinor / 100, group.currency)}
             </Text>
           </View>
@@ -308,8 +335,8 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
             })}
             className="min-h-12 flex-row items-center justify-center gap-2 rounded-2xl bg-[#F5D298] px-4 active:opacity-75"
           >
-            <Ionicons name="card-outline" size={18} color="#181528" />
-            <Text className="text-sm font-extrabold text-[#181528]">Record payment</Text>
+            <Ionicons name="card-outline" size={18} color={clay.heroText} />
+            <Text style={{ color: clay.heroText }} className="text-sm font-extrabold">Record payment</Text>
           </Pressable>
         ) : null}
       </View>
@@ -317,7 +344,7 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#181528" }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: clay.canvas }}>
       <Stack.Screen options={{ headerShown: false }} />
 
       {/* ── Top Bar Header (Sajon Tactile Header) ── */}
@@ -326,14 +353,17 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
           accessibilityRole="button"
           accessibilityLabel="Go back"
           onPress={() => router.back()}
-          className="h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-[#262243] active:opacity-75"
+          style={{ backgroundColor: clay.headerBtn, borderColor: clay.headerBtnBorder }}
+          className="h-11 w-11 items-center justify-center rounded-2xl border active:opacity-75"
         >
-          <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+          <Ionicons name="chevron-back" size={20} color={clay.textPrimary} />
         </Pressable>
 
         <View className="items-center">
-          <Text className="text-[11px] font-bold uppercase tracking-widest text-[#A59ECB]">Bill Splitter</Text>
-          <Text className="max-w-[200px] text-base font-extrabold text-white" numberOfLines={1}>
+          <Text style={{ color: clay.textMuted }} className="text-[11px] font-bold uppercase tracking-widest">
+            Bill Splitter
+          </Text>
+          <Text style={{ color: clay.textPrimary }} className="max-w-[200px] text-base font-extrabold" numberOfLines={1}>
             {group.name}
           </Text>
         </View>
@@ -342,25 +372,30 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
           accessibilityRole="button"
           accessibilityLabel="Group settings"
           onPress={() => router.push(`/groups/${group.id}/settings`)}
-          className="h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-[#262243] active:opacity-75"
+          style={{ backgroundColor: clay.headerBtn, borderColor: clay.headerBtnBorder }}
+          className="h-11 w-11 items-center justify-center rounded-2xl border active:opacity-75"
         >
-          <Ionicons name="settings-outline" size={20} color="#FFFFFF" />
+          <Ionicons name="settings-outline" size={20} color={clay.textPrimary} />
         </Pressable>
       </View>
 
       <ScrollView
         contentInsetAdjustmentBehavior="never"
-        contentContainerClassName="w-full max-w-4xl self-center px-5 pb-28 gap-5"
+        contentContainerClassName="w-full max-w-4xl self-center px-5 gap-5"
+        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) + 84 }}
         showsVerticalScrollIndicator={false}
       >
         {/* ── Centerpiece: Sajon's Physical "Receipt Ticket" Card ── */}
-        <View className="relative overflow-hidden rounded-3xl border border-[#FDE3B8] bg-[#F5D298] p-5">
+        <View
+          style={{ borderColor: clay.heroBorder }}
+          className="relative overflow-hidden rounded-3xl border bg-[#F5D298] p-5 shadow-sm"
+        >
           {/* Top Receipt Badge & Currency */}
           <View className="flex-row items-center justify-between">
-            <View className="rounded-full bg-[#181528] px-3.5 py-1">
+            <View style={{ backgroundColor: clay.heroTagBg }} className="rounded-full px-3.5 py-1">
               <Text className="text-[11px] font-black tracking-widest text-[#F5D298]">RECEIPT</Text>
             </View>
-            <View className="rounded-full bg-[#181528]/10 px-3 py-1">
+            <View style={{ backgroundColor: `${clay.heroTagBg}1A` }} className="rounded-full px-3 py-1">
               <Text className="text-xs font-bold text-[#4B4031]">{group.currency}</Text>
             </View>
           </View>
@@ -368,30 +403,44 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
           {/* Group Name & Total Bill */}
           <View className="mt-4 flex-row items-baseline justify-between">
             <View className="flex-1 pr-3">
-              <Text className="text-xs font-bold uppercase tracking-wider text-[#6F614C]">Title</Text>
-              <Text className="mt-0.5 text-xl font-black text-[#181528]" numberOfLines={1}>
+              <Text style={{ color: clay.heroLabel }} className="text-xs font-bold uppercase tracking-wider">Title</Text>
+              <Text style={{ color: clay.heroText }} className="mt-0.5 text-xl font-black" numberOfLines={1}>
                 {group.name}
               </Text>
             </View>
             <View className="items-end">
-              <Text className="text-xs font-bold uppercase tracking-wider text-[#6F614C]">Total Bill</Text>
-              <Text selectable className="mt-0.5 text-2xl font-black text-[#181528]">
+              <Text style={{ color: clay.heroLabel }} className="text-xs font-bold uppercase tracking-wider">Total Bill</Text>
+              <Text selectable style={{ color: clay.heroText }} className="mt-0.5 text-2xl font-black">
                 {formatMoney(totalMinor / 100, group.currency)}
               </Text>
             </View>
           </View>
 
           {/* ── Perforated Tear Line with Semicircular Cutout Notches ── */}
-          <View className="my-4 border-b border-dashed border-[#181528]/25" />
+          <View style={{ borderBottomColor: clay.heroDashed }} className="my-4 border-b border-dashed" />
           {/* Left Cutout Punch Hole */}
           <View
-            style={{ position: "absolute", left: -14, top: "52%", width: 28, height: 28, borderRadius: 14 }}
-            className="bg-[#181528]"
+            style={{
+              position: "absolute",
+              left: -14,
+              top: "52%",
+              width: 28,
+              height: 28,
+              borderRadius: 14,
+              backgroundColor: clay.canvas,
+            }}
           />
           {/* Right Cutout Punch Hole */}
           <View
-            style={{ position: "absolute", right: -14, top: "52%", width: 28, height: 28, borderRadius: 14 }}
-            className="bg-[#181528]"
+            style={{
+              position: "absolute",
+              right: -14,
+              top: "52%",
+              width: 28,
+              height: 28,
+              borderRadius: 14,
+              backgroundColor: clay.canvas,
+            }}
           />
 
           {/* Bottom Split Info & Quick Action */}
@@ -407,7 +456,7 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
                 <Ionicons name="chevron-forward" size={11} color="#6F614C" />
               </View>
               {members && members.length > 0 ? (
-                <AvatarStack members={members} />
+                <AvatarStack members={members} canvasBg={clay.canvas} />
               ) : (
                 <Text className="text-xs text-[#6F614C]">1 member</Text>
               )}
@@ -417,7 +466,8 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
               accessibilityRole="button"
               accessibilityLabel="Invite members"
               onPress={() => router.push(`/groups/${group.id}/invite`)}
-              className="flex-row items-center gap-1.5 rounded-full bg-[#181528] px-3.5 py-2 active:opacity-75"
+              style={{ backgroundColor: clay.heroTagBg }}
+              className="flex-row items-center gap-1.5 rounded-full px-3.5 py-2 active:opacity-75"
             >
               <Ionicons name="person-add-outline" size={14} color="#F5D298" />
               <Text className="text-xs font-extrabold text-white">Invite</Text>
@@ -428,8 +478,13 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
         {/* ── Summary Stats: 3 Tactile Clay Cards ── */}
         <View className="flex-row gap-2.5">
           {/* Your Balance */}
-          <View className="flex-1 items-center justify-center rounded-3xl border border-white/10 bg-[#262243] p-3">
-            <Text className="text-[10px] font-bold uppercase tracking-wider text-[#A59ECB]">Your Balance</Text>
+          <View
+            style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+            className="flex-1 items-center justify-center rounded-3xl border p-3 shadow-sm"
+          >
+            <Text style={{ color: clay.textMuted }} className="text-[10px] font-bold uppercase tracking-wider">
+              Your Balance
+            </Text>
             <Text
               selectable
               className="mt-1 text-sm font-black"
@@ -439,28 +494,41 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
               {balanceAmountText}
             </Text>
             {currentBalance && currentBalance.netMinor > 0 ? (
-              <View className="mt-1.5 rounded-full bg-[#183B2B] px-2 py-0.5">
-                <Text className="text-[9px] font-bold text-[#4ADE80]">You are owed</Text>
+              <View style={{ backgroundColor: clay.badgePositiveBg }} className="mt-1.5 rounded-full px-2 py-0.5">
+                <Text style={{ color: clay.badgePositiveText }} className="text-[9px] font-bold">
+                  You are owed
+                </Text>
               </View>
             ) : currentBalance && currentBalance.netMinor < 0 ? (
-              <View className="mt-1.5 rounded-full bg-[#451C28] px-2 py-0.5">
-                <Text className="text-[9px] font-bold text-[#FB7185]">You owe</Text>
+              <View style={{ backgroundColor: clay.badgeNegativeBg }} className="mt-1.5 rounded-full px-2 py-0.5">
+                <Text style={{ color: clay.badgeNegativeText }} className="text-[9px] font-bold">
+                  You owe
+                </Text>
               </View>
             ) : (
-              <View className="mt-1.5 rounded-full bg-white/10 px-2 py-0.5">
-                <Text className="text-[9px] font-bold text-[#A59ECB]">Settled</Text>
+              <View style={{ backgroundColor: clay.badgeNeutralBg }} className="mt-1.5 rounded-full px-2 py-0.5">
+                <Text style={{ color: clay.badgeNeutralText }} className="text-[9px] font-bold">
+                  Settled
+                </Text>
               </View>
             )}
           </View>
 
           {/* Total Expenses */}
-          <View className="flex-1 items-center justify-center rounded-3xl border border-white/10 bg-[#262243] p-3">
-            <Text className="text-[10px] font-bold uppercase tracking-wider text-[#A59ECB]">Expenses</Text>
-            <Text selectable className="mt-1 text-base font-black text-white">
+          <View
+            style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+            className="flex-1 items-center justify-center rounded-3xl border p-3 shadow-sm"
+          >
+            <Text style={{ color: clay.textMuted }} className="text-[10px] font-bold uppercase tracking-wider">
+              Expenses
+            </Text>
+            <Text selectable style={{ color: clay.textPrimary }} className="mt-1 text-base font-black">
               {expenseCount}
             </Text>
-            <View className="mt-1.5 rounded-full bg-white/10 px-2 py-0.5">
-              <Text className="text-[9px] font-bold text-[#D0CCE8]">recorded</Text>
+            <View style={{ backgroundColor: clay.badgeNeutralBg }} className="mt-1.5 rounded-full px-2 py-0.5">
+              <Text style={{ color: clay.textMuted }} className="text-[9px] font-bold">
+                recorded
+              </Text>
             </View>
           </View>
 
@@ -469,39 +537,42 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
             accessibilityRole="button"
             accessibilityLabel="View all members"
             onPress={() => router.push(`/groups/${group.id}/members`)}
-            className="flex-1 items-center justify-center rounded-3xl border border-white/10 bg-[#262243] p-3 active:opacity-75"
+            style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+            className="flex-1 items-center justify-center rounded-3xl border p-3 shadow-sm active:opacity-75"
           >
-            <Text className="text-[10px] font-bold uppercase tracking-wider text-[#A59ECB]">Members</Text>
-            <Text selectable className="mt-1 text-base font-black text-white">
+            <Text style={{ color: clay.textMuted }} className="text-[10px] font-bold uppercase tracking-wider">
+              Members
+            </Text>
+            <Text selectable style={{ color: clay.textPrimary }} className="mt-1 text-base font-black">
               {members ? members.length : "…"}
             </Text>
-            <View className="mt-1.5 rounded-full bg-white/10 px-2 py-0.5">
-              <Text className="text-[9px] font-bold text-[#D0CCE8]">joined</Text>
+            <View style={{ backgroundColor: clay.badgeNeutralBg }} className="mt-1.5 rounded-full px-2 py-0.5">
+              <Text style={{ color: clay.textMuted }} className="text-[9px] font-bold">
+                joined
+              </Text>
             </View>
           </Pressable>
         </View>
 
         {/* ── Segmented Control Pill Bar ── */}
-        <View className="flex-row rounded-full border border-white/5 bg-[#131020] p-1.5">
+        <View style={{ backgroundColor: clay.track }} className="flex-row rounded-full p-1.5 shadow-inner">
           {views.map((option) => {
             const isActive = sharedView === option.id;
             return (
               <Pressable
                 key={option.id}
                 onPress={() => setSharedView(option.id)}
-                className={`min-h-11 flex-1 flex-row items-center justify-center gap-1.5 rounded-full ${
-                  isActive ? "bg-[#F5D298]" : "bg-transparent"
-                } active:opacity-75`}
+                style={{ backgroundColor: isActive ? clay.activeTabBg : "transparent" }}
+                className="min-h-11 flex-1 flex-row items-center justify-center gap-1.5 rounded-full active:opacity-75"
               >
                 <Ionicons
                   name={option.icon}
                   size={15}
-                  color={isActive ? "#181528" : "#A59ECB"}
+                  color={isActive ? clay.activeTabText : clay.textMuted}
                 />
                 <Text
-                  className={`text-xs font-extrabold ${
-                    isActive ? "text-[#181528]" : "text-[#A59ECB]"
-                  }`}
+                  style={{ color: isActive ? clay.activeTabText : clay.textMuted }}
+                  className="text-xs font-extrabold"
                 >
                   {option.label}
                 </Text>
@@ -557,14 +628,19 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
 
       {/* ── Centered Floating Action Button ── */}
       {sharedView === "expenses" ? (
-        <View pointerEvents="box-none" className="absolute bottom-6 left-0 right-0 z-20 items-center justify-center">
+        <View
+          pointerEvents="box-none"
+          style={{ bottom: Math.max(insets.bottom, 16) + 16 }}
+          className="absolute left-0 right-0 z-20 items-center justify-center"
+        >
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Add new expense"
             onPress={() => router.push(`/groups/${group.id}/add-expense`)}
+            style={{ elevation: 6 }}
             className="h-14 w-14 items-center justify-center rounded-full bg-[#F5D298] shadow-xl active:opacity-75"
           >
-            <Ionicons name="add" size={30} color="#181528" />
+            <Ionicons name="add" size={30} color={clay.heroText} />
           </Pressable>
         </View>
       ) : null}
@@ -599,6 +675,8 @@ function ExpensesTab({
   onRefreshExpenses: () => void;
   onRemovePayment: (payment: SharedPayment) => void;
 }) {
+  const clay = useClayTheme();
+
   return (
     <View className="gap-4">
       {/* Loading / Error States */}
@@ -607,8 +685,13 @@ function ExpensesTab({
       ) : null}
 
       {expenseError ? (
-        <View className="gap-2 rounded-3xl border border-red-500/20 bg-[#262243] p-4">
-          <Text selectable className="text-sm font-semibold text-[#FB7185]">{expenseError}</Text>
+        <View
+          style={{ backgroundColor: clay.card, borderColor: clay.errorCardBorder }}
+          className="gap-2 rounded-3xl border p-4 shadow-sm"
+        >
+          <Text selectable style={{ color: clay.errorText }} className="text-sm font-semibold">
+            {expenseError}
+          </Text>
           <Pressable onPress={() => void onRefreshExpenses()} className="self-start">
             <Text className="text-sm font-bold text-[#F5D298]">Retry</Text>
           </Pressable>
@@ -636,45 +719,51 @@ function ExpensesTab({
                 key={expense.id}
                 accessibilityRole="button"
                 onPress={() => router.push({ pathname: "/expenses/[expenseId]", params: { expenseId: expense.id, groupId: group.id } })}
-                className="flex-row items-center gap-3.5 rounded-3xl border border-white/10 bg-[#262243] p-4 active:opacity-75"
+                style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+                className="flex-row items-center gap-3.5 rounded-3xl border p-4 shadow-sm active:opacity-75"
               >
                 {/* Category squircle */}
-                <View className="h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-[#322C54]">
-                  <Ionicons name="receipt-outline" size={22} color="#F5D298" />
+                <View
+                  style={{ backgroundColor: clay.squircle, borderColor: clay.cardBorder }}
+                  className="h-12 w-12 items-center justify-center rounded-2xl border"
+                >
+                  <Ionicons name="receipt-outline" size={22} color={clay.isDark ? "#F5D298" : "#9A6B1C"} />
                 </View>
 
                 {/* Title & Payer info */}
                 <View className="flex-1 gap-1">
                   <View className="flex-row items-center gap-2">
-                    <Text className="text-base font-bold text-white" numberOfLines={1}>
+                    <Text style={{ color: clay.textPrimary }} className="text-base font-bold" numberOfLines={1}>
                       {expense.description}
                     </Text>
                     {expense.updatedAt ? (
-                      <View className="rounded bg-[#4A4380] px-1.5 py-0.5">
-                        <Text className="text-[10px] font-bold text-[#D0CCE8]">Edited</Text>
+                      <View style={{ backgroundColor: clay.badgeNeutralBg }} className="rounded px-1.5 py-0.5">
+                        <Text style={{ color: clay.textMuted }} className="text-[10px] font-bold">Edited</Text>
                       </View>
                     ) : null}
                   </View>
-                  <Text className="text-xs text-[#A59ECB]" numberOfLines={1}>
+                  <Text style={{ color: clay.textMuted }} className="text-xs" numberOfLines={1}>
                     {payerName} paid · {formatExpenseDate(`${expense.expenseDate}T00:00:00`)}
                   </Text>
                 </View>
 
                 {/* Amount & User share badge */}
                 <View className="items-end gap-1">
-                  <Text selectable className="text-base font-black text-white">
+                  <Text selectable style={{ color: clay.textPrimary }} className="text-base font-black">
                     {formatMoney(expense.amountMinor / 100, group.currency)}
                   </Text>
                   {context ? (
                     <View
-                      className={`rounded-full px-2 py-0.5 ${
-                        context.isPositive ? "bg-[#183B2B]" : "bg-[#451C28]"
-                      }`}
+                      style={{
+                        backgroundColor: context.isPositive ? clay.badgePositiveBg : clay.badgeNegativeBg,
+                      }}
+                      className="rounded-full px-2 py-0.5"
                     >
                       <Text
-                        className={`text-[10px] font-extrabold ${
-                          context.isPositive ? "text-[#4ADE80]" : "text-[#FB7185]"
-                        }`}
+                        style={{
+                          color: context.isPositive ? clay.badgePositiveText : clay.badgeNegativeText,
+                        }}
+                        className="text-[10px] font-extrabold"
                       >
                         {context.label}
                       </Text>
@@ -688,25 +777,38 @@ function ExpensesTab({
       ) : null}
 
       {/* Recorded Payments Section */}
-      {paymentError ? <Text selectable className="px-1 text-sm font-semibold text-[#FB7185]">{paymentError}</Text> : null}
+      {paymentError ? (
+        <Text selectable style={{ color: clay.errorText }} className="px-1 text-sm font-semibold">
+          {paymentError}
+        </Text>
+      ) : null}
       {payments && payments.length > 0 ? (
         <View className="gap-3 pt-3">
-          <Text className="px-1 text-xs font-bold uppercase tracking-wider text-[#A59ECB]">Recorded payments</Text>
+          <Text style={{ color: clay.textMuted }} className="px-1 text-xs font-bold uppercase tracking-wider">
+            Recorded payments
+          </Text>
           {payments.map((payment) => (
-            <View key={payment.id} className="gap-3 rounded-3xl border border-white/10 bg-[#262243] p-4">
+            <View
+              key={payment.id}
+              style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+              className="gap-3 rounded-3xl border p-4 shadow-sm"
+            >
               <View className="flex-row items-center gap-3">
-                <View className="h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-[#1A3F30]">
-                  <Ionicons name="checkmark-circle" size={22} color="#4ADE80" />
+                <View
+                  style={{ backgroundColor: clay.isDark ? "#1A3F30" : "#DCFCE7" }}
+                  className="h-11 w-11 items-center justify-center rounded-2xl"
+                >
+                  <Ionicons name="checkmark-circle" size={22} color={clay.isDark ? "#4ADE80" : "#15803D"} />
                 </View>
                 <View className="flex-1 gap-0.5">
-                  <Text className="text-sm font-bold text-white" numberOfLines={1}>
+                  <Text style={{ color: clay.textPrimary }} className="text-sm font-bold" numberOfLines={1}>
                     {members?.find((m) => m.userId === payment.payerId)?.name ?? "A member"} → {members?.find((m) => m.userId === payment.recipientId)?.name ?? "a member"}
                   </Text>
-                  <Text className="text-xs text-[#A59ECB]" numberOfLines={2}>
+                  <Text style={{ color: clay.textMuted }} className="text-xs" numberOfLines={2}>
                     {formatPaymentDate(payment.paymentDate)} · Recorded {formatRelativeTime(payment.createdAt)}
                   </Text>
                 </View>
-                <Text selectable className="text-base font-black text-white">
+                <Text selectable style={{ color: clay.textPrimary }} className="text-base font-black">
                   {formatMoney(payment.amountMinor / 100, group.currency)}
                 </Text>
               </View>
@@ -722,9 +824,16 @@ function ExpensesTab({
                     "Delete payment",
                     () => void onRemovePayment(payment),
                   )}
-                  className="min-h-10 items-center justify-center rounded-2xl border border-red-500/20 bg-red-500/10 active:opacity-75"
+                  style={{
+                    backgroundColor: clay.isDark ? "rgba(239, 68, 68, 0.1)" : "#FEE2E2",
+                    borderColor: clay.isDark ? "rgba(239, 68, 68, 0.2)" : "#FECACA",
+                  }}
+                  className="min-h-10 items-center justify-center rounded-2xl border active:opacity-75"
                 >
-                  <Text className="text-xs font-extrabold text-[#FB7185]">
+                  <Text
+                    style={{ color: clay.isDark ? "#FB7185" : "#DC2626" }}
+                    className="text-xs font-extrabold"
+                  >
                     {deletingPaymentId === payment.id ? "Deleting…" : "Delete payment"}
                   </Text>
                 </Pressable>
@@ -754,11 +863,25 @@ function BalancesTab({
   expenseError: string | null;
   paymentError: string | null;
 }) {
+  const clay = useClayTheme();
+
   return (
     <View className="gap-3">
-      {memberError ? <Text selectable className="px-1 text-sm font-semibold text-[#FB7185]">{memberError}</Text> : null}
-      {expenseError ? <Text selectable className="px-1 text-sm font-semibold text-[#FB7185]">{expenseError}</Text> : null}
-      {paymentError ? <Text selectable className="px-1 text-sm font-semibold text-[#FB7185]">{paymentError}</Text> : null}
+      {memberError ? (
+        <Text selectable style={{ color: clay.errorText }} className="px-1 text-sm font-semibold">
+          {memberError}
+        </Text>
+      ) : null}
+      {expenseError ? (
+        <Text selectable style={{ color: clay.errorText }} className="px-1 text-sm font-semibold">
+          {expenseError}
+        </Text>
+      ) : null}
+      {paymentError ? (
+        <Text selectable style={{ color: clay.errorText }} className="px-1 text-sm font-semibold">
+          {paymentError}
+        </Text>
+      ) : null}
       {balances === null && !memberError && !expenseError && !paymentError ? (
         <ActivityIndicator color="#F5D298" className="py-6" />
       ) : null}
@@ -772,23 +895,32 @@ function BalancesTab({
             return (
               <View
                 key={balance.member.userId}
-                className="flex-row items-center gap-3.5 rounded-3xl border border-white/10 bg-[#262243] p-4"
+                style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+                className="flex-row items-center gap-3.5 rounded-3xl border p-4 shadow-sm"
               >
-                <MemberAvatar name={balance.member.name} index={index} size={42} />
+                <MemberAvatar name={balance.member.name} index={index} size={42} bg={clay.avatarBg} />
 
                 <View className="flex-1 gap-1">
-                  <Text className="text-sm font-bold text-white">
+                  <Text style={{ color: clay.textPrimary }} className="text-sm font-bold">
                     {balance.member.name}{isYou ? " (you)" : ""}
                   </Text>
-                  <Text className="text-xs text-[#A59ECB]">
+                  <Text style={{ color: clay.textMuted }} className="text-xs">
                     Paid {formatMoney(balance.paidMinor / 100, group.currency)} · Share {formatMoney(balance.shareMinor / 100, group.currency)}
                   </Text>
                 </View>
 
-                <View className={`rounded-xl px-2.5 py-1.5 ${isPositive ? "bg-[#16382A]" : "bg-[#451C28]"}`}>
+                <View
+                  style={{
+                    backgroundColor: isPositive ? clay.badgePositiveBg : clay.badgeNegativeBg,
+                  }}
+                  className="rounded-xl px-2.5 py-1.5"
+                >
                   <Text
                     selectable
-                    className={`text-sm font-black ${isPositive ? "text-[#4ADE80]" : "text-[#FB7185]"}`}
+                    style={{
+                      color: isPositive ? clay.badgePositiveText : clay.badgeNegativeText,
+                    }}
+                    className="text-sm font-black"
                   >
                     {formatMoney(balance.netMinor / 100, group.currency, true)}
                   </Text>
@@ -829,10 +961,14 @@ function SettleTab({
   onRefresh: () => void;
   settlementCard: (settlement: SharedSettlement) => React.JSX.Element;
 }) {
+  const clay = useClayTheme();
+
   return (
     <View className="gap-5">
       <View className="flex-row items-center justify-between px-1">
-        <Text className="text-xs font-bold uppercase tracking-wider text-[#A59ECB]">Suggested payments</Text>
+        <Text style={{ color: clay.textMuted }} className="text-xs font-bold uppercase tracking-wider">
+          Suggested payments
+        </Text>
         <Pressable
           accessibilityRole="button"
           disabled={isLoadingMembers || isLoadingExpenses || isLoadingPayments}
@@ -841,11 +977,25 @@ function SettleTab({
           <Text className="text-xs font-bold text-[#F5D298]">Refresh</Text>
         </Pressable>
       </View>
-      <Text className="px-1 text-xs text-[#A59ECB]">Pay outside the app, then record it here to settle balances.</Text>
+      <Text style={{ color: clay.textMuted }} className="px-1 text-xs">
+        Pay outside the app, then record it here to settle balances.
+      </Text>
 
-      {memberError ? <Text selectable className="px-1 text-sm font-semibold text-[#FB7185]">{memberError}</Text> : null}
-      {expenseError ? <Text selectable className="px-1 text-sm font-semibold text-[#FB7185]">{expenseError}</Text> : null}
-      {paymentError ? <Text selectable className="px-1 text-sm font-semibold text-[#FB7185]">{paymentError}</Text> : null}
+      {memberError ? (
+        <Text selectable style={{ color: clay.errorText }} className="px-1 text-sm font-semibold">
+          {memberError}
+        </Text>
+      ) : null}
+      {expenseError ? (
+        <Text selectable style={{ color: clay.errorText }} className="px-1 text-sm font-semibold">
+          {expenseError}
+        </Text>
+      ) : null}
+      {paymentError ? (
+        <Text selectable style={{ color: clay.errorText }} className="px-1 text-sm font-semibold">
+          {paymentError}
+        </Text>
+      ) : null}
 
       {settlements === null && !memberError && !expenseError && !paymentError ? (
         <ActivityIndicator color="#F5D298" className="py-6" />
@@ -862,16 +1012,25 @@ function SettleTab({
       {settlements && settlements.length > 0 ? (
         <>
           <View className="gap-3">
-            <Text className="px-1 text-xs font-bold uppercase tracking-wider text-[#A59ECB]">Your payments</Text>
+            <Text style={{ color: clay.textMuted }} className="px-1 text-xs font-bold uppercase tracking-wider">
+              Your payments
+            </Text>
             {yourSettlements.length > 0 ? yourSettlements.map(settlementCard) : (
-              <View className="rounded-2xl border border-white/5 bg-[#262243]/50 p-4">
-                <Text className="text-center text-xs text-[#A59ECB]">You are fully settled up.</Text>
+              <View
+                style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+                className="rounded-2xl border p-4 shadow-sm"
+              >
+                <Text style={{ color: clay.textMuted }} className="text-center text-xs">
+                  You are fully settled up.
+                </Text>
               </View>
             )}
           </View>
           {otherSettlements.length > 0 ? (
             <View className="gap-3">
-              <Text className="px-1 text-xs font-bold uppercase tracking-wider text-[#A59ECB]">Other group payments</Text>
+              <Text style={{ color: clay.textMuted }} className="px-1 text-xs font-bold uppercase tracking-wider">
+                Other group payments
+              </Text>
               {otherSettlements.map(settlementCard)}
             </View>
           ) : null}
@@ -884,6 +1043,7 @@ function SettleTab({
 // ─── Deleted Group ──────────────────────────────────────────────────────────
 
 function DeletedSharedGroup({ group }: { group: SharedGroup }) {
+  const clay = useClayTheme();
   const restoreGroup = useSharedGroupsStore((state) => state.restoreGroup);
   const [isRestoring, setIsRestoring] = useState(false);
 
@@ -900,16 +1060,17 @@ function DeletedSharedGroup({ group }: { group: SharedGroup }) {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#181528" }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: clay.canvas }}>
       <Stack.Screen options={{ headerShown: false }} />
       <View className="flex-row items-center px-5 pt-2 pb-3">
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Go back"
           onPress={() => router.back()}
-          className="h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-[#262243] active:opacity-75"
+          style={{ backgroundColor: clay.headerBtn, borderColor: clay.cardBorder }}
+          className="h-11 w-11 items-center justify-center rounded-2xl border active:opacity-75"
         >
-          <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+          <Ionicons name="chevron-back" size={20} color={clay.textPrimary} />
         </Pressable>
       </View>
       <ScrollView
@@ -928,9 +1089,9 @@ function DeletedSharedGroup({ group }: { group: SharedGroup }) {
           className="min-h-14 flex-row items-center justify-center rounded-2xl bg-[#F5D298] px-5 active:opacity-75"
         >
           {isRestoring ? (
-            <ActivityIndicator color="#181528" />
+            <ActivityIndicator color={clay.heroText} />
           ) : (
-            <Text className="text-base font-extrabold text-[#181528]">Restore group</Text>
+            <Text style={{ color: clay.heroText }} className="text-base font-extrabold">Restore group</Text>
           )}
         </Pressable>
       </ScrollView>

@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useClayTheme } from "@/constants/clay-theme";
 import { getGroupMembers, type GroupMember } from "@/lib/group-invites";
 import { useSharedGroupsStore } from "@/store/use-shared-groups-store";
 
@@ -17,6 +18,7 @@ const AVATAR_RING_COLORS = [
 ];
 
 export default function GroupMembersScreen() {
+  const clay = useClayTheme();
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
   const group = useSharedGroupsStore((state) => state.groups.find((item) => item.id === groupId));
   const currentUserId = useSharedGroupsStore((state) => state.userId);
@@ -46,7 +48,7 @@ export default function GroupMembersScreen() {
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#181528" }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: clay.canvas }}>
       <Stack.Screen options={{ headerShown: false }} />
 
       {/* ── Top Bar Header ── */}
@@ -55,14 +57,17 @@ export default function GroupMembersScreen() {
           accessibilityRole="button"
           accessibilityLabel="Go back"
           onPress={() => router.back()}
-          className="h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-[#262243] active:opacity-75"
+          style={{ backgroundColor: clay.headerBtn, borderColor: clay.cardBorder }}
+          className="h-11 w-11 items-center justify-center rounded-2xl border active:opacity-75"
         >
-          <Ionicons name="chevron-back" size={20} color="#FFFFFF" />
+          <Ionicons name="chevron-back" size={20} color={clay.textPrimary} />
         </Pressable>
 
         <View className="items-center">
-          <Text className="text-[11px] font-bold uppercase tracking-widest text-[#A59ECB]">Group Members</Text>
-          <Text className="max-w-[200px] text-base font-extrabold text-white" numberOfLines={1}>
+          <Text style={{ color: clay.textMuted }} className="text-[11px] font-bold uppercase tracking-widest">
+            Group Members
+          </Text>
+          <Text style={{ color: clay.textPrimary }} className="max-w-[200px] text-base font-extrabold" numberOfLines={1}>
             {group?.name ?? "Members"}
           </Text>
         </View>
@@ -73,8 +78,8 @@ export default function GroupMembersScreen() {
           onPress={() => router.push(`/groups/${groupId}/invite`)}
           className="h-11 flex-row items-center gap-1.5 rounded-2xl bg-[#F5D298] px-3.5 shadow-sm active:opacity-75"
         >
-          <Ionicons name="person-add" size={15} color="#181528" />
-          <Text className="text-xs font-black text-[#181528]">Invite</Text>
+          <Ionicons name="person-add" size={15} color={clay.heroText} />
+          <Text style={{ color: clay.heroText }} className="text-xs font-black">Invite</Text>
         </Pressable>
       </View>
 
@@ -84,30 +89,44 @@ export default function GroupMembersScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* ── Hero Member Count Card ── */}
-        <View className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#262243] p-5 shadow-sm">
+        <View
+          style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+          className="relative overflow-hidden rounded-3xl border p-5 shadow-sm"
+        >
           <View className="flex-row items-center justify-between">
             <View className="flex-row items-center gap-3">
-              <View className="h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-[#322C54]">
-                <Ionicons name="people" size={22} color="#F5D298" />
+              <View
+                style={{ backgroundColor: clay.squircle, borderColor: clay.cardBorder }}
+                className="h-12 w-12 items-center justify-center rounded-2xl border"
+              >
+                <Ionicons name="people" size={22} color={clay.isDark ? "#F5D298" : "#9A6B1C"} />
               </View>
               <View>
-                <Text className="text-xs font-bold uppercase tracking-wider text-[#A59ECB]">Splitting with</Text>
-                <Text className="text-2xl font-black text-white">
+                <Text style={{ color: clay.textMuted }} className="text-xs font-bold uppercase tracking-wider">
+                  Splitting with
+                </Text>
+                <Text style={{ color: clay.textPrimary }} className="text-2xl font-black">
                   {members ? `${members.length} ${members.length === 1 ? "Person" : "People"}` : "Loading…"}
                 </Text>
               </View>
             </View>
 
-            <View className="rounded-full bg-white/10 px-3 py-1">
-              <Text className="text-xs font-bold text-[#D0CCE8]">{group?.currency ?? "USD"}</Text>
+            <View style={{ backgroundColor: clay.badgeNeutralBg }} className="rounded-full px-3 py-1">
+              <Text style={{ color: clay.textMuted }} className="text-xs font-bold">
+                {group?.currency ?? "USD"}
+              </Text>
             </View>
           </View>
         </View>
 
         {/* ── Section Title ── */}
         <View className="flex-row items-center justify-between px-1 pt-1">
-          <Text className="text-xs font-bold uppercase tracking-wider text-[#A59ECB]">All Members</Text>
-          <Text className="text-xs text-[#A59ECB]">{members ? `${members.length} total` : ""}</Text>
+          <Text style={{ color: clay.textMuted }} className="text-xs font-bold uppercase tracking-wider">
+            All Members
+          </Text>
+          <Text style={{ color: clay.textMuted }} className="text-xs">
+            {members ? `${members.length} total` : ""}
+          </Text>
         </View>
 
         {/* ── Loading State ── */}
@@ -117,8 +136,13 @@ export default function GroupMembersScreen() {
 
         {/* ── Error State ── */}
         {error ? (
-          <View className="gap-2 rounded-3xl border border-red-500/20 bg-[#262243] p-4">
-            <Text selectable className="text-sm font-semibold text-[#FB7185]">{error}</Text>
+          <View
+            style={{ backgroundColor: clay.card, borderColor: clay.errorCardBorder }}
+            className="gap-2 rounded-3xl border p-4 shadow-sm"
+          >
+            <Text selectable style={{ color: clay.errorText }} className="text-sm font-semibold">
+              {error}
+            </Text>
             <Pressable onPress={() => void loadMembers()} className="self-start">
               <Text className="text-sm font-bold text-[#F5D298]">Retry</Text>
             </Pressable>
@@ -136,7 +160,8 @@ export default function GroupMembersScreen() {
               return (
                 <View
                   key={member.userId}
-                  className="flex-row items-center gap-3.5 rounded-3xl border border-white/10 bg-[#262243] p-4 shadow-sm"
+                  style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+                  className="flex-row items-center gap-3.5 rounded-3xl border p-4 shadow-sm"
                 >
                   {/* 3D Ring Avatar */}
                   <View
@@ -146,21 +171,35 @@ export default function GroupMembersScreen() {
                       borderRadius: 24,
                       borderColor: ringColor,
                       borderWidth: 2.5,
+                      backgroundColor: clay.avatarBg,
                     }}
-                    className="items-center justify-center bg-[#2C274B]"
+                    className="items-center justify-center"
                   >
-                    <Text className="text-base font-black text-white">{initial}</Text>
+                    <Text
+                      style={{ color: clay.isDark ? "#FFFFFF" : clay.textPrimary }}
+                      className="text-base font-black"
+                    >
+                      {initial}
+                    </Text>
                   </View>
 
                   {/* Name & Details */}
                   <View className="flex-1 gap-0.5">
                     <View className="flex-row items-center gap-2">
-                      <Text className="text-base font-bold text-white" numberOfLines={1}>
+                      <Text style={{ color: clay.textPrimary }} className="text-base font-bold" numberOfLines={1}>
                         {member.name}
                       </Text>
                       {isYou ? (
-                        <View className="rounded-full border border-[#F5D298]/30 bg-[#F5D298]/15 px-2 py-0.5">
-                          <Text className="text-[10px] font-black text-[#F5D298]">You</Text>
+                        <View
+                          style={{
+                            backgroundColor: clay.youBadgeBg,
+                            borderColor: clay.youBadgeBorder,
+                          }}
+                          className="rounded-full border px-2 py-0.5"
+                        >
+                          <Text style={{ color: clay.youBadgeText }} className="text-[10px] font-black">
+                            You
+                          </Text>
                         </View>
                       ) : null}
                     </View>
@@ -173,34 +212,35 @@ export default function GroupMembersScreen() {
 
         {/* ── Empty State ── */}
         {members && members.length === 0 && !error ? (
-          <View className="items-center gap-2.5 rounded-3xl border border-white/10 bg-[#262243] px-8 py-10">
-            <View className="h-16 w-16 items-center justify-center rounded-2xl border border-white/10 bg-[#322C54]">
+          <View
+            style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+            className="items-center gap-3 rounded-3xl border px-8 py-10 shadow-sm"
+          >
+            <View
+              style={{ backgroundColor: clay.squircle, borderColor: clay.cardBorder }}
+              className="h-16 w-16 items-center justify-center rounded-2xl border"
+            >
               <Ionicons name="people-outline" size={28} color="#F5D298" />
             </View>
-            <Text className="text-center text-lg font-bold text-white">No members yet</Text>
-            <Text className="text-center text-sm leading-5 text-[#A59ECB]">
+            <Text style={{ color: clay.textPrimary }} className="text-center text-lg font-bold">
+              No members yet
+            </Text>
+            <Text style={{ color: clay.textMuted }} className="text-center text-sm leading-5">
               Share an invite link to start adding friends to this group.
             </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Invite friends"
+              onPress={() => router.push(`/groups/${groupId}/invite`)}
+              className="mt-2 flex-row items-center gap-2 rounded-2xl bg-[#F5D298] px-5 py-3 shadow-sm active:opacity-75"
+            >
+              <Ionicons name="person-add" size={16} color={clay.heroText} />
+              <Text style={{ color: clay.heroText }} className="text-sm font-black">
+                Invite Friends
+              </Text>
+            </Pressable>
           </View>
         ) : null}
-
-        {/* ── Bottom Invite Action Card ── */}
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => router.push(`/groups/${groupId}/invite`)}
-          className="mt-2 flex-row items-center justify-between rounded-3xl border border-dashed border-[#F5D298]/40 bg-[#262243]/60 p-5 active:opacity-75"
-        >
-          <View className="flex-row items-center gap-3">
-            <View className="h-11 w-11 items-center justify-center rounded-2xl bg-[#F5D298]/20">
-              <Ionicons name="add" size={24} color="#F5D298" />
-            </View>
-            <View>
-              <Text className="text-sm font-bold text-white">Invite More Friends</Text>
-              <Text className="text-xs text-[#A59ECB]">Share an invite code or web link</Text>
-            </View>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color="#F5D298" />
-        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
