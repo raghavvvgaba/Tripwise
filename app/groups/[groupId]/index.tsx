@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Animated, Easing, Platform, Pressable, ScrollView, Text, View } from "react-native";
+import * as Haptics from "expo-haptics";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useClayTheme } from "@/constants/clay-theme";
@@ -199,6 +200,49 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
   const paymentReadVersion = useRef(0);
   const [sharedView, setSharedView] = useState<GroupView>("expenses");
 
+  const isNavigating = useRef(false);
+  const fabRotateAnim = useRef(new Animated.Value(0)).current;
+  const fabScaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handleAddExpensePress = useCallback(() => {
+    if (isNavigating.current) return;
+    isNavigating.current = true;
+
+    // Trigger light haptic feedback
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    // Run rotation animation quickly on the native thread
+    Animated.parallel([
+      Animated.timing(fabRotateAnim, {
+        toValue: 1,
+        duration: 180,
+        easing: Easing.bezier(0.2, 0, 0, 1),
+        useNativeDriver: Platform.OS !== "web",
+      }),
+      Animated.sequence([
+        Animated.timing(fabScaleAnim, {
+          toValue: 0.9,
+          duration: 70,
+          useNativeDriver: Platform.OS !== "web",
+        }),
+        Animated.spring(fabScaleAnim, {
+          toValue: 1,
+          friction: 5,
+          tension: 140,
+          useNativeDriver: Platform.OS !== "web",
+        }),
+      ]),
+    ]).start();
+
+    // Navigate immediately so the page opens without delay
+    router.push(`/groups/${group.id}/add-expense`);
+  }, [fabRotateAnim, fabScaleAnim, group.id]);
+
+  const fabRotation = fabRotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "90deg"],
+  });
+
   const refreshMembers = useCallback(async () => {
     setIsLoadingMembers(true);
     try {
@@ -263,11 +307,14 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
   }
 
   useFocusEffect(useCallback(() => {
+    isNavigating.current = false;
+    fabRotateAnim.setValue(0);
+    fabScaleAnim.setValue(1);
     if (currentUserId) void loadGroups(currentUserId);
     void refreshMembers();
     void refreshExpenses();
     void refreshPayments();
-  }, [currentUserId, loadGroups, refreshMembers, refreshExpenses, refreshPayments]));
+  }, [currentUserId, fabRotateAnim, fabScaleAnim, loadGroups, refreshMembers, refreshExpenses, refreshPayments]));
 
   const balances = members && expenses && payments ? getSharedMemberBalances(members, expenses, payments) : null;
   const settlements = balances ? getSharedSettlements(balances) : null;
@@ -455,11 +502,27 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
                 <Text className="text-xs font-bold tracking-wide text-[#6F614C]">Splitting With</Text>
                 <Ionicons name="chevron-forward" size={11} color="#6F614C" />
               </View>
-              {members && members.length > 0 ? (
-                <AvatarStack members={members} canvasBg={clay.canvas} />
-              ) : (
-                <Text className="text-xs text-[#6F614C]">1 member</Text>
-              )}
+              <View className="h-[30px] justify-center">
+                {members && members.length > 0 ? (
+                  <AvatarStack members={members} canvasBg={clay.canvas} />
+                ) : (
+                  <View className="flex-row items-center">
+                    <View
+                      style={{
+                        width: 30,
+                        height: 30,
+                        borderRadius: 15,
+                        borderColor: "#6F614C30",
+                        borderWidth: 2,
+                        backgroundColor: "#6F614C15",
+                      }}
+                      className="items-center justify-center"
+                    >
+                      <Ionicons name="person" size={13} color="#6F614C60" />
+                    </View>
+                  </View>
+                )}
+              </View>
             </Pressable>
 
             <Pressable
@@ -633,15 +696,24 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
           style={{ bottom: Math.max(insets.bottom, 16) + 16 }}
           className="absolute left-0 right-0 z-20 items-center justify-center"
         >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Add new expense"
-            onPress={() => router.push(`/groups/${group.id}/add-expense`)}
-            style={{ elevation: 6 }}
-            className="h-14 w-14 items-center justify-center rounded-full bg-[#F5D298] shadow-xl active:opacity-75"
+          <Animated.View
+            style={{
+              elevation: 6,
+              transform: [
+                { rotate: fabRotation },
+                { scale: fabScaleAnim },
+              ],
+            }}
           >
-            <Ionicons name="add" size={30} color={clay.heroText} />
-          </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Add new expense"
+              onPress={handleAddExpensePress}
+              className="h-14 w-14 items-center justify-center rounded-full bg-[#F5D298] shadow-xl active:opacity-80"
+            >
+              <Ionicons name="add" size={30} color={clay.heroText} />
+            </Pressable>
+          </Animated.View>
         </View>
       ) : null}
     </SafeAreaView>

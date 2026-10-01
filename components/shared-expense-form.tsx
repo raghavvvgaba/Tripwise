@@ -1,23 +1,55 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, Stack } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Pressable, ScrollView, Text, TextInput, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  ActivityIndicator,
+  Animated,
+  Easing,
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { PrimaryButton } from "@/components/primary-button";
-import { RouteModal } from "@/components/route-modal";
+import { useClayTheme } from "@/constants/clay-theme";
 import { getGroupMembers, type GroupMember } from "@/lib/group-invites";
 import { createGroupExpense, getGroupExpense, updateGroupExpense } from "@/lib/expenses";
 import type { SharedExpense } from "@/types/shared-expense";
 import type { SharedGroup } from "@/types/shared-group";
 import { formatMoney, getCurrencySymbol, parseMoneyToMinor } from "@/utils/money";
 
+const AVATAR_RING_COLORS = [
+  "#38BDF8", // Sky blue
+  "#FB923C", // Coral orange
+  "#4ADE80", // Mint green
+  "#C084FC", // Soft lavender
+  "#FBBF24", // Warm amber
+  "#F472B6", // Rose pink
+];
+
 function localDate(): string {
   const today = new Date();
   return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 }
 
-export function SharedExpenseForm({ group, currentUserId, expenseId }: { group: SharedGroup; currentUserId: string; expenseId?: string }) {
+export function SharedExpenseForm({
+  group,
+  currentUserId,
+  expenseId,
+  onClose,
+}: {
+  group: SharedGroup;
+  currentUserId: string;
+  expenseId?: string;
+  onClose?: () => void;
+}) {
+  const clay = useClayTheme();
   const insets = useSafeAreaInsets();
   const [members, setMembers] = useState<GroupMember[] | null>(null);
   const [memberError, setMemberError] = useState<string | null>(null);
@@ -27,6 +59,8 @@ export function SharedExpenseForm({ group, currentUserId, expenseId }: { group: 
   const [amount, setAmount] = useState("");
   const [paidById, setPaidById] = useState(currentUserId);
   const [payerOpen, setPayerOpen] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const animValue = useRef(new Animated.Value(0)).current;
   const [participantIds, setParticipantIds] = useState<string[]>([]);
   const [splitMode, setSplitMode] = useState<"equal" | "exact">("equal");
   const [exactAmounts, setExactAmounts] = useState<Record<string, string>>({});
@@ -34,6 +68,29 @@ export function SharedExpenseForm({ group, currentUserId, expenseId }: { group: 
   const [isSaving, setIsSaving] = useState(false);
   const savingRef = useRef(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const isNoteFocusedRef = useRef(false);
+  const [isNoteFocused, setIsNoteFocused] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+
+    const showSub = Keyboard.addListener(showEvent, () => {
+      setIsKeyboardVisible(true);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setIsKeyboardVisible(false);
+      isNoteFocusedRef.current = false;
+      setIsNoteFocused(false);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -42,32 +99,36 @@ export function SharedExpenseForm({ group, currentUserId, expenseId }: { group: 
     void Promise.all([
       getGroupMembers(group.id),
       expenseId ? getGroupExpense(group.id, expenseId) : Promise.resolve(null),
-    ]).then(([nextMembers, expense]) => {
-      if (!active) return;
-      if (!nextMembers.some((member) => member.userId === currentUserId)) {
-        setMemberError("You are no longer a member of this group.");
-        return;
-      }
-      setExistingExpense(expense);
-      setMembers(nextMembers);
-      setPaidById(expense?.paidById ?? currentUserId);
-      setParticipantIds(expense?.shares.map((share) => share.userId) ?? nextMembers.map((member) => member.userId));
-      if (expense) {
-        setDescription(expense.description);
-        setAmount(String(expense.amountMinor / 100));
-        setSplitMode(expense.splitMode);
-        setExactAmounts(Object.fromEntries(expense.shares.map((share) => [share.userId, String(share.amountMinor / 100)])));
-        setNote(expense.note ?? "");
-      }
-    }).catch((error: unknown) => {
-      if (active) setMemberError(error instanceof Error ? error.message : "Could not load group members.");
-    });
-    return () => { active = false; };
+    ])
+      .then(([nextMembers, expense]) => {
+        if (!active) return;
+        if (!nextMembers.some((member) => member.userId === currentUserId)) {
+          setMemberError("You are no longer a member of this group.");
+          return;
+        }
+        setExistingExpense(expense);
+        setMembers(nextMembers);
+        setPaidById(expense?.paidById ?? currentUserId);
+        setParticipantIds(expense?.shares.map((share) => share.userId) ?? nextMembers.map((member) => member.userId));
+        if (expense) {
+          setDescription(expense.description);
+          setAmount(String(expense.amountMinor / 100));
+          setSplitMode(expense.splitMode);
+          setExactAmounts(Object.fromEntries(expense.shares.map((share) => [share.userId, String(share.amountMinor / 100)])));
+          setNote(expense.note ?? "");
+        }
+      })
+      .catch((error: unknown) => {
+        if (active) setMemberError(error instanceof Error ? error.message : "Could not load group members.");
+      });
+    return () => {
+      active = false;
+    };
   }, [group.id, currentUserId, expenseId, loadAttempt]);
 
   const selectedMembers = useMemo(
     () => members?.filter((member) => participantIds.includes(member.userId)) ?? [],
-    [members, participantIds],
+    [members, participantIds]
   );
   const amountMinor = parseMoneyToMinor(amount);
   const exactMinor = selectedMembers.map((member) => parseMoneyToMinor(exactAmounts[member.userId] ?? ""));
@@ -76,16 +137,55 @@ export function SharedExpenseForm({ group, currentUserId, expenseId }: { group: 
   const isValid =
     description.trim().length > 0 &&
     description.trim().length <= 120 &&
-    amountMinor !== null && amountMinor > 0 &&
+    amountMinor !== null &&
+    amountMinor > 0 &&
     selectedMembers.length > 0 &&
     Boolean(members?.some((member) => member.userId === paidById)) &&
     note.length <= 2000 &&
     (!expenseId || existingExpense !== null) &&
     (splitMode === "equal" || exactValid);
 
+  const memberIndexFor = (userId: string) => Math.max(0, (members ?? []).findIndex((m) => m.userId === userId));
+
   function toggleParticipant(userId: string) {
-    setParticipantIds((ids) => ids.includes(userId) ? ids.filter((id) => id !== userId) : [...ids, userId]);
+    setParticipantIds((ids) => (ids.includes(userId) ? ids.filter((id) => id !== userId) : [...ids, userId]));
   }
+
+  function openPayerModal() {
+    Keyboard.dismiss();
+    setModalVisible(true);
+    setPayerOpen(true);
+    Animated.timing(animValue, {
+      toValue: 1,
+      duration: 240,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }
+
+  function closePayerModal(onDone?: () => void) {
+    setPayerOpen(false);
+    Animated.timing(animValue, {
+      toValue: 0,
+      duration: 190,
+      easing: Easing.in(Easing.cubic),
+      useNativeDriver: true,
+    }).start(() => {
+      setModalVisible(false);
+      onDone?.();
+    });
+  }
+
+  const backdropOpacity = animValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
+
+  const sheetTranslateY = animValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [420, 0],
+  });
+
 
   async function handleSave() {
     if (!isValid || amountMinor === null || savingRef.current) return;
@@ -123,207 +223,503 @@ export function SharedExpenseForm({ group, currentUserId, expenseId }: { group: 
   }
 
   return (
-    <RouteModal title={expenseId ? "Edit expense" : "Add expense"}>{() => (
-      <>
-        <Stack.Screen options={{ title: expenseId ? "Edit expense" : "Add expense" }} />
-        <KeyboardAvoidingView behavior={process.env.EXPO_OS === "ios" ? "padding" : undefined} className="flex-1">
-          <ScrollView
-            className="flex-1"
-            contentInsetAdjustmentBehavior="automatic"
-            keyboardDismissMode={process.env.EXPO_OS === "ios" ? "interactive" : "on-drag"}
-            keyboardShouldPersistTaps="handled"
-            contentContainerClassName="w-full max-w-2xl self-center gap-6 px-5 pb-6 pt-5 md:px-8 lg:py-10"
-            showsVerticalScrollIndicator={false}
+    <SafeAreaView style={{ flex: 1, backgroundColor: clay.canvas }}>
+      <Stack.Screen options={{ headerShown: false }} />
+
+      {/* ── Top Bar Header ── */}
+      <View className="flex-row items-center justify-between px-5 pt-2 pb-3">
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          onPress={() => (onClose ? onClose() : router.back())}
+          style={{ backgroundColor: clay.headerBtn, borderColor: clay.cardBorder }}
+          className="h-11 w-11 items-center justify-center rounded-2xl border active:opacity-75"
+        >
+          <Ionicons name="close" size={22} color={clay.textPrimary} />
+        </Pressable>
+
+        <View className="items-center">
+          <Text style={{ color: clay.textMuted }} className="text-[11px] font-bold uppercase tracking-widest">
+            {expenseId ? "Edit Expense" : "New Expense"}
+          </Text>
+          <Text style={{ color: clay.textPrimary }} className="max-w-[200px] text-base font-extrabold" numberOfLines={1}>
+            {group.name}
+          </Text>
+        </View>
+
+        <View className="h-11 w-11" />
+      </View>
+
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        className="flex-1"
+      >
+        <ScrollView
+          ref={scrollViewRef}
+          className="flex-1"
+          contentInsetAdjustmentBehavior="never"
+          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+          keyboardShouldPersistTaps="handled"
+          contentContainerClassName="w-full max-w-2xl self-center px-5 gap-5"
+          contentContainerStyle={{ paddingBottom: isNoteFocused ? 260 : 32 }}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* ── Expense Details: Description & Amount Card ── */}
+          <View
+            style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+            className="gap-4 rounded-3xl border p-5 shadow-sm"
           >
-            <View className="card gap-5 p-5">
-              <View className="gap-2">
-                <Text className="section-label">What was it for?</Text>
+            <View className="gap-2">
+              <Text style={{ color: clay.textMuted }} className="text-xs font-bold uppercase tracking-wider">
+                What was it for?
+              </Text>
+              <TextInput
+                style={{
+                  backgroundColor: clay.squircle,
+                  borderColor: clay.cardBorder,
+                  color: clay.textPrimary,
+                }}
+                className="h-13 rounded-2xl border px-4 text-base font-bold"
+                placeholder="e.g. Dinner, Train ticket, Groceries"
+                placeholderTextColor={clay.textMuted}
+                value={description}
+                onChangeText={setDescription}
+                maxLength={120}
+              />
+            </View>
+
+            <View className="gap-2">
+              <Text style={{ color: clay.textMuted }} className="text-xs font-bold uppercase tracking-wider">
+                Amount
+              </Text>
+              <View
+                style={{ backgroundColor: clay.squircle, borderColor: clay.cardBorder }}
+                className="flex-row items-center rounded-2xl border px-4"
+              >
+                <Text style={{ color: clay.textMuted }} className="text-2xl font-black">
+                  {getCurrencySymbol(group.currency)}
+                </Text>
                 <TextInput
-                  autoFocus={!expenseId}
-                  className="field"
-                  placeholder="Cab to hotel"
-                  placeholderTextColor="#9AA39D"
-                  value={description}
-                  onChangeText={setDescription}
-                  maxLength={120}
+                  style={{ color: clay.textPrimary }}
+                  className="flex-1 py-3 pl-2 text-2xl font-black"
+                  placeholder="0.00"
+                  placeholderTextColor={clay.textMuted}
+                  keyboardType="decimal-pad"
+                  value={amount}
+                  onChangeText={setAmount}
                 />
               </View>
-              <View className="gap-2">
-                <Text className="section-label">Amount</Text>
-                <View className="field flex-row items-center gap-2">
-                  <Text className="text-2xl font-semibold text-muted">{getCurrencySymbol(group.currency)}</Text>
-                  <TextInput
-                    className="flex-1 py-3 text-2xl font-bold text-ink"
-                    placeholder="0"
-                    placeholderTextColor="#C2C9C4"
-                    keyboardType="decimal-pad"
-                    value={amount}
-                    onChangeText={setAmount}
-                  />
-                </View>
-                {amount && amountMinor === null ? <Text className="text-xs text-coral">Enter an amount with up to two decimal places.</Text> : null}
-              </View>
+              {amount && amountMinor === null ? (
+                <Text style={{ color: clay.errorText }} className="px-1 text-xs">
+                  Enter an amount with up to two decimal places.
+                </Text>
+              ) : null}
             </View>
+          </View>
 
-            <View className="gap-3">
-              <Text className="section-label px-1">Paid by</Text>
-              {members ? (
-                <>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityState={{ expanded: payerOpen }}
-                    onPress={() => setPayerOpen((open) => !open)}
-                    className="card min-h-14 flex-row items-center justify-between px-4"
-                  >
-                    <Text className="font-semibold text-ink">
-                      {paidById === currentUserId ? "You" : members.find((member) => member.userId === paidById)?.name}
-                    </Text>
-                    <Ionicons name={payerOpen ? "chevron-up" : "chevron-down"} size={18} color="#66736B" />
-                  </Pressable>
-                  {payerOpen ? (
-                    <View className="card px-4">
-                      {members.map((member, index) => (
-                        <View key={member.userId}>
-                          <Pressable
-                            accessibilityRole="radio"
-                            accessibilityState={{ selected: paidById === member.userId }}
-                            onPress={() => { setPaidById(member.userId); setPayerOpen(false); }}
-                            className="min-h-12 flex-row items-center justify-between gap-3 py-3"
-                          >
-                            <Text className="flex-1 font-medium text-ink">
-                              {member.name}{member.userId === currentUserId ? " (you)" : ""}
-                            </Text>
-                            {paidById === member.userId ? <Ionicons name="checkmark" size={20} color="#087A52" /> : null}
-                          </Pressable>
-                          {index < members.length - 1 ? <View className="h-px bg-line" /> : null}
-                        </View>
-                      ))}
-                    </View>
-                  ) : null}
-                </>
-              ) : memberError ? (
-                <View className="card gap-3 p-4">
-                  <Text selectable className="text-sm text-coral">{memberError}</Text>
-                  <Pressable onPress={() => setLoadAttempt((attempt) => attempt + 1)}>
-                    <Text className="font-semibold text-brand-700">Retry</Text>
-                  </Pressable>
-                </View>
-              ) : <ActivityIndicator className="self-start" />}
-            </View>
-
+          {/* ── Paid By Section ── */}
+          <View className="gap-2">
+            <Text style={{ color: clay.textMuted }} className="px-1 text-xs font-bold uppercase tracking-wider">
+              Paid by
+            </Text>
             {members ? (
               <>
-                <View className="gap-3">
-                  <Text className="section-label px-1">Split method</Text>
-                  <View className="flex-row rounded-2xl bg-line p-1">
-                    {(["equal", "exact"] as const).map((mode) => (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Paid by ${paidById === currentUserId ? "you" : members.find((m) => m.userId === paidById)?.name ?? "member"}`}
+                  accessibilityState={{ expanded: payerOpen }}
+                  onPress={openPayerModal}
+                  style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+                  className="h-14 flex-row items-center justify-between rounded-3xl border px-4 shadow-sm active:opacity-80"
+                >
+                  <View className="flex-row items-center gap-3">
+                    <View
+                      style={{
+                        width: 34,
+                        height: 34,
+                        borderRadius: 17,
+                        borderWidth: 2,
+                        borderColor: AVATAR_RING_COLORS[memberIndexFor(paidById) % AVATAR_RING_COLORS.length],
+                        backgroundColor: clay.avatarBg,
+                      }}
+                      className="items-center justify-center"
+                    >
+                      <Text style={{ color: clay.textPrimary }} className="text-xs font-black">
+                        {((members.find((m) => m.userId === paidById)?.name ?? "?").trim()[0] || "?").toUpperCase()}
+                      </Text>
+                    </View>
+                    <Text style={{ color: clay.textPrimary }} className="text-base font-bold">
+                      {paidById === currentUserId ? "You" : members.find((m) => m.userId === paidById)?.name}
+                    </Text>
+                  </View>
+                  <Ionicons name={payerOpen ? "chevron-up" : "chevron-down"} size={18} color={clay.textMuted} />
+                </Pressable>
+
+                <Modal
+                  transparent
+                  visible={modalVisible}
+                  animationType="none"
+                  onRequestClose={() => closePayerModal()}
+                >
+                  <View className="flex-1 justify-end">
+                    <Animated.View
+                      style={{ opacity: backdropOpacity }}
+                      className="absolute inset-0 bg-black/40"
+                    >
+                      <Pressable
+                        accessibilityLabel="Close member options"
+                        onPress={() => closePayerModal()}
+                        className="flex-1"
+                      />
+                    </Animated.View>
+                    <Animated.View
+                      style={{
+                        transform: [{ translateY: sheetTranslateY }],
+                        backgroundColor: clay.card,
+                        borderColor: clay.cardBorder,
+                        paddingBottom: Math.max(insets.bottom, 24) + 8,
+                      }}
+                      className="rounded-t-3xl border-t px-5 pt-5"
+                    >
+                      <View className="w-full max-w-2xl self-center gap-4">
+                        <View className="flex-row items-center justify-between">
+                          <Text style={{ color: clay.textPrimary }} className="text-lg font-bold">
+                            Paid by
+                          </Text>
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel="Close member options"
+                            onPress={() => closePayerModal()}
+                            className="h-10 w-10 items-center justify-center rounded-full active:opacity-75"
+                          >
+                            <Ionicons name="close" size={22} color={clay.textMuted} />
+                          </Pressable>
+                        </View>
+
+                        <View
+                          style={{ borderColor: clay.cardBorder }}
+                          className="overflow-hidden rounded-xl border"
+                        >
+                          <ScrollView
+                            nestedScrollEnabled
+                            showsVerticalScrollIndicator={members.length > 5}
+                            style={{ maxHeight: 360 }}
+                          >
+                            {members.map((member, index) => {
+                              const isSelected = paidById === member.userId;
+                              const mRing = AVATAR_RING_COLORS[memberIndexFor(member.userId) % AVATAR_RING_COLORS.length];
+                              return (
+                                <View key={member.userId}>
+                                  <Pressable
+                                    accessibilityRole="radio"
+                                    accessibilityLabel={`${member.name}${member.userId === currentUserId ? " (you)" : ""}`}
+                                    accessibilityState={{ selected: isSelected }}
+                                    onPress={() => {
+                                      setPaidById(member.userId);
+                                      closePayerModal();
+                                    }}
+                                    style={isSelected ? { backgroundColor: clay.squircle } : undefined}
+                                    className="min-h-14 flex-row items-center justify-between gap-3 px-4 active:opacity-75"
+                                  >
+                                    <View className="flex-row items-center gap-3">
+                                      <View
+                                        style={{
+                                          width: 32,
+                                          height: 32,
+                                          borderRadius: 16,
+                                          borderWidth: 2,
+                                          borderColor: mRing,
+                                          backgroundColor: clay.avatarBg,
+                                        }}
+                                        className="items-center justify-center"
+                                      >
+                                        <Text style={{ color: clay.textPrimary }} className="text-xs font-black">
+                                          {(member.name.trim()[0] || "?").toUpperCase()}
+                                        </Text>
+                                      </View>
+                                      <Text style={{ color: clay.textPrimary }} className="text-sm font-bold">
+                                        {member.name}
+                                        {member.userId === currentUserId ? " (you)" : ""}
+                                      </Text>
+                                    </View>
+                                    {isSelected ? (
+                                      <Ionicons name="checkmark" size={20} color="#F5D298" />
+                                    ) : null}
+                                  </Pressable>
+                                  {index < members.length - 1 ? (
+                                    <View style={{ backgroundColor: clay.cardBorder }} className="h-px w-full" />
+                                  ) : null}
+                                </View>
+                              );
+                            })}
+                          </ScrollView>
+                        </View>
+                      </View>
+                    </Animated.View>
+                  </View>
+                </Modal>
+              </>
+            ) : memberError ? (
+              <View
+                style={{ backgroundColor: clay.card, borderColor: clay.errorCardBorder }}
+                className="gap-3 rounded-3xl border p-4 shadow-sm"
+              >
+                <Text selectable style={{ color: clay.errorText }} className="text-sm font-semibold">
+                  {memberError}
+                </Text>
+                <Pressable onPress={() => setLoadAttempt((attempt) => attempt + 1)}>
+                  <Text className="text-sm font-bold text-[#F5D298]">Retry</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <ActivityIndicator color="#F5D298" className="self-start py-2" />
+            )}
+          </View>
+
+          {members ? (
+            <>
+              {/* ── Split Method Toggle ── */}
+              <View className="gap-2">
+                <Text style={{ color: clay.textMuted }} className="px-1 text-xs font-bold uppercase tracking-wider">
+                  Split Method
+                </Text>
+                <View
+                  style={{ backgroundColor: clay.squircle, borderColor: clay.cardBorder }}
+                  className="flex-row rounded-2xl border p-1"
+                >
+                  {(["equal", "exact"] as const).map((mode) => {
+                    const isSelected = splitMode === mode;
+                    return (
                       <Pressable
                         key={mode}
                         onPress={() => setSplitMode(mode)}
-                        className={`min-h-11 flex-1 items-center justify-center rounded-xl ${splitMode === mode ? "bg-surface" : ""}`}
+                        style={
+                          isSelected
+                            ? { backgroundColor: clay.card, borderColor: clay.cardBorder }
+                            : undefined
+                        }
+                        className={`h-11 flex-1 items-center justify-center rounded-xl ${isSelected ? "border shadow-sm" : ""}`}
                       >
-                        <Text className={`font-semibold ${splitMode === mode ? "text-ink" : "text-muted"}`}>
-                          {mode === "equal" ? "Equally" : "Exact amounts"}
+                        <Text
+                          style={{ color: isSelected ? clay.textPrimary : clay.textMuted }}
+                          className="text-xs font-extrabold"
+                        >
+                          {mode === "equal" ? "Equally" : "Exact Amounts"}
                         </Text>
                       </Pressable>
-                    ))}
-                  </View>
+                    );
+                  })}
                 </View>
+              </View>
 
-                <View className="gap-3">
-                  <View className="flex-row items-end justify-between px-1">
-                    <View className="gap-1">
-                      <Text className="section-label">Split among</Text>
-                      <Text className="text-xs text-muted">Tap a person to include or exclude them.</Text>
-                    </View>
-                    <Text className="text-xs font-semibold text-muted">{selectedMembers.length} selected</Text>
-                  </View>
-                  <View className="card px-4">
-                    {members.map((member, index) => {
-                      const selected = participantIds.includes(member.userId);
-                      const selectedIndex = selectedMembers.findIndex((item) => item.userId === member.userId);
-                      const equalShare = amountMinor && selectedIndex >= 0
-                        ? Math.floor(amountMinor / selectedMembers.length) + (selectedIndex < amountMinor % selectedMembers.length ? 1 : 0)
-                        : 0;
-                      return (
-                        <View key={member.userId}>
-                          <View className="min-h-14 flex-row items-center gap-3 py-3">
-                            <Pressable
-                              accessibilityRole="checkbox"
-                              accessibilityState={{ checked: selected }}
-                              onPress={() => toggleParticipant(member.userId)}
-                              className="min-h-10 flex-1 flex-row items-center gap-3"
-                            >
-                              <View className={`h-6 w-6 items-center justify-center rounded-lg border ${selected ? "border-brand-600 bg-brand-600" : "border-line bg-surface"}`}>
-                                {selected ? <Ionicons name="checkmark" size={16} color="#FFFFFF" /> : null}
-                              </View>
-                              <Text className={`flex-1 font-semibold ${selected ? "text-ink" : "text-muted"}`} numberOfLines={1}>
-                                {member.name}{member.userId === currentUserId ? " (you)" : ""}
-                              </Text>
-                            </Pressable>
-                            {selected && splitMode === "equal" ? (
-                              <Text className="font-semibold text-muted">{formatMoney(equalShare / 100, group.currency)}</Text>
-                            ) : null}
-                            {selected && splitMode === "exact" ? (
-                              <View className="w-28 flex-row items-center rounded-xl bg-canvas px-3">
-                                <Text className="text-muted">{getCurrencySymbol(group.currency)}</Text>
-                                <TextInput
-                                  className="flex-1 py-2 text-right font-semibold text-ink"
-                                  keyboardType="decimal-pad"
-                                  placeholder="0"
-                                  placeholderTextColor="#9AA39D"
-                                  value={exactAmounts[member.userId] ?? ""}
-                                  onChangeText={(value) => setExactAmounts((current) => ({ ...current, [member.userId]: value }))}
-                                />
-                              </View>
-                            ) : null}
-                          </View>
-                          {index < members.length - 1 ? <View className="h-px bg-line" /> : null}
-                        </View>
-                      );
-                    })}
-                  </View>
-                  {splitMode === "exact" && amountMinor !== null ? (
-                    <View className={`rounded-2xl px-4 py-3 ${exactValid ? "bg-brand-50" : "bg-orange-50 dark:bg-orange-950"}`}>
-                      <Text className={`text-sm font-medium ${exactValid ? "text-brand-700" : "text-orange-700 dark:text-orange-300"}`}>
-                        {exactValid ? "Amounts add up correctly" : `${formatMoney(Math.abs(amountMinor - exactTotalMinor) / 100, group.currency)} ${amountMinor >= exactTotalMinor ? "left to assign" : "over the expense total"}`}
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
-
-                <View className="gap-2">
-                  <Text className="section-label px-1">Note (optional)</Text>
-                  <TextInput
-                    className="field min-h-24 py-4"
-                    placeholder="Add a useful detail"
-                    placeholderTextColor="#9AA39D"
-                    multiline
-                    maxLength={2000}
-                    textAlignVertical="top"
-                    value={note}
-                    onChangeText={setNote}
-                  />
-                </View>
-
-                <View className="rounded-2xl bg-brand-50 px-4 py-3">
-                  <Text className="text-sm text-brand-700">
-                    {existingExpense ? "The original expense date stays the same." : "Date is set automatically to today."}
+              {/* ── Split Among Section ── */}
+              <View className="gap-2">
+                <View className="flex-row items-baseline justify-between px-1">
+                  <Text style={{ color: clay.textMuted }} className="text-xs font-bold uppercase tracking-wider">
+                    Split Among
                   </Text>
+                  <View style={{ backgroundColor: clay.badgeNeutralBg }} className="rounded-full px-2.5 py-0.5">
+                    <Text style={{ color: clay.textMuted }} className="text-[11px] font-bold">
+                      {selectedMembers.length} selected
+                    </Text>
+                  </View>
                 </View>
-              </>
-            ) : null}
-          </ScrollView>
 
-          <View
-            className="w-full max-w-2xl self-center gap-3 border-t border-line bg-canvas px-5 pt-3 md:px-8"
-            style={{ paddingBottom: Math.max(insets.bottom, 12) }}
+                <View
+                  style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+                  className="overflow-hidden rounded-3xl border px-4 py-1 shadow-sm"
+                >
+                  {members.map((member, index) => {
+                    const selected = participantIds.includes(member.userId);
+                    const selectedIndex = selectedMembers.findIndex((item) => item.userId === member.userId);
+                    const equalShare =
+                      amountMinor && selectedIndex >= 0
+                        ? Math.floor(amountMinor / selectedMembers.length) +
+                          (selectedIndex < amountMinor % selectedMembers.length ? 1 : 0)
+                        : 0;
+                    const mRing = AVATAR_RING_COLORS[memberIndexFor(member.userId) % AVATAR_RING_COLORS.length];
+
+                    return (
+                      <View key={member.userId}>
+                        <View className="flex-row items-center gap-3 py-3">
+                          <Pressable
+                            accessibilityRole="checkbox"
+                            accessibilityState={{ checked: selected }}
+                            onPress={() => toggleParticipant(member.userId)}
+                            className="flex-1 flex-row items-center gap-3"
+                          >
+                            <View
+                              style={{
+                                backgroundColor: selected ? "#F5D298" : clay.squircle,
+                                borderColor: selected ? "#F5D298" : clay.cardBorder,
+                              }}
+                              className="h-6 w-6 items-center justify-center rounded-lg border"
+                            >
+                              {selected ? <Ionicons name="checkmark" size={15} color={clay.heroText} /> : null}
+                            </View>
+
+                            <View
+                              style={{
+                                width: 32,
+                                height: 32,
+                                borderRadius: 16,
+                                borderWidth: 2,
+                                borderColor: mRing,
+                                backgroundColor: clay.avatarBg,
+                              }}
+                              className="items-center justify-center"
+                            >
+                              <Text style={{ color: clay.textPrimary }} className="text-xs font-black">
+                                {(member.name.trim()[0] || "?").toUpperCase()}
+                              </Text>
+                            </View>
+
+                            <Text
+                              style={{ color: selected ? clay.textPrimary : clay.textMuted }}
+                              className="flex-1 text-sm font-bold"
+                              numberOfLines={1}
+                            >
+                              {member.name}
+                              {member.userId === currentUserId ? " (you)" : ""}
+                            </Text>
+                          </Pressable>
+
+                          {selected && splitMode === "equal" ? (
+                            <Text selectable style={{ color: clay.textPrimary }} className="text-sm font-extrabold">
+                              {formatMoney(equalShare / 100, group.currency)}
+                            </Text>
+                          ) : null}
+
+                          {selected && splitMode === "exact" ? (
+                            <View
+                              style={{ backgroundColor: clay.squircle, borderColor: clay.cardBorder }}
+                              className="w-28 flex-row items-center rounded-xl border px-2.5"
+                            >
+                              <Text style={{ color: clay.textMuted }} className="text-xs font-bold">
+                                {getCurrencySymbol(group.currency)}
+                              </Text>
+                              <TextInput
+                                style={{ color: clay.textPrimary }}
+                                className="flex-1 py-1.5 text-right text-sm font-bold"
+                                keyboardType="decimal-pad"
+                                placeholder="0"
+                                placeholderTextColor={clay.textMuted}
+                                value={exactAmounts[member.userId] ?? ""}
+                                onChangeText={(value) =>
+                                  setExactAmounts((current) => ({ ...current, [member.userId]: value }))
+                                }
+                              />
+                            </View>
+                          ) : null}
+                        </View>
+                        {index < members.length - 1 ? (
+                          <View style={{ backgroundColor: clay.cardBorder }} className="h-px w-full" />
+                        ) : null}
+                      </View>
+                    );
+                  })}
+                </View>
+
+                {splitMode === "exact" && amountMinor !== null ? (
+                  <View
+                    style={{
+                      backgroundColor: exactValid ? clay.badgePositiveBg : clay.badgeNegativeBg,
+                    }}
+                    className="rounded-2xl px-4 py-2.5"
+                  >
+                    <Text
+                      style={{
+                        color: exactValid ? clay.badgePositiveText : clay.badgeNegativeText,
+                      }}
+                      className="text-xs font-bold"
+                    >
+                      {exactValid
+                        ? "Amounts add up correctly"
+                        : `${formatMoney(Math.abs(amountMinor - exactTotalMinor) / 100, group.currency)} ${
+                            amountMinor >= exactTotalMinor ? "left to assign" : "over the total"
+                          }`}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+
+              {/* ── Optional Note ── */}
+              <View className="gap-2">
+                <Text style={{ color: clay.textMuted }} className="px-1 text-xs font-bold uppercase tracking-wider">
+                  Note (Optional)
+                </Text>
+                <TextInput
+                  style={{
+                    backgroundColor: clay.card,
+                    borderColor: clay.cardBorder,
+                    color: clay.textPrimary,
+                  }}
+                  className="min-h-20 rounded-3xl border p-4 text-sm font-medium"
+                  placeholder="Add details, receipt notes, etc."
+                  placeholderTextColor={clay.textMuted}
+                  multiline
+                  scrollEnabled={false}
+                  maxLength={2000}
+                  textAlignVertical="top"
+                  value={note}
+                  onChangeText={setNote}
+                  onFocus={() => {
+                    isNoteFocusedRef.current = true;
+                    setIsNoteFocused(true);
+                    setTimeout(() => {
+                      scrollViewRef.current?.scrollToEnd({ animated: true });
+                    }, 100);
+                  }}
+                  onBlur={() => {
+                    isNoteFocusedRef.current = false;
+                    setIsNoteFocused(false);
+                  }}
+                  onContentSizeChange={() => {
+                    if (isNoteFocusedRef.current) {
+                      scrollViewRef.current?.scrollToEnd({ animated: true });
+                    }
+                  }}
+                />
+              </View>
+            </>
+          ) : null}
+        </ScrollView>
+
+        {/* ── Fixed Bottom Save Container ── */}
+        <View
+          style={{
+            backgroundColor: clay.canvas,
+            borderColor: clay.cardBorder,
+            paddingBottom: isKeyboardVisible ? 12 : Math.max(insets.bottom, 12) + 8,
+          }}
+          className="w-full max-w-2xl self-center border-t px-5 pt-3"
+        >
+          {saveError ? (
+            <Text selectable style={{ color: clay.errorText }} className="mb-2 text-center text-xs font-semibold">
+              {saveError}
+            </Text>
+          ) : null}
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={expenseId ? "Save changes" : "Add expense"}
+            disabled={!isValid || isSaving}
+            onPress={() => void handleSave()}
+            className="h-14 flex-row items-center justify-center gap-2 rounded-2xl bg-[#F5D298] px-5 shadow-sm active:opacity-75 disabled:opacity-40"
           >
-            {saveError ? <Text selectable className="text-sm text-coral">{saveError}</Text> : null}
-            <PrimaryButton label={expenseId ? "Save changes" : "Add expense"} onPress={() => void handleSave()} disabled={!isValid} loading={isSaving} />
-          </View>
-        </KeyboardAvoidingView>
-      </>
-    )}</RouteModal>
+            {isSaving ? (
+              <ActivityIndicator color={clay.heroText} />
+            ) : (
+              <>
+                <Ionicons name={expenseId ? "checkmark" : "add"} size={22} color={clay.heroText} />
+                <Text style={{ color: clay.heroText }} className="text-base font-extrabold">
+                  {expenseId ? "Save Changes" : "Add Expense"}
+                </Text>
+              </>
+            )}
+          </Pressable>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }

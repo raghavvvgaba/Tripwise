@@ -8,6 +8,11 @@
     "icon": "./assets/tripwise-icon-light.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/tripwise-icon-dark.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0F1115"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.tripwise.app",
@@ -58,6 +63,19 @@
         "expo-image-picker",
         {
           "photosPermission": "Allow Tripwise to choose a group cover photo."
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F7F7F8",
+          "image": "./assets/tripwise-icon-light.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "dark": {
+            "backgroundColor": "#0F1115",
+            "image": "./assets/tripwise-icon-dark.png"
+          }
         }
       ]
     ]

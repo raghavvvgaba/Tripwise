@@ -1,10 +1,11 @@
 import "../global.css";
 
 import { useEffect } from "react";
-import { ActivityIndicator, Platform, useColorScheme, View } from "react-native";
+import { Platform, useColorScheme, View } from "react-native";
 import { DarkTheme, DefaultTheme, ThemeProvider } from "expo-router";
 import { Stack } from "expo-router/stack";
 import { StatusBar } from "expo-status-bar";
+import * as SplashScreen from "expo-splash-screen";
 import { colorScheme as nativeWindColorScheme } from "nativewind";
 
 import { useAuthStore } from "@/store/use-auth-store";
@@ -13,6 +14,8 @@ import { useSettingsStore } from "@/store/use-settings-store";
 import { WebAppShell } from "@/components/web-app-shell";
 import { WebConfirmDialog } from "@/components/web-confirm-dialog";
 import { resolveTheme, themeColors, themeVariables } from "@/constants/theme";
+
+void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
   const session = useAuthStore((state) => state.session);
@@ -50,12 +53,14 @@ export default function RootLayout() {
     nativeWindColorScheme.set(Platform.OS === "web" ? scheme : themePreference);
   }, [scheme, settingsHydrated, themePreference]);
 
+  useEffect(() => {
+    if (!isLoading && settingsHydrated) {
+      void SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [isLoading, settingsHydrated]);
+
   if (isLoading || !settingsHydrated) {
-    return (
-      <View className="flex-1 items-center justify-center bg-canvas" style={themeVariables[scheme]}>
-        <ActivityIndicator color={colors["brand-600"]} />
-      </View>
-    );
+    return null;
   }
 
   const screens = (
@@ -80,10 +85,10 @@ export default function RootLayout() {
           <Stack.Screen name="groups/[groupId]/index" options={{ title: "Group" }} />
           <Stack.Screen name="groups/[groupId]/settings" options={{ title: "Group settings" }} />
           <Stack.Screen name="groups/[groupId]/members" options={{ title: "Members", headerShown: false }} />
-          <Stack.Screen name="groups/[groupId]/add-expense" options={{ title: "Add expense", presentation: Platform.OS === "web" ? "transparentModal" : "modal", headerShown: Platform.OS !== "web", animation: Platform.OS === "web" ? "none" : undefined }} />
+          <Stack.Screen name="groups/[groupId]/add-expense" options={{ title: "Add expense", presentation: "transparentModal", headerShown: false, animation: "none" }} />
           <Stack.Screen name="groups/[groupId]/record-payment" options={{ title: "Record payment", presentation: Platform.OS === "web" ? "transparentModal" : "modal", headerShown: Platform.OS !== "web", animation: Platform.OS === "web" ? "none" : undefined }} />
-          <Stack.Screen name="expenses/[expenseId]" options={{ title: "Expense" }} />
-          <Stack.Screen name="groups/[groupId]/invite" options={{ title: "Invite members", presentation: Platform.OS === "web" ? "transparentModal" : "modal", headerShown: Platform.OS !== "web", animation: Platform.OS === "web" ? "none" : undefined }} />
+          <Stack.Screen name="expenses/[expenseId]" options={{ title: "Expense", headerShown: false }} />
+          <Stack.Screen name="groups/[groupId]/invite" options={{ title: "Invite members", presentation: Platform.OS === "web" ? "transparentModal" : "modal", headerShown: false, animation: Platform.OS === "web" ? "none" : undefined }} />
         </Stack.Protected>
       </Stack>
   );

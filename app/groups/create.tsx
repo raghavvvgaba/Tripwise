@@ -1,7 +1,18 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, Stack } from "expo-router";
-import { useState } from "react";
-import { KeyboardAvoidingView, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { useRef, useState } from "react";
+import {
+  Animated,
+  Easing,
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 
 import { PrimaryButton } from "@/components/primary-button";
 import { RouteModal } from "@/components/route-modal";
@@ -19,8 +30,45 @@ export default function CreateGroupScreen() {
   const [name, setName] = useState("");
   const [currency, setCurrency] = useState<CurrencyCode>(defaultCurrency ?? "INR");
   const [isCurrencyOpen, setIsCurrencyOpen] = useState(false);
+  const [currencyModalVisible, setCurrencyModalVisible] = useState(false);
+  const currencyAnim = useRef(new Animated.Value(0)).current;
   const [isSaving, setIsSaving] = useState(false);
   const selectedCurrency = SUPPORTED_CURRENCIES.find((item) => item.code === currency) ?? SUPPORTED_CURRENCIES[0];
+
+  function openCurrencyModal() {
+    Keyboard.dismiss();
+    setCurrencyModalVisible(true);
+    setIsCurrencyOpen(true);
+    Animated.timing(currencyAnim, {
+      toValue: 1,
+      duration: 240,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }
+
+  function closeCurrencyModal(onDone?: () => void) {
+    setIsCurrencyOpen(false);
+    Animated.timing(currencyAnim, {
+      toValue: 0,
+      duration: 190,
+      easing: Easing.in(Easing.cubic),
+      useNativeDriver: true,
+    }).start(() => {
+      setCurrencyModalVisible(false);
+      onDone?.();
+    });
+  }
+
+  const currencyBackdropOpacity = currencyAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
+
+  const currencySheetTranslateY = currencyAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [420, 0],
+  });
 
   async function handleCreate() {
     if (!name.trim() || isSaving) return;
@@ -82,7 +130,7 @@ export default function CreateGroupScreen() {
               accessibilityRole="button"
               accessibilityLabel={`Group currency, ${selectedCurrency.label}`}
               accessibilityState={{ expanded: isCurrencyOpen }}
-              onPress={() => setIsCurrencyOpen(true)}
+              onPress={openCurrencyModal}
               className={`min-h-14 flex-row items-center justify-between rounded-xl border bg-surface px-4 active:bg-canvas ${
                 isCurrencyOpen ? "border-brand-500" : "border-line"
               }`}
@@ -99,21 +147,29 @@ export default function CreateGroupScreen() {
           <PrimaryButton label="Create group" onPress={handleCreate} disabled={!name.trim()} loading={isSaving} />
         </ScrollView>
       </KeyboardAvoidingView>
-      <Modal transparent visible={isCurrencyOpen} animationType="slide" onRequestClose={() => setIsCurrencyOpen(false)}>
+      <Modal transparent visible={currencyModalVisible} animationType="none" onRequestClose={() => closeCurrencyModal()}>
         <View className="flex-1 justify-end" style={colors === themeColors.dark ? themeVariables.dark : themeVariables.light}>
-          <Pressable
-            accessibilityLabel="Close currency options"
-            onPress={() => setIsCurrencyOpen(false)}
+          <Animated.View
+            style={{ opacity: currencyBackdropOpacity }}
             className="absolute inset-0 bg-black/40"
-          />
-          <View className="rounded-t-3xl border-t border-line bg-surface px-5 pb-10 pt-5">
+          >
+            <Pressable
+              accessibilityLabel="Close currency options"
+              onPress={() => closeCurrencyModal()}
+              className="flex-1"
+            />
+          </Animated.View>
+          <Animated.View
+            style={{ transform: [{ translateY: currencySheetTranslateY }] }}
+            className="rounded-t-3xl border-t border-line bg-surface px-5 pb-10 pt-5"
+          >
             <View className="w-full max-w-2xl self-center gap-4">
               <View className="flex-row items-center justify-between">
                 <Text className="text-lg font-bold text-ink">Choose currency</Text>
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Close currency options"
-                  onPress={() => setIsCurrencyOpen(false)}
+                  onPress={() => closeCurrencyModal()}
                   className="h-10 w-10 items-center justify-center rounded-full active:bg-canvas"
                 >
                   <Ionicons name="close" size={22} color={colors.muted} />
@@ -130,7 +186,7 @@ export default function CreateGroupScreen() {
                       accessibilityState={{ selected: isSelected }}
                       onPress={() => {
                         setCurrency(curr.code);
-                        setIsCurrencyOpen(false);
+                        closeCurrencyModal();
                       }}
                       className={`min-h-14 flex-row items-center gap-3 px-4 active:bg-canvas ${
                         isSelected ? "bg-brand-50" : "bg-surface"
@@ -151,7 +207,7 @@ export default function CreateGroupScreen() {
                 })}
               </View>
             </View>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
     </>

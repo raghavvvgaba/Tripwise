@@ -1,9 +1,10 @@
-import { Link, router, Stack, useFocusEffect } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { router, Stack, useFocusEffect } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { EmptyState } from "@/components/empty-state";
-import { PrimaryButton } from "@/components/primary-button";
+import { useClayTheme } from "@/constants/clay-theme";
 import { getGroupMembers, type GroupMember } from "@/lib/group-invites";
 import { deleteGroupExpense, getGroupExpense } from "@/lib/expenses";
 import type { SharedExpense } from "@/types/shared-expense";
@@ -12,7 +13,17 @@ import { formatExpenseDate, formatRelativeTime } from "@/utils/date";
 import { formatMoney } from "@/utils/money";
 import { confirmAction, showError } from "@/utils/dialogs";
 
+const AVATAR_RING_COLORS = [
+  "#38BDF8", // Sky blue
+  "#FB923C", // Coral orange
+  "#4ADE80", // Mint green
+  "#C084FC", // Soft lavender
+  "#FBBF24", // Warm amber
+  "#F472B6", // Rose pink
+];
+
 export function SharedExpenseDetails({ group, expenseId }: { group: SharedGroup; expenseId: string }) {
+  const clay = useClayTheme();
   const [expense, setExpense] = useState<SharedExpense | null>(null);
   const [members, setMembers] = useState<GroupMember[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -20,23 +31,28 @@ export function SharedExpenseDetails({ group, expenseId }: { group: SharedGroup;
   const [isDeleting, setIsDeleting] = useState(false);
   const deletingRef = useRef(false);
 
-  useFocusEffect(useCallback(() => {
-    let active = true;
-    setExpense(null);
-    setError(null);
-    void Promise.all([getGroupExpense(group.id, expenseId), getGroupMembers(group.id)])
-      .then(([nextExpense, nextMembers]) => {
-        if (!active) return;
-        setExpense(nextExpense);
-        setMembers(nextMembers);
-      })
-      .catch((loadError: unknown) => {
-        if (active) setError(loadError instanceof Error ? loadError.message : "Could not load this expense.");
-      });
-    return () => { active = false; };
-  }, [group.id, expenseId, loadAttempt]));
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      setExpense(null);
+      setError(null);
+      void Promise.all([getGroupExpense(group.id, expenseId), getGroupMembers(group.id)])
+        .then(([nextExpense, nextMembers]) => {
+          if (!active) return;
+          setExpense(nextExpense);
+          setMembers(nextMembers);
+        })
+        .catch((loadError: unknown) => {
+          if (active) setError(loadError instanceof Error ? loadError.message : "Could not load this expense.");
+        });
+      return () => {
+        active = false;
+      };
+    }, [group.id, expenseId, loadAttempt])
+  );
 
   const nameFor = (userId: string) => members.find((member) => member.userId === userId)?.name ?? "A member";
+  const memberIndexFor = (userId: string) => Math.max(0, members.findIndex((m) => m.userId === userId));
 
   async function handleDelete() {
     if (deletingRef.current) return;
@@ -58,91 +74,270 @@ export function SharedExpenseDetails({ group, expenseId }: { group: SharedGroup;
       "Delete this expense?",
       "It will be removed for every group member and balances will update. This cannot be undone.",
       "Delete expense",
-      () => void handleDelete(),
+      () => void handleDelete()
     );
   }
 
   return (
-    <>
-      <Stack.Screen options={{ title: "Expense details" }} />
+    <SafeAreaView style={{ flex: 1, backgroundColor: clay.canvas }}>
+      <Stack.Screen options={{ headerShown: false }} />
+
+      {/* ── Top Bar Header ── */}
+      <View className="flex-row items-center justify-between px-5 pt-2 pb-3">
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          onPress={() => router.back()}
+          style={{ backgroundColor: clay.headerBtn, borderColor: clay.cardBorder }}
+          className="h-11 w-11 items-center justify-center rounded-2xl border active:opacity-75"
+        >
+          <Ionicons name="chevron-back" size={20} color={clay.textPrimary} />
+        </Pressable>
+
+        <View className="items-center">
+          <Text style={{ color: clay.textMuted }} className="text-[11px] font-bold uppercase tracking-widest">
+            Expense Details
+          </Text>
+          <Text style={{ color: clay.textPrimary }} className="max-w-[200px] text-base font-extrabold" numberOfLines={1}>
+            {group.name}
+          </Text>
+        </View>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Delete expense"
+          disabled={isDeleting || !expense}
+          onPress={confirmDelete}
+          style={{ backgroundColor: clay.headerBtn, borderColor: clay.cardBorder }}
+          className="h-11 w-11 items-center justify-center rounded-2xl border active:opacity-75 disabled:opacity-40"
+        >
+          <Ionicons name="trash-outline" size={18} color="#FB7185" />
+        </Pressable>
+      </View>
+
       <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        contentContainerClassName="w-full max-w-3xl self-center gap-6 px-5 pb-12 pt-5 md:px-8 lg:py-10"
+        contentInsetAdjustmentBehavior="never"
+        contentContainerClassName="w-full max-w-2xl self-center px-5 pb-12 gap-5"
+        showsVerticalScrollIndicator={false}
       >
         {error ? (
-          <View className="gap-4">
-            <EmptyState icon="receipt-outline" title="Could not load expense" message={error} />
-            <Pressable onPress={() => setLoadAttempt((attempt) => attempt + 1)}>
-              <Text className="text-center font-semibold text-brand-700">Retry</Text>
+          <View
+            style={{ backgroundColor: clay.card, borderColor: clay.errorCardBorder }}
+            className="gap-3 rounded-3xl border p-5 shadow-sm"
+          >
+            <Text selectable style={{ color: clay.errorText }} className="text-sm font-semibold">
+              {error}
+            </Text>
+            <Pressable onPress={() => setLoadAttempt((attempt) => attempt + 1)} className="self-start">
+              <Text className="text-sm font-bold text-[#F5D298]">Retry</Text>
             </Pressable>
           </View>
-        ) : !expense ? <ActivityIndicator /> : (
+        ) : !expense ? (
+          <ActivityIndicator color="#F5D298" className="py-16" />
+        ) : (
           <>
-            <View className="card items-center gap-2 px-5 py-7">
-              <Text className="text-center text-xl font-bold text-ink">{expense.description}</Text>
-              <Text selectable className="text-4xl font-bold text-ink">
+            {/* ── Main Centerpiece Amount Card ── */}
+            <View
+              style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+              className="items-center gap-2 rounded-3xl border px-6 py-7 shadow-sm"
+            >
+              <View
+                style={{ backgroundColor: clay.squircle, borderColor: clay.cardBorder }}
+                className="h-14 w-14 items-center justify-center rounded-2xl border"
+              >
+                <Ionicons name="receipt" size={26} color={clay.isDark ? "#F5D298" : "#9A6B1C"} />
+              </View>
+
+              <Text
+                style={{ color: clay.textPrimary }}
+                className="mt-1 text-center text-xl font-black"
+                numberOfLines={2}
+              >
+                {expense.description}
+              </Text>
+
+              <Text selectable style={{ color: clay.textPrimary }} className="text-4xl font-black tracking-tight">
                 {formatMoney(expense.amountMinor / 100, group.currency)}
               </Text>
-              <Text className="text-sm text-muted">
-                {formatExpenseDate(`${expense.expenseDate}T00:00:00`)} · {group.name}
-              </Text>
-            </View>
 
-            <View className="gap-3">
-              <Text className="section-label px-1">Payment</Text>
-              <View className="card flex-row items-center justify-between gap-3 p-4">
-                <View className="gap-1">
-                  <Text className="text-xs text-muted">Paid by</Text>
-                  <Text className="font-semibold text-ink">{nameFor(expense.paidById)}</Text>
-                </View>
-                <Text selectable className="font-bold text-ink">{formatMoney(expense.amountMinor / 100, group.currency)}</Text>
-              </View>
-            </View>
-
-            <View className="gap-3">
-              <View className="flex-row items-center justify-between px-1">
-                <Text className="section-label">Split breakdown</Text>
-                <Text className="text-xs font-semibold text-muted">
-                  {expense.splitMode === "equal" ? "Equally" : "Exact amounts"}
+              <View style={{ backgroundColor: clay.badgeNeutralBg }} className="mt-1 rounded-full px-3 py-1">
+                <Text style={{ color: clay.textMuted }} className="text-xs font-bold">
+                  {formatExpenseDate(`${expense.expenseDate}T00:00:00`)}
                 </Text>
               </View>
-              <View className="card px-4">
-                {expense.shares.map((share, index) => (
-                  <View key={share.userId}>
-                    <View className="flex-row items-center justify-between gap-3 py-3">
-                      <Text className="flex-1 font-medium text-ink">{nameFor(share.userId)}</Text>
-                      <Text selectable className="font-bold text-ink">
-                        {formatMoney(share.amountMinor / 100, group.currency)}
-                      </Text>
-                    </View>
-                    {index < expense.shares.length - 1 ? <View className="h-px bg-line" /> : null}
+            </View>
+
+            {/* ── Paid By Card ── */}
+            <View className="gap-2">
+              <Text style={{ color: clay.textMuted }} className="px-1 text-xs font-bold uppercase tracking-wider">
+                Paid by
+              </Text>
+              <View
+                style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+                className="flex-row items-center justify-between rounded-3xl border p-4 shadow-sm"
+              >
+                <View className="flex-row items-center gap-3">
+                  <View
+                    style={{
+                      width: 42,
+                      height: 42,
+                      borderRadius: 21,
+                      borderWidth: 2,
+                      borderColor: AVATAR_RING_COLORS[memberIndexFor(expense.paidById) % AVATAR_RING_COLORS.length],
+                      backgroundColor: clay.avatarBg,
+                    }}
+                    className="items-center justify-center"
+                  >
+                    <Text style={{ color: clay.textPrimary }} className="text-sm font-black">
+                      {(nameFor(expense.paidById).trim()[0] || "?").toUpperCase()}
+                    </Text>
                   </View>
-                ))}
+                  <View>
+                    <Text style={{ color: clay.textPrimary }} className="text-base font-bold">
+                      {nameFor(expense.paidById)}
+                    </Text>
+                    <Text style={{ color: clay.textMuted }} className="text-xs">
+                      Paid full amount
+                    </Text>
+                  </View>
+                </View>
+
+                <Text selectable style={{ color: clay.textPrimary }} className="text-base font-black">
+                  {formatMoney(expense.amountMinor / 100, group.currency)}
+                </Text>
               </View>
             </View>
 
+            {/* ── Split Breakdown Card ── */}
+            <View className="gap-2">
+              <View className="flex-row items-center justify-between px-1">
+                <Text style={{ color: clay.textMuted }} className="text-xs font-bold uppercase tracking-wider">
+                  Split Breakdown
+                </Text>
+                <View style={{ backgroundColor: clay.badgeNeutralBg }} className="rounded-full px-2.5 py-0.5">
+                  <Text style={{ color: clay.textMuted }} className="text-[11px] font-bold">
+                    {expense.splitMode === "equal" ? "Equally" : "Exact amounts"}
+                  </Text>
+                </View>
+              </View>
+
+              <View
+                style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+                className="rounded-3xl border px-4 py-2 shadow-sm"
+              >
+                {expense.shares.map((share, index) => {
+                  const mName = nameFor(share.userId);
+                  const mRing = AVATAR_RING_COLORS[memberIndexFor(share.userId) % AVATAR_RING_COLORS.length];
+                  return (
+                    <View key={share.userId}>
+                      <View className="flex-row items-center justify-between py-3">
+                        <View className="flex-row items-center gap-3">
+                          <View
+                            style={{
+                              width: 34,
+                              height: 34,
+                              borderRadius: 17,
+                              borderWidth: 2,
+                              borderColor: mRing,
+                              backgroundColor: clay.avatarBg,
+                            }}
+                            className="items-center justify-center"
+                          >
+                            <Text style={{ color: clay.textPrimary }} className="text-xs font-black">
+                              {(mName.trim()[0] || "?").toUpperCase()}
+                            </Text>
+                          </View>
+                          <Text style={{ color: clay.textPrimary }} className="text-sm font-bold">
+                            {mName}
+                          </Text>
+                        </View>
+                        <Text selectable style={{ color: clay.textPrimary }} className="text-sm font-black">
+                          {formatMoney(share.amountMinor / 100, group.currency)}
+                        </Text>
+                      </View>
+                      {index < expense.shares.length - 1 ? (
+                        <View style={{ backgroundColor: clay.cardBorder }} className="h-px w-full" />
+                      ) : null}
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* ── Note (Optional) ── */}
             {expense.note ? (
               <View className="gap-2">
-                <Text className="section-label px-1">Note</Text>
-                <Text selectable className="card p-4 text-sm leading-5 text-ink">{expense.note}</Text>
+                <Text style={{ color: clay.textMuted }} className="px-1 text-xs font-bold uppercase tracking-wider">
+                  Note
+                </Text>
+                <View
+                  style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+                  className="rounded-3xl border p-4 shadow-sm"
+                >
+                  <Text selectable style={{ color: clay.textPrimary }} className="text-sm leading-5">
+                    {expense.note}
+                  </Text>
+                </View>
               </View>
             ) : null}
 
-            <View className="gap-1 px-1">
-              <Text className="text-xs text-muted">Added by {nameFor(expense.createdById)}</Text>
+            {/* ── Metadata ── */}
+            <View className="gap-1 px-1 pt-1">
+              <Text style={{ color: clay.textMuted }} className="text-xs">
+                Added by {nameFor(expense.createdById)}
+              </Text>
               {expense.updatedAt ? (
-                <Text className="text-xs text-muted">
-                  Last edited by {expense.updatedById ? nameFor(expense.updatedById) : "a group member"} · {formatRelativeTime(expense.updatedAt)}
+                <Text style={{ color: clay.textMuted }} className="text-xs">
+                  Last edited by {expense.updatedById ? nameFor(expense.updatedById) : "a group member"} ·{" "}
+                  {formatRelativeTime(expense.updatedAt)}
                 </Text>
               ) : null}
             </View>
-            <Link href={{ pathname: "/groups/[groupId]/add-expense", params: { groupId: group.id, expenseId } }} asChild>
-              <PrimaryButton label="Edit expense" variant="secondary" disabled={isDeleting} />
-            </Link>
-            <PrimaryButton label="Delete expense" variant="danger" onPress={confirmDelete} loading={isDeleting} />
+
+            {/* ── Bottom Action Buttons ── */}
+            <View className="gap-3 pt-3">
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Edit expense"
+                disabled={isDeleting}
+                onPress={() => {
+                  router.push({
+                    pathname: "/groups/[groupId]/add-expense",
+                    params: { groupId: group.id, expenseId },
+                  });
+                }}
+                className="h-14 flex-row items-center justify-center gap-2 rounded-2xl bg-[#F5D298] px-5 shadow-sm active:opacity-75 disabled:opacity-50"
+              >
+                <Ionicons name="pencil" size={17} color={clay.heroText} />
+                <Text style={{ color: clay.heroText }} className="text-base font-extrabold">
+                  Edit Expense
+                </Text>
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Delete expense"
+                disabled={isDeleting}
+                onPress={confirmDelete}
+                style={{
+                  backgroundColor: clay.isDark ? "rgba(251, 113, 133, 0.12)" : "#FEE2E2",
+                  borderColor: clay.isDark ? "rgba(251, 113, 133, 0.25)" : "#FECACA",
+                }}
+                className="h-14 flex-row items-center justify-center gap-2 rounded-2xl border px-5 active:opacity-75 disabled:opacity-50"
+              >
+                {isDeleting ? (
+                  <ActivityIndicator color="#FB7185" />
+                ) : (
+                  <>
+                    <Ionicons name="trash-outline" size={17} color="#FB7185" />
+                    <Text className="text-base font-bold text-[#FB7185]">Delete Expense</Text>
+                  </>
+                )}
+              </Pressable>
+            </View>
           </>
         )}
       </ScrollView>
-    </>
+    </SafeAreaView>
   );
 }
