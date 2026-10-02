@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Animated,
   Easing,
+  GestureResponderHandlers,
   Keyboard,
   KeyboardAvoidingView,
   Modal,
@@ -15,6 +16,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import AnimatedReanimated, { FadeInDown } from "react-native-reanimated";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useClayTheme } from "@/constants/clay-theme";
@@ -43,11 +45,13 @@ export function SharedExpenseForm({
   currentUserId,
   expenseId,
   onClose,
+  headerPanHandlers,
 }: {
   group: SharedGroup;
   currentUserId: string;
   expenseId?: string;
   onClose?: () => void;
+  headerPanHandlers?: GestureResponderHandlers;
 }) {
   const clay = useClayTheme();
   const insets = useSafeAreaInsets();
@@ -226,28 +230,37 @@ export function SharedExpenseForm({
     <SafeAreaView style={{ flex: 1, backgroundColor: clay.canvas }}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* ── Top Bar Header ── */}
-      <View className="flex-row items-center justify-between px-5 pt-2 pb-3">
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-          onPress={() => (onClose ? onClose() : router.back())}
-          style={{ backgroundColor: clay.headerBtn, borderColor: clay.cardBorder }}
-          className="h-11 w-11 items-center justify-center rounded-2xl border active:opacity-75"
-        >
-          <Ionicons name="close" size={22} color={clay.textPrimary} />
-        </Pressable>
-
-        <View className="items-center">
-          <Text style={{ color: clay.textMuted }} className="text-[11px] font-bold uppercase tracking-widest">
-            {expenseId ? "Edit Expense" : "New Expense"}
-          </Text>
-          <Text style={{ color: clay.textPrimary }} className="max-w-[200px] text-base font-extrabold" numberOfLines={1}>
-            {group.name}
-          </Text>
+      {/* ── Drag Handle & Top Bar Header ── */}
+      <View {...headerPanHandlers} className="w-full">
+        <View className="items-center pt-2 pb-1">
+          <View
+            style={{ backgroundColor: clay.cardBorder }}
+            className="h-1.5 w-12 rounded-full opacity-60"
+          />
         </View>
 
-        <View className="h-11 w-11" />
+        <View className="flex-row items-center justify-between px-5 pt-1 pb-3">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            onPress={() => (onClose ? onClose() : router.back())}
+            style={{ backgroundColor: clay.headerBtn, borderColor: clay.cardBorder }}
+            className="h-11 w-11 items-center justify-center rounded-2xl border active:opacity-75"
+          >
+            <Ionicons name="close" size={22} color={clay.textPrimary} />
+          </Pressable>
+
+          <View className="items-center">
+            <Text style={{ color: clay.textMuted }} className="text-[11px] font-bold uppercase tracking-widest">
+              {expenseId ? "Edit Expense" : "New Expense"}
+            </Text>
+            <Text style={{ color: clay.textPrimary }} className="max-w-[200px] text-base font-extrabold" numberOfLines={1}>
+              {group.name}
+            </Text>
+          </View>
+
+          <View className="h-11 w-11" />
+        </View>
       </View>
 
       <KeyboardAvoidingView
@@ -265,7 +278,8 @@ export function SharedExpenseForm({
           showsVerticalScrollIndicator={false}
         >
           {/* ── Expense Details: Description & Amount Card ── */}
-          <View
+          <AnimatedReanimated.View
+            entering={FadeInDown.duration(280).delay(60)}
             style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
             className="gap-4 rounded-3xl border p-5 shadow-sm"
           >
@@ -315,10 +329,10 @@ export function SharedExpenseForm({
                 </Text>
               ) : null}
             </View>
-          </View>
+          </AnimatedReanimated.View>
 
           {/* ── Paid By Section ── */}
-          <View className="gap-2">
+          <AnimatedReanimated.View entering={FadeInDown.duration(280).delay(120)} className="gap-2">
             <Text style={{ color: clay.textMuted }} className="px-1 text-xs font-bold uppercase tracking-wider">
               Paid by
             </Text>
@@ -474,12 +488,12 @@ export function SharedExpenseForm({
             ) : (
               <ActivityIndicator color="#F5D298" className="self-start py-2" />
             )}
-          </View>
+          </AnimatedReanimated.View>
 
           {members ? (
             <>
               {/* ── Split Method Toggle ── */}
-              <View className="gap-2">
+              <AnimatedReanimated.View entering={FadeInDown.duration(280).delay(180)} className="gap-2">
                 <Text style={{ color: clay.textMuted }} className="px-1 text-xs font-bold uppercase tracking-wider">
                   Split Method
                 </Text>
@@ -510,10 +524,10 @@ export function SharedExpenseForm({
                     );
                   })}
                 </View>
-              </View>
+              </AnimatedReanimated.View>
 
               {/* ── Split Among Section ── */}
-              <View className="gap-2">
+              <AnimatedReanimated.View entering={FadeInDown.duration(280).delay(220)} className="gap-2">
                 <View className="flex-row items-baseline justify-between px-1">
                   <Text style={{ color: clay.textMuted }} className="text-xs font-bold uppercase tracking-wider">
                     Split Among
@@ -641,10 +655,10 @@ export function SharedExpenseForm({
                     </Text>
                   </View>
                 ) : null}
-              </View>
+              </AnimatedReanimated.View>
 
               {/* ── Optional Note ── */}
-              <View className="gap-2">
+              <AnimatedReanimated.View entering={FadeInDown.duration(280).delay(260)} className="gap-2">
                 <Text style={{ color: clay.textMuted }} className="px-1 text-xs font-bold uppercase tracking-wider">
                   Note (Optional)
                 </Text>
@@ -680,7 +694,7 @@ export function SharedExpenseForm({
                     }
                   }}
                 />
-              </View>
+              </AnimatedReanimated.View>
             </>
           ) : null}
         </ScrollView>

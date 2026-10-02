@@ -210,14 +210,22 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
     // Trigger light haptic feedback
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    // Run rotation animation quickly on the native thread
+    // Run rotation animation quickly on the native thread, then return to 0 while hidden under modal
     Animated.parallel([
-      Animated.timing(fabRotateAnim, {
-        toValue: 1,
-        duration: 180,
-        easing: Easing.bezier(0.2, 0, 0, 1),
-        useNativeDriver: Platform.OS !== "web",
-      }),
+      Animated.sequence([
+        Animated.timing(fabRotateAnim, {
+          toValue: 1,
+          duration: 180,
+          easing: Easing.bezier(0.2, 0, 0, 1),
+          useNativeDriver: Platform.OS !== "web",
+        }),
+        Animated.timing(fabRotateAnim, {
+          toValue: 0,
+          duration: 200,
+          easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+          useNativeDriver: Platform.OS !== "web",
+        }),
+      ]),
       Animated.sequence([
         Animated.timing(fabScaleAnim, {
           toValue: 0.9,
@@ -305,14 +313,34 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
     }
   }
 
-  useFocusEffect(useCallback(() => {
-    isNavigating.current = false;
-    fabRotateAnim.setValue(0);
-    fabScaleAnim.setValue(1);
-    void refreshMembers();
-    void refreshExpenses();
-    void refreshPayments();
-  }, [fabRotateAnim, fabScaleAnim, refreshMembers, refreshExpenses, refreshPayments]));
+  useFocusEffect(
+    useCallback(() => {
+      isNavigating.current = false;
+      Animated.parallel([
+        Animated.spring(fabRotateAnim, {
+          toValue: 0,
+          friction: 7,
+          tension: 100,
+          useNativeDriver: Platform.OS !== "web",
+        }),
+        Animated.spring(fabScaleAnim, {
+          toValue: 1,
+          friction: 7,
+          tension: 100,
+          useNativeDriver: Platform.OS !== "web",
+        }),
+      ]).start();
+
+      // Defer network refetches until navigation close transition settles
+      const timer = setTimeout(() => {
+        void refreshMembers();
+        void refreshExpenses();
+        void refreshPayments();
+      }, 280);
+
+      return () => clearTimeout(timer);
+    }, [fabRotateAnim, fabScaleAnim, refreshMembers, refreshExpenses, refreshPayments])
+  );
 
   const balances = members && expenses && payments ? getSharedMemberBalances(members, expenses, payments) : null;
   const settlements = balances ? getSharedSettlements(balances) : null;

@@ -1,20 +1,28 @@
-import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Animated,
   BackHandler,
   Dimensions,
-  Easing,
   Keyboard,
   LayoutChangeEvent,
-  Platform,
+  PanResponder,
   Pressable,
   ScrollView,
   useWindowDimensions,
   View,
 } from "react-native";
+import Animated, {
+  cancelAnimation,
+  Easing,
+  Extrapolation,
+  interpolate,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useClayTheme } from "@/constants/clay-theme";
@@ -70,33 +78,53 @@ function EditExpenseView({
   isLoading: boolean;
   clay: ReturnType<typeof useClayTheme>;
 }) {
-  const { width: screenWidth } = useWindowDimensions();
-  const slideAnim = useRef(new Animated.Value(0)).current;
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const slideProgress = useSharedValue(0);
+  const dragY = useSharedValue(0);
   const isClosing = useRef(false);
-  const useNative = Platform.OS !== "web";
 
   useEffect(() => {
-    Animated.timing(slideAnim, {
-      toValue: 1,
+    slideProgress.value = withTiming(1, {
       duration: 280,
       easing: Easing.bezier(0.16, 1, 0.3, 1),
-      useNativeDriver: useNative,
-    }).start();
-  }, [slideAnim, useNative]);
+    });
+  }, [slideProgress]);
 
   const handleClose = useCallback(() => {
     if (isClosing.current) return;
     isClosing.current = true;
     Keyboard.dismiss();
-    Animated.timing(slideAnim, {
-      toValue: 0,
-      duration: 220,
-      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
-      useNativeDriver: useNative,
-    }).start(() => {
-      router.back();
-    });
-  }, [slideAnim, useNative]);
+    slideProgress.value = withTiming(
+      0,
+      {
+        duration: 220,
+        easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+      },
+      (finished) => {
+        if (finished) {
+          runOnJS(router.back)();
+        }
+      }
+    );
+  }, [slideProgress]);
+
+  const closeScreenByDrag = useCallback(() => {
+    if (isClosing.current) return;
+    isClosing.current = true;
+    Keyboard.dismiss();
+    dragY.value = withTiming(
+      screenHeight,
+      {
+        duration: 220,
+        easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+      },
+      (finished) => {
+        if (finished) {
+          runOnJS(router.back)();
+        }
+      }
+    );
+  }, [dragY, screenHeight]);
 
   useEffect(() => {
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
@@ -106,40 +134,117 @@ function EditExpenseView({
     return () => sub.remove();
   }, [handleClose]);
 
-  const animTranslateX = slideAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [screenWidth, 0],
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => false,
+        onStartShouldSetPanResponderCapture: () => false,
+        onMoveShouldSetPanResponder: (_, gestureState) => {
+          return gestureState.dy > 6 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx);
+        },
+        onMoveShouldSetPanResponderCapture: (_, gestureState) => {
+          return gestureState.dy > 6 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx);
+        },
+        onPanResponderGrant: () => {
+          cancelAnimation(dragY);
+        },
+        onPanResponderMove: (_, gestureState) => {
+          if (gestureState.dy > 0) {
+            dragY.value = gestureState.dy;
+          } else {
+            dragY.value = gestureState.dy * 0.15;
+          }
+        },
+        onPanResponderRelease: (_, gestureState) => {
+          if (gestureState.dy > 120 || gestureState.vy > 0.5) {
+            closeScreenByDrag();
+          } else {
+            dragY.value = withSpring(0, {
+              damping: 24,
+              stiffness: 260,
+              mass: 0.8,
+            });
+          }
+        },
+        onPanResponderTerminate: () => {
+          dragY.value = withSpring(0, {
+            damping: 24,
+            stiffness: 260,
+            mass: 0.8,
+          });
+        },
+      }),
+    [closeScreenByDrag, dragY]
+  );
+
+  const containerAnimatedStyle = useAnimatedStyle(() => {
+    const translateX = interpolate(
+      slideProgress.value,
+      [0, 1],
+      [screenWidth, 0],
+      Extrapolation.CLAMP
+    );
+    const dragScale = interpolate(
+      dragY.value,
+      [0, screenHeight],
+      [1, 0.88],
+      Extrapolation.CLAMP
+    );
+    return {
+      transform: [
+        { translateX },
+        { translateY: dragY.value },
+        { scale: dragScale },
+      ],
+    };
   });
 
-  const backdropOpacity = slideAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 0.3],
+  const backdropAnimatedStyle = useAnimatedStyle(() => {
+    const baseOpacity = interpolate(
+      slideProgress.value,
+      [0, 1],
+      [0, 0.3],
+      Extrapolation.CLAMP
+    );
+    const dragMultiplier = interpolate(
+      dragY.value,
+      [0, screenHeight * 0.6],
+      [1, 0],
+      Extrapolation.CLAMP
+    );
+    return {
+      opacity: baseOpacity * dragMultiplier,
+    };
   });
 
   return (
     <View style={{ flex: 1, backgroundColor: "transparent" }}>
       {/* ── Dimmed Backdrop ── */}
       <Animated.View
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: "#000",
-          opacity: backdropOpacity,
-        }}
+        style={[
+          {
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "#000",
+          },
+          backdropAnimatedStyle,
+        ]}
       >
         <Pressable style={{ flex: 1 }} onPress={handleClose} />
       </Animated.View>
 
-      {/* ── Standard Page Slide In From Right (GPU Accelerated) ── */}
+      {/* ── Standard Page Slide In From Right + Drag Down to dismiss ── */}
       <Animated.View
-        style={{
-          flex: 1,
-          backgroundColor: clay.canvas,
-          transform: [{ translateX: animTranslateX }],
-        }}
+        style={[
+          {
+            flex: 1,
+            backgroundColor: clay.canvas,
+          },
+          containerAnimatedStyle,
+        ]}
       >
         {group ? (
           group.deletedAt || !userId ? (
@@ -155,6 +260,7 @@ function EditExpenseView({
               currentUserId={userId}
               expenseId={expenseId}
               onClose={handleClose}
+              headerPanHandlers={panResponder.panHandlers}
             />
           )
         ) : isLoading ? (
@@ -190,7 +296,6 @@ function NewExpenseBloomingView({
   clay: ReturnType<typeof useClayTheme>;
   insets: ReturnType<typeof useSafeAreaInsets>;
 }) {
-  // Dynamic screen dimensions to adapt to any device size or orientation
   const [layout, setLayout] = useState<{ width: number; height: number }>(() => {
     const screen = Dimensions.get("screen");
     return { width: screen.width, height: screen.height };
@@ -213,32 +318,52 @@ function NewExpenseBloomingView({
   const initialScaleX = Math.min(1, 56 / Math.max(1, screenWidth));
   const initialScaleY = Math.min(1, 56 / Math.max(1, screenHeight));
 
-  const openAnim = useRef(new Animated.Value(0)).current;
+  const openProgress = useSharedValue(0);
+  const dragY = useSharedValue(0);
   const isClosing = useRef(false);
-  const useNative = Platform.OS !== "web";
 
   useEffect(() => {
-    Animated.timing(openAnim, {
-      toValue: 1,
-      duration: 300,
+    openProgress.value = withTiming(1, {
+      duration: 320,
       easing: Easing.bezier(0.16, 1, 0.3, 1),
-      useNativeDriver: useNative,
-    }).start();
-  }, [openAnim, useNative]);
+    });
+  }, [openProgress]);
 
   const handleClose = useCallback(() => {
     if (isClosing.current) return;
     isClosing.current = true;
     Keyboard.dismiss();
-    Animated.timing(openAnim, {
-      toValue: 0,
-      duration: 240,
-      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
-      useNativeDriver: useNative,
-    }).start(() => {
-      router.back();
-    });
-  }, [openAnim, useNative]);
+    openProgress.value = withTiming(
+      0,
+      {
+        duration: 250,
+        easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+      },
+      (finished) => {
+        if (finished) {
+          runOnJS(router.back)();
+        }
+      }
+    );
+  }, [openProgress]);
+
+  const closeScreenByDrag = useCallback(() => {
+    if (isClosing.current) return;
+    isClosing.current = true;
+    Keyboard.dismiss();
+    dragY.value = withTiming(
+      screenHeight,
+      {
+        duration: 220,
+        easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+      },
+      (finished) => {
+        if (finished) {
+          runOnJS(router.back)();
+        }
+      }
+    );
+  }, [dragY, screenHeight]);
 
   useEffect(() => {
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
@@ -248,82 +373,172 @@ function NewExpenseBloomingView({
     return () => sub.remove();
   }, [handleClose]);
 
-  // Native GPU transforms: scaleX, scaleY, and translateY run 100% on the compositor thread
-  const animTranslateY = openAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [initialTranslateY, 0],
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => false,
+        onStartShouldSetPanResponderCapture: () => false,
+        onMoveShouldSetPanResponder: (_, gestureState) => {
+          return gestureState.dy > 6 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx);
+        },
+        onMoveShouldSetPanResponderCapture: (_, gestureState) => {
+          return gestureState.dy > 6 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx);
+        },
+        onPanResponderGrant: () => {
+          cancelAnimation(dragY);
+        },
+        onPanResponderMove: (_, gestureState) => {
+          if (gestureState.dy > 0) {
+            dragY.value = gestureState.dy;
+          } else {
+            dragY.value = gestureState.dy * 0.15;
+          }
+        },
+        onPanResponderRelease: (_, gestureState) => {
+          if (gestureState.dy > 120 || gestureState.vy > 0.5) {
+            closeScreenByDrag();
+          } else {
+            dragY.value = withSpring(0, {
+              damping: 24,
+              stiffness: 260,
+              mass: 0.8,
+            });
+          }
+        },
+        onPanResponderTerminate: () => {
+          dragY.value = withSpring(0, {
+            damping: 24,
+            stiffness: 260,
+            mass: 0.8,
+          });
+        },
+      }),
+    [closeScreenByDrag, dragY]
+  );
+
+  const containerAnimatedStyle = useAnimatedStyle(() => {
+    const bloomTranslateY = interpolate(
+      openProgress.value,
+      [0, 1],
+      [initialTranslateY, 0],
+      Extrapolation.CLAMP
+    );
+    const bloomScaleX = interpolate(
+      openProgress.value,
+      [0, 1],
+      [initialScaleX, 1],
+      Extrapolation.CLAMP
+    );
+    const bloomScaleY = interpolate(
+      openProgress.value,
+      [0, 1],
+      [initialScaleY, 1],
+      Extrapolation.CLAMP
+    );
+
+    const dragScale = interpolate(
+      dragY.value,
+      [0, screenHeight],
+      [1, 0.88],
+      Extrapolation.CLAMP
+    );
+
+    const translateY = bloomTranslateY + dragY.value;
+    const scaleX = bloomScaleX * dragScale;
+    const scaleY = bloomScaleY * dragScale;
+
+    const cardOpacity = interpolate(
+      openProgress.value,
+      [0, 0.04, 1],
+      [0, 1, 1],
+      Extrapolation.CLAMP
+    );
+
+    const borderRadius = interpolate(
+      openProgress.value,
+      [0, 1],
+      [28, 24],
+      Extrapolation.CLAMP
+    );
+
+    return {
+      transform: [{ translateY }, { scaleX }, { scaleY }],
+      opacity: cardOpacity,
+      borderRadius,
+    };
   });
 
-  const animScaleX = openAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [initialScaleX, 1],
+  const backdropAnimatedStyle = useAnimatedStyle(() => {
+    const baseOpacity = interpolate(
+      openProgress.value,
+      [0, 1],
+      [0, 0.45],
+      Extrapolation.CLAMP
+    );
+    const dragMultiplier = interpolate(
+      dragY.value,
+      [0, screenHeight * 0.6],
+      [1, 0],
+      Extrapolation.CLAMP
+    );
+    return {
+      opacity: baseOpacity * dragMultiplier,
+    };
   });
 
-  const animScaleY = openAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [initialScaleY, 1],
-  });
-
-  const backdropOpacity = openAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 0.45],
-  });
-
-  // Card opacity: dissolves seamlessly into the real underlying button at the end of closing
-  const cardOpacity = openAnim.interpolate({
-    inputRange: [0, 0.12, 1],
-    outputRange: [0, 1, 1],
-  });
-
-  // Fast content fade-out on close: drops to 0 in the first ~70ms to eliminate layout thrashing
-  const contentOpacity = openAnim.interpolate({
-    inputRange: [0, 0.45, 0.8, 1],
-    outputRange: [0, 0, 0.7, 1],
+  const contentAnimatedStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      openProgress.value,
+      [0, 0.45, 0.8, 1],
+      [0, 0, 0.7, 1],
+      Extrapolation.CLAMP
+    );
+    return {
+      opacity,
+    };
   });
 
   return (
     <View onLayout={onLayout} style={{ flex: 1, backgroundColor: "transparent" }}>
       {/* ── Dimmed Backdrop over the underlying group screen ── */}
       <Animated.View
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: "#000",
-          opacity: backdropOpacity,
-        }}
+        style={[
+          {
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "#000",
+          },
+          backdropAnimatedStyle,
+        ]}
       >
         <Pressable style={{ flex: 1 }} onPress={handleClose} />
       </Animated.View>
 
-      {/* ── Expanding Container: GPU-accelerated transforms for 60/120 FPS ── */}
+      {/* ── Expanding Container: GPU-accelerated transforms with Reanimated ── */}
       <Animated.View
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          borderRadius: 28,
-          overflow: "hidden",
-          backgroundColor: clay.canvas,
-          opacity: cardOpacity,
-          transform: [
-            { translateY: animTranslateY },
-            { scaleX: animScaleX },
-            { scaleY: animScaleY },
-          ],
-          elevation: 12,
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 6 },
-          shadowOpacity: 0.25,
-          shadowRadius: 18,
-        }}
+        style={[
+          {
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            borderRadius: 28,
+            overflow: "hidden",
+            backgroundColor: clay.canvas,
+            elevation: 12,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: 0.25,
+            shadowRadius: 18,
+          },
+          containerAnimatedStyle,
+        ]}
       >
-        {/* Full-screen content that quickly fades out on close */}
-        <Animated.View style={{ flex: 1, opacity: contentOpacity }}>
+        <Animated.View style={[{ flex: 1 }, contentAnimatedStyle]}>
           {group ? (
             group.deletedAt || !userId ? (
               <SafeAreaView style={{ flex: 1, backgroundColor: clay.canvas }}>
@@ -337,6 +552,7 @@ function NewExpenseBloomingView({
                 group={group}
                 currentUserId={userId}
                 onClose={handleClose}
+                headerPanHandlers={panResponder.panHandlers}
               />
             )
           ) : isLoading ? (
