@@ -20,16 +20,15 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useClayTheme } from "@/constants/clay-theme";
 import { EmptyState } from "@/components/empty-state";
 import { SharedExpenseForm } from "@/components/shared-expense-form";
-import { useSharedGroupsStore } from "@/store/use-shared-groups-store";
+import { useSharedGroups } from "@/hooks/use-shared-groups";
 import type { SharedGroup } from "@/types/shared-group";
 
 export default function AddExpenseScreen() {
   const clay = useClayTheme();
   const insets = useSafeAreaInsets();
   const { groupId, expenseId } = useLocalSearchParams<{ groupId: string; expenseId?: string }>();
-  const group = useSharedGroupsStore((state) => state.groups.find((item) => item.id === groupId));
-  const isLoading = useSharedGroupsStore((state) => state.isLoading);
-  const userId = useSharedGroupsStore((state) => state.userId);
+  const { groups, isLoading, userId } = useSharedGroups();
+  const group = groups.find((item) => item.id === groupId);
   const isEdit = Boolean(expenseId);
 
   // If editing an existing expense, use standard page-to-page slide animation

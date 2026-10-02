@@ -9,7 +9,7 @@ import { useClayTheme } from "@/constants/clay-theme";
 import { getGroupMembers, type GroupMember } from "@/lib/group-invites";
 import { listGroupExpenses } from "@/lib/expenses";
 import { deleteGroupPayment, listGroupPayments } from "@/lib/payments";
-import { useSharedGroupsStore } from "@/store/use-shared-groups-store";
+import { useSharedGroups, useGroupActions } from "@/hooks/use-shared-groups";
 import type { SharedGroup } from "@/types/shared-group";
 import type { SharedExpense } from "@/types/shared-expense";
 import type { SharedPayment } from "@/types/shared-payment";
@@ -151,8 +151,8 @@ function ClayEmptyState({
 export default function GroupDetailsScreen() {
   const clay = useClayTheme();
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
-  const group = useSharedGroupsStore((state) => state.groups.find((item) => item.id === groupId));
-  const isLoading = useSharedGroupsStore((state) => state.isLoading);
+  const { groups, isLoading } = useSharedGroups();
+  const group = groups.find((item) => item.id === groupId);
 
   if (group) {
     return group.deletedAt
@@ -184,8 +184,7 @@ export default function GroupDetailsScreen() {
 function SharedGroupDetails({ group }: { group: SharedGroup }) {
   const insets = useSafeAreaInsets();
   const clay = useClayTheme();
-  const currentUserId = useSharedGroupsStore((state) => state.userId);
-  const loadGroups = useSharedGroupsStore((state) => state.loadGroups);
+  const { userId: currentUserId } = useSharedGroups();
   const [members, setMembers] = useState<GroupMember[] | null>(null);
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
   const [memberError, setMemberError] = useState<string | null>(null);
@@ -310,11 +309,10 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
     isNavigating.current = false;
     fabRotateAnim.setValue(0);
     fabScaleAnim.setValue(1);
-    if (currentUserId) void loadGroups(currentUserId);
     void refreshMembers();
     void refreshExpenses();
     void refreshPayments();
-  }, [currentUserId, fabRotateAnim, fabScaleAnim, loadGroups, refreshMembers, refreshExpenses, refreshPayments]));
+  }, [fabRotateAnim, fabScaleAnim, refreshMembers, refreshExpenses, refreshPayments]));
 
   const balances = members && expenses && payments ? getSharedMemberBalances(members, expenses, payments) : null;
   const settlements = balances ? getSharedSettlements(balances) : null;
@@ -1116,7 +1114,7 @@ function SettleTab({
 
 function DeletedSharedGroup({ group }: { group: SharedGroup }) {
   const clay = useClayTheme();
-  const restoreGroup = useSharedGroupsStore((state) => state.restoreGroup);
+  const { restoreGroup } = useGroupActions();
   const [isRestoring, setIsRestoring] = useState(false);
 
   async function restore() {

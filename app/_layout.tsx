@@ -9,7 +9,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { colorScheme as nativeWindColorScheme } from "nativewind";
 
 import { useAuthStore } from "@/store/use-auth-store";
-import { useSharedGroupsStore } from "@/store/use-shared-groups-store";
+import { QueryProvider } from "@/components/query-provider";
 import { useSettingsStore } from "@/store/use-settings-store";
 import { WebAppShell } from "@/components/web-app-shell";
 import { WebConfirmDialog } from "@/components/web-confirm-dialog";
@@ -21,8 +21,6 @@ export default function RootLayout() {
   const session = useAuthStore((state) => state.session);
   const isLoading = useAuthStore((state) => state.isLoading);
   const initialize = useAuthStore((state) => state.initialize);
-  const loadGroups = useSharedGroupsStore((state) => state.loadGroups);
-  const clearGroups = useSharedGroupsStore((state) => state.clear);
   const themePreference = useSettingsStore((state) => state.themePreference);
   const settingsHydrated = useSettingsStore((state) => state.isHydrated);
   const systemColorScheme = useColorScheme();
@@ -43,11 +41,6 @@ export default function RootLayout() {
   };
 
   useEffect(() => initialize(), [initialize]);
-  useEffect(() => {
-    if (isLoading) return;
-    if (session) void loadGroups(session.user.id);
-    else clearGroups();
-  }, [session?.user.id, isLoading, loadGroups, clearGroups]);
   useEffect(() => {
     if (!settingsHydrated) return;
     nativeWindColorScheme.set(Platform.OS === "web" ? scheme : themePreference);
@@ -94,12 +87,14 @@ export default function RootLayout() {
   );
 
   return (
-    <View className="flex-1 bg-canvas" style={themeVariables[scheme]}>
-      <StatusBar style={scheme === "dark" ? "light" : "dark"} />
-      <ThemeProvider value={navigationTheme}>
-        {Platform.OS === "web" && session ? <WebAppShell>{screens}</WebAppShell> : screens}
-        <WebConfirmDialog />
-      </ThemeProvider>
-    </View>
+    <QueryProvider key={session?.user.id ?? "signed-out"}>
+      <View className="flex-1 bg-canvas" style={themeVariables[scheme]}>
+        <StatusBar style={scheme === "dark" ? "light" : "dark"} />
+        <ThemeProvider value={navigationTheme}>
+          {Platform.OS === "web" && session ? <WebAppShell>{screens}</WebAppShell> : screens}
+          <WebConfirmDialog />
+        </ThemeProvider>
+      </View>
+    </QueryProvider>
   );
 }

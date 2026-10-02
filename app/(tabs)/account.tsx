@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Link, useFocusEffect } from "expo-router";
-import { useCallback } from "react";
+import { Link } from "expo-router";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { PrimaryButton } from "@/components/primary-button";
@@ -8,7 +7,7 @@ import { useThemeColors } from "@/constants/theme";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/use-auth-store";
 import { useCurrencyStore } from "@/store/use-currency-store";
-import { useSharedGroupsStore } from "@/store/use-shared-groups-store";
+import { useSharedGroups } from "@/hooks/use-shared-groups";
 import { useSettingsStore } from "@/store/use-settings-store";
 import type { CurrencyCode } from "@/types/models";
 import { showError } from "@/utils/dialogs";
@@ -26,15 +25,9 @@ export default function AccountScreen() {
   });
   const defaultCurrency = useCurrencyStore((state) => state.defaultCurrency);
   const setDefaultCurrency = useCurrencyStore((state) => state.setDefaultCurrency);
-  const groups = useSharedGroupsStore((state) => state.groups);
-  const loadGroups = useSharedGroupsStore((state) => state.loadGroups);
-  const userId = useAuthStore((state) => state.session?.user.id);
+  const { groups } = useSharedGroups();
   const themePreference = useSettingsStore((state) => state.themePreference);
   const setThemePreference = useSettingsStore((state) => state.setThemePreference);
-
-  useFocusEffect(useCallback(() => {
-    if (userId) void loadGroups(userId);
-  }, [loadGroups, userId]));
 
   async function signOut() {
     const { error } = await supabase.auth.signOut();

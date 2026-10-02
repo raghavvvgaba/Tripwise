@@ -6,13 +6,12 @@ import { EmptyState } from "@/components/empty-state";
 import { PrimaryButton } from "@/components/primary-button";
 import { acceptGroupInvite, isInviteCode, normalizeInviteCode, previewGroupInvite, type InvitePreview } from "@/lib/group-invites";
 import { useAuthStore } from "@/store/use-auth-store";
-import { useSharedGroupsStore } from "@/store/use-shared-groups-store";
+import { useSharedGroups } from "@/hooks/use-shared-groups";
 
 export default function JoinGroupScreen() {
   const { code } = useLocalSearchParams<{ code: string }>();
   const session = useAuthStore((state) => state.session);
-  const groups = useSharedGroupsStore((state) => state.groups);
-  const loadGroups = useSharedGroupsStore((state) => state.loadGroups);
+  const { groups, loadGroups } = useSharedGroups();
   const [preview, setPreview] = useState<InvitePreview | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
@@ -53,8 +52,8 @@ export default function JoinGroupScreen() {
     try {
       const groupId = await acceptGroupInvite(normalizeInviteCode(code));
       setJoinedGroupId(groupId);
-      const loaded = await loadGroups(session.user.id);
-      if (loaded && useSharedGroupsStore.getState().groups.some((group) => group.id === groupId)) {
+      const loaded = await loadGroups(true);
+      if (loaded.some((group) => group.id === groupId)) {
         router.replace(`/groups/${groupId}`);
       } else {
         setError("You joined, but your groups could not refresh. Try opening the group again.");
@@ -71,12 +70,14 @@ export default function JoinGroupScreen() {
     setIsJoining(true);
     setError(null);
     try {
-      const loaded = await loadGroups(session.user.id);
-      if (loaded && useSharedGroupsStore.getState().groups.some((group) => group.id === joinedGroupId)) {
+      const loaded = await loadGroups(true);
+      if (loaded.some((group) => group.id === joinedGroupId)) {
         router.replace(`/groups/${joinedGroupId}`);
       } else {
         setError("Your groups could not refresh. Try again.");
       }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Your groups could not refresh. Try again.");
     } finally {
       setIsJoining(false);
     }

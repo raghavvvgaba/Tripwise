@@ -18,14 +18,14 @@ import { PrimaryButton } from "@/components/primary-button";
 import { RouteModal } from "@/components/route-modal";
 import { themeColors, themeVariables, useThemeColors } from "@/constants/theme";
 import { useCurrencyStore } from "@/store/use-currency-store";
-import { useSharedGroupsStore } from "@/store/use-shared-groups-store";
+import { useGroupActions } from "@/hooks/use-shared-groups";
 import type { CurrencyCode } from "@/types/models";
 import { showError } from "@/utils/dialogs";
 import { SUPPORTED_CURRENCIES } from "@/utils/money";
 
 export default function CreateGroupScreen() {
   const colors = useThemeColors();
-  const createGroup = useSharedGroupsStore((state) => state.createGroup);
+  const { createGroup } = useGroupActions();
   const defaultCurrency = useCurrencyStore((state) => state.defaultCurrency);
   const [name, setName] = useState("");
   const [currency, setCurrency] = useState<CurrencyCode>(defaultCurrency ?? "INR");

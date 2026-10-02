@@ -6,7 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useClayTheme } from "@/constants/clay-theme";
 import { getGroupMembers, type GroupMember } from "@/lib/group-invites";
-import { useSharedGroupsStore } from "@/store/use-shared-groups-store";
+import { useSharedGroups } from "@/hooks/use-shared-groups";
 
 const AVATAR_RING_COLORS = [
   "#38BDF8", // Sky blue
@@ -20,8 +20,8 @@ const AVATAR_RING_COLORS = [
 export default function GroupMembersScreen() {
   const clay = useClayTheme();
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
-  const group = useSharedGroupsStore((state) => state.groups.find((item) => item.id === groupId));
-  const currentUserId = useSharedGroupsStore((state) => state.userId);
+  const { groups, userId: currentUserId } = useSharedGroups();
+  const group = groups.find((item) => item.id === groupId);
 
   const [members, setMembers] = useState<GroupMember[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);

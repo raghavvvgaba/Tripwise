@@ -5,13 +5,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useClayTheme } from "@/constants/clay-theme";
 import { EmptyState } from "@/components/empty-state";
 import { SharedExpenseDetails } from "@/components/shared-expense-details";
-import { useSharedGroupsStore } from "@/store/use-shared-groups-store";
+import { useSharedGroups } from "@/hooks/use-shared-groups";
 
 export default function ExpenseDetailsScreen() {
   const clay = useClayTheme();
   const { expenseId, groupId } = useLocalSearchParams<{ expenseId: string; groupId: string }>();
-  const group = useSharedGroupsStore((state) => state.groups.find((item) => item.id === groupId));
-  const isLoading = useSharedGroupsStore((state) => state.isLoading);
+  const { groups, isLoading } = useSharedGroups();
+  const group = groups.find((item) => item.id === groupId);
 
   if (group?.deletedAt) {
     return (

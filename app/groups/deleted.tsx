@@ -1,25 +1,16 @@
-import { router, Stack, useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { router, Stack } from "expo-router";
+import { useState } from "react";
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 
 import { EmptyState } from "@/components/empty-state";
-import { useAuthStore } from "@/store/use-auth-store";
-import { useSharedGroupsStore } from "@/store/use-shared-groups-store";
+import { useSharedGroups, useGroupActions } from "@/hooks/use-shared-groups";
 import { showError } from "@/utils/dialogs";
 
 export default function DeletedGroupsScreen() {
-  const groups = useSharedGroupsStore((state) => state.groups);
-  const isLoading = useSharedGroupsStore((state) => state.isLoading);
-  const error = useSharedGroupsStore((state) => state.error);
-  const loadGroups = useSharedGroupsStore((state) => state.loadGroups);
-  const restoreGroup = useSharedGroupsStore((state) => state.restoreGroup);
-  const userId = useAuthStore((state) => state.session?.user.id);
+  const { groups, isLoading, isRefreshing, error, refreshError, loadGroups } = useSharedGroups();
+  const { restoreGroup } = useGroupActions();
   const [restoringId, setRestoringId] = useState<string | null>(null);
   const deletedGroups = groups.filter((group) => group.deletedAt);
-
-  useFocusEffect(useCallback(() => {
-    if (userId) void loadGroups(userId);
-  }, [loadGroups, userId]));
 
   async function restore(groupId: string) {
     if (restoringId) return;
@@ -38,16 +29,18 @@ export default function DeletedGroupsScreen() {
     <>
       <Stack.Screen options={{ title: "Deleted groups" }} />
       <ScrollView
+        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => void loadGroups(true).catch(() => undefined)} />}
         contentInsetAdjustmentBehavior="automatic"
         contentContainerClassName="w-full max-w-5xl self-center gap-5 px-5 pb-12 pt-5 md:px-8 lg:py-10"
       >
         <Text className="px-1 text-sm leading-5 text-muted">
           A deleted group is hidden for everyone. Any member can restore it with its expenses.
         </Text>
+        {refreshError ? <Text className="text-sm text-coral">Could not refresh groups: {refreshError}. Your saved view is still shown.</Text> : null}
         {isLoading ? <ActivityIndicator /> : error ? (
           <View className="card gap-3 p-5">
             <Text selectable className="text-sm text-coral">{error}</Text>
-            <Pressable accessibilityRole="button" onPress={() => userId && void loadGroups(userId)}>
+            <Pressable accessibilityRole="button" onPress={() => void loadGroups(true).catch(() => undefined)}>
               <Text className="font-semibold text-brand-700">Try again</Text>
             </Pressable>
           </View>

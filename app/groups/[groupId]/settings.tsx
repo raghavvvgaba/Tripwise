@@ -7,15 +7,14 @@ import { EmptyState } from "@/components/empty-state";
 import { GroupCover } from "@/components/group-cover";
 import { PrimaryButton } from "@/components/primary-button";
 import { removeGroupCoverFiles, uploadGroupCover } from "@/lib/group-covers";
-import { useSharedGroupsStore } from "@/store/use-shared-groups-store";
+import { useSharedGroups, useGroupActions } from "@/hooks/use-shared-groups";
 import { confirmAction, showError } from "@/utils/dialogs";
 
 export default function GroupSettingsScreen() {
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
-  const group = useSharedGroupsStore((state) => state.groups.find((item) => item.id === groupId));
-  const isLoading = useSharedGroupsStore((state) => state.isLoading);
-  const deleteGroup = useSharedGroupsStore((state) => state.deleteGroup);
-  const setCover = useSharedGroupsStore((state) => state.setCover);
+  const { groups, isLoading } = useSharedGroups();
+  const group = groups.find((item) => item.id === groupId);
+  const { deleteGroup, setCover } = useGroupActions();
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSavingCover, setIsSavingCover] = useState(false);
 

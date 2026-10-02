@@ -1,29 +1,20 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Link, useFocusEffect } from "expo-router";
-import { useCallback } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { Link } from "expo-router";
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 
 import { EmptyState } from "@/components/empty-state";
 import { GroupCard } from "@/components/group-card";
-import { useAuthStore } from "@/store/use-auth-store";
-import { useSharedGroupsStore } from "@/store/use-shared-groups-store";
+import { useSharedGroups } from "@/hooks/use-shared-groups";
 import { useThemeColors } from "@/constants/theme";
 
 export default function GroupsScreen() {
   const colors = useThemeColors();
-  const groups = useSharedGroupsStore((state) => state.groups);
-  const isLoading = useSharedGroupsStore((state) => state.isLoading);
-  const error = useSharedGroupsStore((state) => state.error);
-  const loadGroups = useSharedGroupsStore((state) => state.loadGroups);
-  const userId = useAuthStore((state) => state.session?.user.id);
+  const { groups, isLoading, isRefreshing, error, refreshError, loadGroups } = useSharedGroups();
   const activeGroups = groups.filter((group) => !group.deletedAt);
-
-  useFocusEffect(useCallback(() => {
-    if (userId) void loadGroups(userId);
-  }, [loadGroups, userId]));
 
   return (
     <ScrollView
+      refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => void loadGroups(true).catch(() => undefined)} />}
       contentInsetAdjustmentBehavior="automatic"
       contentContainerClassName="w-full max-w-6xl self-center gap-7 px-5 pb-12 pt-5 md:px-8 lg:gap-8 lg:px-10 lg:py-10"
       showsVerticalScrollIndicator={false}
@@ -49,6 +40,15 @@ export default function GroupsScreen() {
         <View className="flex-row items-center justify-between px-1">
           <Text className="section-label">Your groups</Text>
           <View className="flex-row items-center gap-2">
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Refresh groups"
+              disabled={isLoading || isRefreshing}
+              onPress={() => void loadGroups(true).catch(() => undefined)}
+              className="h-11 w-11 items-center justify-center rounded-full border border-line bg-surface active:bg-canvas lg:rounded-xl"
+            >
+              <Ionicons name="refresh-outline" size={18} color={colors["brand-700"]} />
+            </Pressable>
             <Link href="/join" asChild>
               <Pressable
                 accessibilityLabel="Join a group with a code"
@@ -69,12 +69,13 @@ export default function GroupsScreen() {
             </Link>
           </View>
         </View>
+        {refreshError ? <Text className="text-sm text-coral">Could not refresh groups: {refreshError}. Your saved view is still shown.</Text> : null}
         {isLoading ? (
           <ActivityIndicator color={colors["brand-600"]} />
         ) : error ? (
           <View className="card gap-3 p-5">
             <Text className="text-sm text-coral">Could not load groups: {error}</Text>
-            <Pressable onPress={() => userId && void loadGroups(userId)}>
+            <Pressable onPress={() => void loadGroups(true).catch(() => undefined)}>
               <Text className="font-semibold text-brand-700">Try again</Text>
             </Pressable>
           </View>

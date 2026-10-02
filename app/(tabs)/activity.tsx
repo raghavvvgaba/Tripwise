@@ -8,7 +8,7 @@ import { useThemeColors } from "@/constants/theme";
 import { listGroupActivity, type GroupActivityEvent } from "@/lib/activity";
 import { getGroupMembers } from "@/lib/group-invites";
 import { useAuthStore } from "@/store/use-auth-store";
-import { useSharedGroupsStore } from "@/store/use-shared-groups-store";
+import { useSharedGroups, useGroupActions } from "@/hooks/use-shared-groups";
 import type { SharedGroup } from "@/types/shared-group";
 import { formatPaymentDate, formatRelativeTime } from "@/utils/date";
 import { formatMoney } from "@/utils/money";
@@ -23,8 +23,8 @@ type ActivityItem = {
 export default function ActivityScreen() {
   const colors = useThemeColors();
   const userId = useAuthStore((state) => state.session?.user.id);
-  const loadGroups = useSharedGroupsStore((state) => state.loadGroups);
-  const restoreGroup = useSharedGroupsStore((state) => state.restoreGroup);
+  const { loadGroups } = useSharedGroups();
+  const { restoreGroup } = useGroupActions();
   const requestId = useRef(0);
   const nextOffset = useRef(0);
   const loadingMore = useRef(false);
@@ -82,12 +82,7 @@ export default function ActivityScreen() {
     setItems(null);
 
     try {
-      const groupsLoaded = await loadGroups(userId);
-      if (!groupsLoaded) {
-        throw new Error(useSharedGroupsStore.getState().error ?? "Could not load your groups.");
-      }
-
-      const groups = useSharedGroupsStore.getState().groups;
+      const groups = await loadGroups();
       const page = await loadPage(0, groups, userId);
       if (requestId.current === currentRequest) {
         nextOffset.current = page.events.length;
@@ -111,7 +106,7 @@ export default function ActivityScreen() {
     setPageError(null);
 
     try {
-      const groups = useSharedGroupsStore.getState().groups;
+      const groups = await loadGroups();
       const page = await loadPage(nextOffset.current, groups, userId);
       if (requestId.current === currentRequest) {
         nextOffset.current += page.events.length;
@@ -128,7 +123,7 @@ export default function ActivityScreen() {
         setIsLoadingMore(false);
       }
     }
-  }, [hasMore, loadPage, userId]);
+  }, [hasMore, loadGroups, loadPage, userId]);
 
   function openItem(item: ActivityItem) {
     const { event, group } = item;
