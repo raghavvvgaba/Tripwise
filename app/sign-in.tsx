@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BrandIcon } from "@/components/brand-icon";
+import { GoogleIcon } from "@/components/google-icon";
 import { useClayTheme } from "@/constants/clay-theme";
 import { isInviteCode, normalizeInviteCode } from "@/lib/group-invites";
 import { supabase } from "@/lib/supabase";
@@ -30,40 +31,69 @@ export default function SignInScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
     if (!session) return;
     router.replace(isInviteCode(inviteCode) ? `/join/${normalizeInviteCode(inviteCode)}` : "/");
-  }, [session?.user.id, inviteCode]);
+  }, [session, inviteCode]);
 
   useEffect(() => {
     if (process.env.EXPO_OS === "web" || !incomingUrl || handledAuthUrl.current === incomingUrl) return;
 
     const { queryParams } = Linking.parse(incomingUrl);
-    const code = queryParams?.code;
-    const authError = queryParams?.error_description ?? queryParams?.error;
-    if (typeof code !== "string" && typeof authError !== "string") return;
+    let code = queryParams?.code;
+    let authError = queryParams?.error_description ?? queryParams?.error;
+    let accessToken: string | undefined;
+    let refreshToken: string | undefined;
 
-    handledAuthUrl.current = incomingUrl;
+    if (incomingUrl.includes("#")) {
+      const hash = incomingUrl.split("#")[1];
+      const hashParams = new URLSearchParams(hash);
+      accessToken = hashParams.get("access_token") ?? undefined;
+      refreshToken = hashParams.get("refresh_token") ?? undefined;
+      authError = authError ?? hashParams.get("error_description") ?? hashParams.get("error") ?? undefined;
+    }
+
     if (typeof authError === "string") {
+      handledAuthUrl.current = incomingUrl;
       setMessage(authError);
       return;
     }
-    if (typeof code !== "string") return;
 
-    setIsSubmitting(true);
-    void supabase.auth
-      .exchangeCodeForSession(code)
-      .then(({ error }) => {
-        if (error) setMessage(error.message);
-      })
-      .catch((error: unknown) => {
-        setMessage(error instanceof Error ? error.message : "Google sign-in failed. Please try again.");
-      })
-      .finally(() => {
-        setIsSubmitting(false);
-      });
+    if (accessToken && refreshToken) {
+      handledAuthUrl.current = incomingUrl;
+      setIsGoogleSubmitting(true);
+      void supabase.auth
+        .setSession({ access_token: accessToken, refresh_token: refreshToken })
+        .then(({ error }) => {
+          if (error) setMessage(error.message);
+        })
+        .catch((error: unknown) => {
+          setMessage(error instanceof Error ? error.message : "Google sign-in failed. Please try again.");
+        })
+        .finally(() => {
+          setIsGoogleSubmitting(false);
+        });
+      return;
+    }
+
+    if (typeof code === "string") {
+      handledAuthUrl.current = incomingUrl;
+      setIsGoogleSubmitting(true);
+      void supabase.auth
+        .exchangeCodeForSession(code)
+        .then(({ error }) => {
+          if (error) setMessage(error.message);
+        })
+        .catch((error: unknown) => {
+          setMessage(error instanceof Error ? error.message : "Google sign-in failed. Please try again.");
+        })
+        .finally(() => {
+          setIsGoogleSubmitting(false);
+        });
+    }
   }, [incomingUrl]);
 
   async function submit() {
@@ -94,9 +124,9 @@ export default function SignInScreen() {
   }
 
   async function continueWithGoogle() {
-    if (isSubmitting) return;
+    if (isSubmitting || isGoogleSubmitting) return;
 
-    setIsSubmitting(true);
+    setIsGoogleSubmitting(true);
     setMessage("");
     try {
       const redirectTo = Linking.createURL("sign-in", {
@@ -114,7 +144,7 @@ export default function SignInScreen() {
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Google sign-in failed. Please try again.");
     } finally {
-      setIsSubmitting(false);
+      setIsGoogleSubmitting(false);
     }
   }
 
@@ -213,7 +243,7 @@ export default function SignInScreen() {
                   placeholderTextColor={clay.textMuted}
                   value={name}
                   onChangeText={setName}
-                  editable={!isSubmitting}
+                  editable={!isSubmitting && !isGoogleSubmitting}
                 />
               </View>
             ) : null}
@@ -236,7 +266,7 @@ export default function SignInScreen() {
                 placeholderTextColor={clay.textMuted}
                 value={email}
                 onChangeText={setEmail}
-                editable={!isSubmitting}
+                editable={!isSubmitting && !isGoogleSubmitting}
               />
             </View>
 
@@ -258,7 +288,7 @@ export default function SignInScreen() {
                 placeholderTextColor={clay.textMuted}
                 value={password}
                 onChangeText={setPassword}
-                editable={!isSubmitting}
+                editable={!isSubmitting && !isGoogleSubmitting}
                 onSubmitEditing={submit}
               />
             </View>
@@ -271,7 +301,7 @@ export default function SignInScreen() {
 
             <Pressable
               accessibilityRole="button"
-              disabled={!email.trim() || !password || (isCreatingAccount && !name.trim()) || isSubmitting}
+              disabled={!email.trim() || !password || (isCreatingAccount && !name.trim()) || isSubmitting || isGoogleSubmitting}
               onPress={() => void submit()}
               className="mt-1 h-14 flex-row items-center justify-center gap-2 rounded-2xl bg-[#F5D298] px-5 shadow-sm active:opacity-75 disabled:opacity-40"
             >
@@ -294,17 +324,24 @@ export default function SignInScreen() {
 
             <Pressable
               accessibilityRole="button"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isGoogleSubmitting}
               onPress={() => void continueWithGoogle()}
               style={{
                 backgroundColor: clay.squircle,
                 borderColor: clay.cardBorder,
               }}
-              className="h-13 flex-row items-center justify-center gap-2.5 rounded-2xl border px-5 active:opacity-75 disabled:opacity-50"
+              className="h-14 flex-row items-center justify-center gap-3 rounded-2xl border px-5 active:opacity-75 disabled:opacity-50"
             >
-              <Text style={{ color: clay.textPrimary }} className="text-sm font-bold">
-                Continue with Google
-              </Text>
+              {isGoogleSubmitting ? (
+                <ActivityIndicator color={clay.textPrimary} />
+              ) : (
+                <>
+                  <GoogleIcon size={20} />
+                  <Text style={{ color: clay.textPrimary }} className="text-base font-bold">
+                    Continue with Google
+                  </Text>
+                </>
+              )}
             </Pressable>
           </View>
         </ScrollView>
