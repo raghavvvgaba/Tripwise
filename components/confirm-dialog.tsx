@@ -7,7 +7,7 @@ import { resolveTheme, themeColors, themeVariables } from "@/constants/theme";
 import { useConfirmDialogStore } from "@/store/use-confirm-dialog-store";
 import { useSettingsStore } from "@/store/use-settings-store";
 
-export function WebConfirmDialog() {
+export function ConfirmDialog() {
   const request = useConfirmDialogStore((state) => state.request);
   const dismiss = useConfirmDialogStore((state) => state.dismiss);
   const confirm = useConfirmDialogStore((state) => state.confirm);
@@ -27,11 +27,11 @@ export function WebConfirmDialog() {
       onRequestClose={dismiss}
       accessibilityLabel={request?.title}
     >
-      <View className="flex-1 items-center justify-center bg-black/55 px-4 py-8" style={themeVariables[scheme]}>
+      <View className="flex-1 items-center justify-center bg-black/60 px-5 py-8" style={themeVariables[scheme]}>
         {request ? (
-          <View className="w-full max-w-md gap-5 rounded-3xl border border-line bg-surface p-6 shadow-2xl" accessibilityViewIsModal>
+          <View className="w-full max-w-sm gap-5 rounded-3xl border border-line bg-surface p-6 shadow-2xl" accessibilityViewIsModal>
             <View className="gap-4">
-              <View className={`h-12 w-12 items-center justify-center rounded-2xl ${request.destructive ? "bg-red-50 dark:bg-red-950" : "bg-brand-50"}`}>
+              <View className={`h-12 w-12 items-center justify-center rounded-2xl ${request.destructive ? "bg-red-50 dark:bg-red-950/60" : "bg-brand-50"}`}>
                 <Ionicons
                   name={request.destructive ? "alert-circle-outline" : "help-circle-outline"}
                   size={26}
@@ -43,20 +43,24 @@ export function WebConfirmDialog() {
                 <Text className="text-sm leading-6 text-muted">{request.message}</Text>
               </View>
             </View>
-            <View className="gap-3 pt-1 sm:flex-row sm:justify-end">
+            <View className="flex-row items-center justify-end gap-3 pt-2">
               <Pressable
                 accessibilityRole="button"
                 onPress={dismiss}
-                className="min-h-11 w-full items-center justify-center rounded-xl border border-line bg-surface px-4 hover:bg-canvas focus-visible:outline-2 focus-visible:outline-brand-600 sm:w-auto sm:min-w-24"
+                className="min-h-11 flex-1 items-center justify-center rounded-xl border border-line bg-surface px-4 active:opacity-75 sm:flex-initial sm:min-w-24"
               >
                 <Text className="font-semibold text-ink">Cancel</Text>
               </Pressable>
               <Pressable
                 accessibilityRole="button"
                 onPress={confirm}
-                className={`min-h-11 w-full items-center justify-center rounded-xl px-5 focus-visible:outline-2 focus-visible:outline-brand-600 sm:w-auto ${request.destructive ? "bg-[#B63332] hover:bg-[#9F2928]" : "bg-brand-600 hover:bg-brand-500"}`}
+                className={`min-h-11 flex-1 items-center justify-center rounded-xl px-5 active:opacity-75 sm:flex-initial ${
+                  request.destructive ? "bg-[#DC2626] dark:bg-[#FB7185]" : "bg-brand-600"
+                }`}
               >
-                <Text className="font-semibold text-white">{request.actionLabel}</Text>
+                <Text className={`font-semibold ${request.destructive ? "text-white dark:text-[#181528]" : "text-[#2C254E]"}`}>
+                  {request.actionLabel}
+                </Text>
               </Pressable>
             </View>
           </View>

@@ -9,15 +9,7 @@ export function confirmAction(
   onConfirm: () => void,
   destructive = true,
 ) {
-  if (Platform.OS === "web") {
-    useConfirmDialogStore.getState().show({ title, message, actionLabel, onConfirm, destructive });
-    return;
-  }
-
-  Alert.alert(title, message, [
-    { text: "Cancel", style: "cancel" },
-    { text: actionLabel, style: destructive ? "destructive" : "default", onPress: onConfirm },
-  ]);
+  useConfirmDialogStore.getState().show({ title, message, actionLabel, onConfirm, destructive });
 }
 
 export function showError(title: string, message: string) {

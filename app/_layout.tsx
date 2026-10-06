@@ -12,7 +12,7 @@ import { useAuthStore } from "@/store/use-auth-store";
 import { QueryProvider } from "@/components/query-provider";
 import { useSettingsStore } from "@/store/use-settings-store";
 import { WebAppShell } from "@/components/web-app-shell";
-import { WebConfirmDialog } from "@/components/web-confirm-dialog";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { resolveTheme, themeColors, themeVariables } from "@/constants/theme";
 
 void SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -92,7 +92,7 @@ export default function RootLayout() {
         <StatusBar style={scheme === "dark" ? "light" : "dark"} />
         <ThemeProvider value={navigationTheme}>
           {Platform.OS === "web" && session ? <WebAppShell>{screens}</WebAppShell> : screens}
-          <WebConfirmDialog />
+          <ConfirmDialog />
         </ThemeProvider>
       </View>
     </QueryProvider>
