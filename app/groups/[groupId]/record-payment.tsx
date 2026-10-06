@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -16,13 +16,12 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { EmptyState } from "@/components/empty-state";
 import { PaymentDateField } from "@/components/payment-date-field";
 import { useClayTheme } from "@/constants/clay-theme";
-import { getGroupMembers, type GroupMember } from "@/lib/group-invites";
-import { listGroupExpenses } from "@/lib/expenses";
+import { type GroupMember } from "@/lib/group-invites";
+import { useGroupMembers, useGroupExpenses, useGroupPayments } from "@/hooks/use-group-data";
+import { useGroupDataActions } from "@/hooks/use-group-data-actions";
 import {
   createPaymentRequestId,
-  listGroupPayments,
   PaymentError,
-  recordGroupPayment,
   type RecordPaymentInput,
 } from "@/lib/payments";
 import { useSharedGroups } from "@/hooks/use-shared-groups";
@@ -47,62 +46,43 @@ export default function RecordPaymentScreen() {
   }>();
   const { groups, userId: currentUserId } = useSharedGroups();
   const group = groups.find((item) => item.id === groupId);
-  const [details, setDetails] = useState<PaymentDetails | null>(null);
-  const [amount, setAmount] = useState("");
+  const [amountDraft, setAmount] = useState<string | null>(null);
   const [paymentDate, setPaymentDate] = useState(() => localDateString());
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const savingRef = useRef(false);
   const pendingRequest = useRef<RecordPaymentInput | null>(null);
   const [hasPendingRequest, setHasPendingRequest] = useState(false);
+  const [pendingDetails, setPendingDetails] = useState<PaymentDetails | null>(null);
   const [isDuplicate, setIsDuplicate] = useState(false);
   const canRecord = currentUserId === payerId || currentUserId === recipientId;
 
-  useEffect(() => {
-    if (!group || group.deletedAt || !canRecord) {
-      setIsLoading(false);
-      return;
-    }
-    setIsLoading(true);
-    setLoadError(null);
-    let active = true;
-    void Promise.all([
-      getGroupMembers(group.id),
-      listGroupExpenses(group.id),
-      listGroupPayments(group.id),
-    ])
-      .then(([members, expenses, payments]) => {
-        if (!active) return;
-        const payer = members.find((member) => member.userId === payerId);
-        const recipient = members.find((member) => member.userId === recipientId);
-        const balances = getSharedMemberBalances(members, expenses, payments);
-        const payerNet = balances.find((balance) => balance.member.userId === payerId)?.netMinor ?? 0;
-        const recipientNet = balances.find((balance) => balance.member.userId === recipientId)?.netMinor ?? 0;
-        const maxMinor = Math.min(-payerNet, recipientNet);
-        if (!payer || !recipient || payerId === recipientId || maxMinor <= 0) {
-          setLoadError("This suggested payment is no longer available. Return to the group and refresh.");
-        } else {
-          setDetails({ payer, recipient, maxMinor });
-          const suggestedMinor = Number(amountMinor);
-          const initialMinor =
-            Number.isSafeInteger(suggestedMinor) && suggestedMinor > 0
-              ? Math.min(suggestedMinor, maxMinor)
-              : maxMinor;
-          setAmount(String(initialMinor / 100));
-        }
-      })
-      .catch((error: unknown) => {
-        if (active) setLoadError(error instanceof Error ? error.message : "Could not load the payment.");
-      })
-      .finally(() => {
-        if (active) setIsLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [group?.id, group?.deletedAt, payerId, recipientId, amountMinor, canRecord]);
+  const enabled = !!group && !group.deletedAt && canRecord;
+  const membersQuery = useGroupMembers(groupId, enabled);
+  const expensesQuery = useGroupExpenses(groupId, enabled);
+  const paymentsQuery = useGroupPayments(groupId, enabled);
+  const { recordPayment } = useGroupDataActions(groupId);
+  const isLoading = enabled && (membersQuery.isPending || expensesQuery.isPending || paymentsQuery.isPending);
+  let latestDetails: PaymentDetails | null = null;
+  if (membersQuery.data && expensesQuery.data && paymentsQuery.data) {
+    const members = membersQuery.data;
+    const payer = members.find((member) => member.userId === payerId);
+    const recipient = members.find((member) => member.userId === recipientId);
+    const balances = getSharedMemberBalances(members, expensesQuery.data, paymentsQuery.data);
+    const payerNet = balances.find((balance) => balance.member.userId === payerId)?.netMinor ?? 0;
+    const recipientNet = balances.find((balance) => balance.member.userId === recipientId)?.netMinor ?? 0;
+    const maxMinor = Math.min(-payerNet, recipientNet);
+    if (payer && recipient && payerId !== recipientId && maxMinor > 0) latestDetails = { payer, recipient, maxMinor };
+  }
+  // An uncertain save must remain retryable with its original request and participants.
+  const details = pendingDetails ?? latestDetails;
+  const refreshError = membersQuery.errorMessage ?? expensesQuery.errorMessage ?? paymentsQuery.errorMessage;
+  const loadError = (!membersQuery.data || !expensesQuery.data || !paymentsQuery.data ? refreshError : null)
+    ?? (!isLoading && !details ? "This suggested payment is no longer available. Return to the group and refresh." : null);
+  const suggestedMinor = Number(amountMinor);
+  const initialMinor = details ? Number.isSafeInteger(suggestedMinor) && suggestedMinor > 0
+    ? Math.min(suggestedMinor, details.maxMinor) : details.maxMinor : 0;
+  const amount = amountDraft ?? (details ? String(initialMinor / 100) : "");
 
   const parsedAmount = parseMoneyToMinor(amount);
   const today = localDateString();
@@ -135,8 +115,9 @@ export default function RecordPaymentScreen() {
           requestId: createPaymentRequestId(),
         };
         setHasPendingRequest(true);
+        setPendingDetails(details);
       }
-      await recordGroupPayment(pendingRequest.current, isDuplicate);
+      await recordPayment(pendingRequest.current, isDuplicate);
       router.dismissTo(`/groups/${group.id}`);
     } catch (error) {
       if (error instanceof PaymentError && error.code === "23505") {
@@ -147,6 +128,7 @@ export default function RecordPaymentScreen() {
         if (error instanceof PaymentError && /^[0-9A-Z]{5}$/.test(error.code) && !error.code.startsWith("08")) {
           pendingRequest.current = null;
           setHasPendingRequest(false);
+          setPendingDetails(null);
           setIsDuplicate(false);
         }
       }
@@ -160,6 +142,7 @@ export default function RecordPaymentScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: clay.canvas }}>
       <Stack.Screen options={{ headerShown: false }} />
 
+      {refreshError && details ? <Text className="px-5 text-sm text-coral">Could not refresh: {refreshError}</Text> : null}
       {/* ── Top Bar Header ── */}
       <View className="flex-row items-center justify-between px-5 pt-2 pb-3">
         <Pressable

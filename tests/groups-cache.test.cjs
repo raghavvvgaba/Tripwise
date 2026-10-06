@@ -51,6 +51,7 @@ function setup(t, overrides = {}) {
   const hooks = loadModule("hooks/use-shared-groups.ts", {
     "@/lib/groups": backend,
     "@/lib/groups-query": options,
+    "@/lib/group-data-query": { groupDataKey: (userId, groupId) => ["group-data", userId, groupId] },
     "@/store/use-auth-store": { useAuthStore: auth },
     react: { useCallback: (fn) => fn },
     "expo-router": { useFocusEffect: () => {} },

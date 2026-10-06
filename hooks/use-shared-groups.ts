@@ -3,6 +3,7 @@ import { useFocusEffect } from "expo-router";
 import { useCallback } from "react";
 
 import { createGroup, deleteSharedGroup, restoreSharedGroup, updateGroupCover } from "@/lib/groups";
+import { groupDataKey } from "@/lib/group-data-query";
 import { groupsQueryOptions } from "@/lib/groups-query";
 import { useAuthStore } from "@/store/use-auth-store";
 import type { CurrencyCode } from "@/types/models";
@@ -80,8 +81,12 @@ export function useGroupActions() {
       requireUser();
       return restoreSharedGroup(groupId);
     },
-    onSuccess: (_, groupId) => updateCache((groups) => groups.map((group) =>
-      group.id === groupId ? { ...group, deletedAt: null } : group)),
+    onSuccess: async (_, groupId) => {
+      await updateCache((groups) => groups.map((group) => group.id === groupId ? { ...group, deletedAt: null } : group));
+      if (userId && useAuthStore.getState().session?.user.id === userId) {
+        await client.invalidateQueries({ queryKey: groupDataKey(userId, groupId) });
+      }
+    },
   });
   const cover = useMutation({
     mutationFn: ({ groupId, coverPath, coverThumbnailPath }: {

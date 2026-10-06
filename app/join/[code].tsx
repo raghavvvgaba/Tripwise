@@ -1,4 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useQueryClient } from "@tanstack/react-query";
+import { groupDataKey } from "@/lib/group-data-query";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
@@ -18,6 +20,7 @@ import { useSharedGroups } from "@/hooks/use-shared-groups";
 
 export default function JoinGroupScreen() {
   const clay = useClayTheme();
+  const queryClient = useQueryClient();
   const { code } = useLocalSearchParams<{ code: string }>();
   const session = useAuthStore((state) => state.session);
   const { groups, loadGroups } = useSharedGroups();
@@ -66,6 +69,7 @@ export default function JoinGroupScreen() {
     try {
       const groupId = await acceptGroupInvite(normalizeInviteCode(code));
       setJoinedGroupId(groupId);
+      await queryClient.invalidateQueries({ queryKey: groupDataKey(session.user.id, groupId), refetchType: "none" });
       const loaded = await loadGroups(true);
       if (loaded.some((group) => group.id === groupId)) {
         router.replace(`/groups/${groupId}`);

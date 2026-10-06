@@ -1,13 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router, Stack, useFocusEffect } from "expo-router";
-import { useCallback, useRef, useState } from "react";
+import { router, Stack } from "expo-router";
+import { useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useClayTheme } from "@/constants/clay-theme";
-import { getGroupMembers, type GroupMember } from "@/lib/group-invites";
-import { deleteGroupExpense, getGroupExpense } from "@/lib/expenses";
-import type { SharedExpense } from "@/types/shared-expense";
+import { useGroupMembers, useGroupExpense } from "@/hooks/use-group-data";
+import { useGroupDataActions } from "@/hooks/use-group-data-actions";
 import type { SharedGroup } from "@/types/shared-group";
 import { formatExpenseDate, formatRelativeTime } from "@/utils/date";
 import { formatMoney } from "@/utils/money";
@@ -24,33 +23,15 @@ const AVATAR_RING_COLORS = [
 
 export function SharedExpenseDetails({ group, expenseId }: { group: SharedGroup; expenseId: string }) {
   const clay = useClayTheme();
-  const [expense, setExpense] = useState<SharedExpense | null>(null);
-  const [members, setMembers] = useState<GroupMember[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [loadAttempt, setLoadAttempt] = useState(0);
+  const expenseQuery = useGroupExpense(group.id, expenseId);
+  const membersQuery = useGroupMembers(group.id);
+  const expense = expenseQuery.data;
+  const members = membersQuery.data ?? [];
+  const error = expenseQuery.errorMessage ?? membersQuery.errorMessage;
+  const { deleteExpense } = useGroupDataActions(group.id);
+  const retry = () => { void expenseQuery.refetch(); void membersQuery.refetch(); };
   const [isDeleting, setIsDeleting] = useState(false);
   const deletingRef = useRef(false);
-
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
-      void loadAttempt;
-      setExpense(null);
-      setError(null);
-      void Promise.all([getGroupExpense(group.id, expenseId), getGroupMembers(group.id)])
-        .then(([nextExpense, nextMembers]) => {
-          if (!active) return;
-          setExpense(nextExpense);
-          setMembers(nextMembers);
-        })
-        .catch((loadError: unknown) => {
-          if (active) setError(loadError instanceof Error ? loadError.message : "Could not load this expense.");
-        });
-      return () => {
-        active = false;
-      };
-    }, [group.id, expenseId, loadAttempt])
-  );
 
   const nameFor = (userId: string) => members.find((member) => member.userId === userId)?.name ?? "A member";
   const memberIndexFor = (userId: string) => Math.max(0, members.findIndex((m) => m.userId === userId));
@@ -60,7 +41,7 @@ export function SharedExpenseDetails({ group, expenseId }: { group: SharedGroup;
     deletingRef.current = true;
     setIsDeleting(true);
     try {
-      await deleteGroupExpense(group.id, expenseId);
+      await deleteExpense(expenseId);
       router.dismissTo(`/groups/${group.id}`);
     } catch (cause) {
       showError("Could not delete expense", cause instanceof Error ? cause.message : "Please try again.");
@@ -121,7 +102,8 @@ export function SharedExpenseDetails({ group, expenseId }: { group: SharedGroup;
         contentContainerClassName="w-full max-w-2xl self-center px-5 pb-12 gap-5"
         showsVerticalScrollIndicator={false}
       >
-        {error ? (
+        {error && expense ? <Text className="text-sm text-coral">Could not refresh: {error}</Text> : null}
+        {error && !expense ? (
           <View
             style={{ backgroundColor: clay.card, borderColor: clay.errorCardBorder }}
             className="gap-3 rounded-3xl border p-5 shadow-sm"
@@ -129,10 +111,12 @@ export function SharedExpenseDetails({ group, expenseId }: { group: SharedGroup;
             <Text selectable style={{ color: clay.errorText }} className="text-sm font-semibold">
               {error}
             </Text>
-            <Pressable onPress={() => setLoadAttempt((attempt) => attempt + 1)} className="self-start">
+            <Pressable onPress={retry} className="self-start">
               <Text className="text-sm font-bold text-[#F5D298]">Retry</Text>
             </Pressable>
           </View>
+        ) : expense === null ? (
+          <Text className="py-8 text-center text-muted">This expense has been deleted.</Text>
         ) : !expense ? (
           <ActivityIndicator color="#F5D298" className="py-16" />
         ) : (

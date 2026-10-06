@@ -1,14 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useRef, useState } from "react";
-import { ActivityIndicator, Animated, Easing, Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Animated, Easing, Platform, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import * as Haptics from "expo-haptics";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useClayTheme } from "@/constants/clay-theme";
-import { getGroupMembers, type GroupMember } from "@/lib/group-invites";
-import { listGroupExpenses } from "@/lib/expenses";
-import { deleteGroupPayment, listGroupPayments } from "@/lib/payments";
+import { type GroupMember } from "@/lib/group-invites";
+import { useGroupMembers, useGroupExpenses, useGroupPayments } from "@/hooks/use-group-data";
+import { useGroupDataActions } from "@/hooks/use-group-data-actions";
 import { useSharedGroups, useGroupActions } from "@/hooks/use-shared-groups";
 import type { SharedGroup } from "@/types/shared-group";
 import type { SharedExpense } from "@/types/shared-expense";
@@ -185,18 +185,24 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
   const insets = useSafeAreaInsets();
   const clay = useClayTheme();
   const { userId: currentUserId } = useSharedGroups();
-  const [members, setMembers] = useState<GroupMember[] | null>(null);
-  const [isLoadingMembers, setIsLoadingMembers] = useState(false);
-  const [memberError, setMemberError] = useState<string | null>(null);
-  const [expenses, setExpenses] = useState<SharedExpense[] | null>(null);
-  const [isLoadingExpenses, setIsLoadingExpenses] = useState(false);
-  const [expenseError, setExpenseError] = useState<string | null>(null);
-  const [payments, setPayments] = useState<SharedPayment[] | null>(null);
-  const [isLoadingPayments, setIsLoadingPayments] = useState(false);
-  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const membersQuery = useGroupMembers(group.id);
+  const expensesQuery = useGroupExpenses(group.id);
+  const paymentsQuery = useGroupPayments(group.id);
+  const { deletePayment } = useGroupDataActions(group.id);
+  const members = membersQuery.data ?? null;
+  const expenses = expensesQuery.data ?? null;
+  const payments = paymentsQuery.data ?? null;
+  const isLoadingMembers = membersQuery.isPending;
+  const isLoadingExpenses = expensesQuery.isPending;
+  const isLoadingPayments = paymentsQuery.isPending;
+  const memberError = membersQuery.errorMessage;
+  const expenseError = expensesQuery.errorMessage;
+  const paymentError = paymentsQuery.errorMessage;
+  const refreshMembers = membersQuery.refetch;
+  const refreshExpenses = expensesQuery.refetch;
+  const refreshPayments = paymentsQuery.refetch;
   const [deletingPaymentId, setDeletingPaymentId] = useState<string | null>(null);
   const deletingPayment = useRef(false);
-  const paymentReadVersion = useRef(0);
   const [sharedView, setSharedView] = useState<GroupView>("expenses");
 
   const isNavigating = useRef(false);
@@ -250,61 +256,12 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
     outputRange: ["0deg", "90deg"],
   });
 
-  const refreshMembers = useCallback(async () => {
-    setIsLoadingMembers(true);
-    try {
-      const nextMembers = await getGroupMembers(group.id);
-      setMembers(nextMembers);
-      setMemberError(null);
-    } catch (error) {
-      setMembers(null);
-      setMemberError(error instanceof Error ? error.message : "Could not load members.");
-    } finally {
-      setIsLoadingMembers(false);
-    }
-  }, [group.id]);
-
-  const refreshExpenses = useCallback(async () => {
-    setIsLoadingExpenses(true);
-    try {
-      setExpenses(await listGroupExpenses(group.id));
-      setExpenseError(null);
-    } catch (error) {
-      setExpenses(null);
-      setExpenseError(error instanceof Error ? error.message : "Could not load expenses.");
-    } finally {
-      setIsLoadingExpenses(false);
-    }
-  }, [group.id]);
-
-  const refreshPayments = useCallback(async () => {
-    const version = ++paymentReadVersion.current;
-    setIsLoadingPayments(true);
-    try {
-      const nextPayments = await listGroupPayments(group.id);
-      if (version === paymentReadVersion.current) {
-        setPayments(nextPayments);
-        setPaymentError(null);
-      }
-    } catch (error) {
-      if (version === paymentReadVersion.current) {
-        setPayments(null);
-        setPaymentError(error instanceof Error ? error.message : "Could not load payments.");
-      }
-    } finally {
-      if (version === paymentReadVersion.current) setIsLoadingPayments(false);
-    }
-  }, [group.id]);
-
   async function removePayment(payment: SharedPayment) {
     if (deletingPayment.current || (currentUserId !== payment.payerId && currentUserId !== payment.recipientId)) return;
     deletingPayment.current = true;
     setDeletingPaymentId(payment.id);
     try {
-      await deleteGroupPayment(group.id, payment.id);
-      ++paymentReadVersion.current;
-      setPayments((previous) => previous?.filter((item) => item.id !== payment.id) ?? null);
-      await refreshPayments();
+      await deletePayment(payment.id);
     } catch (error) {
       showError("Could not delete payment", error instanceof Error ? error.message : "Please try again.");
     } finally {
@@ -331,15 +288,7 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
         }),
       ]).start();
 
-      // Defer network refetches until navigation close transition settles
-      const timer = setTimeout(() => {
-        void refreshMembers();
-        void refreshExpenses();
-        void refreshPayments();
-      }, 280);
-
-      return () => clearTimeout(timer);
-    }, [fabRotateAnim, fabScaleAnim, refreshMembers, refreshExpenses, refreshPayments])
+    }, [fabRotateAnim, fabScaleAnim])
   );
 
   const balances = members && expenses && payments ? getSharedMemberBalances(members, expenses, payments) : null;
@@ -453,6 +402,10 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
       </View>
 
       <ScrollView
+        refreshControl={<RefreshControl
+          refreshing={membersQuery.isFetching || expensesQuery.isFetching || paymentsQuery.isFetching}
+          onRefresh={() => { void refreshMembers(); void refreshExpenses(); void refreshPayments(); }}
+        />}
         contentInsetAdjustmentBehavior="never"
         contentContainerClassName="w-full max-w-4xl self-center px-5 gap-5"
         contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) + 84 }}

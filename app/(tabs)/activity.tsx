@@ -6,7 +6,8 @@ import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } 
 import { EmptyState } from "@/components/empty-state";
 import { useClayTheme } from "@/constants/clay-theme";
 import { listGroupActivity, type GroupActivityEvent } from "@/lib/activity";
-import { getGroupMembers } from "@/lib/group-invites";
+import { useQueryClient } from "@tanstack/react-query";
+import { membersQueryOptions } from "@/lib/group-data-query";
 import { useAuthStore } from "@/store/use-auth-store";
 import { useSharedGroups, useGroupActions } from "@/hooks/use-shared-groups";
 import type { SharedGroup } from "@/types/shared-group";
@@ -22,6 +23,7 @@ type ActivityItem = {
 
 export default function ActivityScreen() {
   const clay = useClayTheme();
+  const queryClient = useQueryClient();
   const userId = useAuthStore((state) => state.session?.user.id);
   const { loadGroups } = useSharedGroups();
   const { restoreGroup } = useGroupActions();
@@ -54,7 +56,7 @@ export default function ActivityScreen() {
           .map((event) => event.groupId)
       ),
     ];
-    const memberResults = await Promise.allSettled(groupIds.map((groupId) => getGroupMembers(groupId)));
+    const memberResults = await Promise.allSettled(groupIds.map((groupId) => queryClient.fetchQuery(membersQueryOptions(currentUserId, groupId))));
 
     memberResults.forEach((result, index) => {
       if (result.status === "fulfilled") {
@@ -78,7 +80,7 @@ export default function ActivityScreen() {
     });
 
     return { ...page, pageItems };
-  }, []);
+  }, [queryClient]);
 
   const refresh = useCallback(async (isPullRefresh = false) => {
     if (!userId) return;

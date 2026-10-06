@@ -1,11 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router, Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { useCallback, useState } from "react";
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useClayTheme } from "@/constants/clay-theme";
-import { getGroupMembers, type GroupMember } from "@/lib/group-invites";
+import { useGroupMembers } from "@/hooks/use-group-data";
 import { useSharedGroups } from "@/hooks/use-shared-groups";
 
 const AVATAR_RING_COLORS = [
@@ -20,32 +19,11 @@ const AVATAR_RING_COLORS = [
 export default function GroupMembersScreen() {
   const clay = useClayTheme();
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
-  const { groups, userId: currentUserId } = useSharedGroups();
+  const { groups, isLoading: groupsLoading, userId: currentUserId } = useSharedGroups();
   const group = groups.find((item) => item.id === groupId);
 
-  const [members, setMembers] = useState<GroupMember[] | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const loadMembers = useCallback(async () => {
-    if (!groupId) return;
-    setIsLoading(true);
-    try {
-      const data = await getGroupMembers(groupId);
-      setMembers(data);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load members.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [groupId]);
-
-  useFocusEffect(
-    useCallback(() => {
-      void loadMembers();
-    }, [loadMembers])
-  );
+  const { data: members, isLoading, errorMessage, refetch: loadMembers } = useGroupMembers(groupId, !!group && !group.deletedAt);
+  const error = errorMessage ?? (!groupsLoading && !group ? "Group not found." : group?.deletedAt ? "This group has been deleted." : null);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: clay.canvas }}>

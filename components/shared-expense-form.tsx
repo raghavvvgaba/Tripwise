@@ -20,8 +20,9 @@ import AnimatedReanimated, { FadeInDown } from "react-native-reanimated";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useClayTheme } from "@/constants/clay-theme";
-import { getGroupMembers, type GroupMember } from "@/lib/group-invites";
-import { createGroupExpense, getGroupExpense, updateGroupExpense } from "@/lib/expenses";
+import { type GroupMember } from "@/lib/group-invites";
+import { useGroupMembers, useGroupExpense } from "@/hooks/use-group-data";
+import { useGroupDataActions } from "@/hooks/use-group-data-actions";
 import type { SharedExpense } from "@/types/shared-expense";
 import type { SharedGroup } from "@/types/shared-group";
 import { formatMoney, getCurrencySymbol, parseMoneyToMinor } from "@/utils/money";
@@ -40,35 +41,58 @@ function localDate(): string {
   return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 }
 
-export function SharedExpenseForm({
-  group,
-  currentUserId,
-  expenseId,
-  onClose,
-  headerPanHandlers,
-}: {
+type ExpenseFormProps = {
   group: SharedGroup;
   currentUserId: string;
   expenseId?: string;
   onClose?: () => void;
   headerPanHandlers?: GestureResponderHandlers;
+};
+
+export function SharedExpenseForm(props: ExpenseFormProps) {
+  const membersQuery = useGroupMembers(props.group.id);
+  const expenseQuery = useGroupExpense(props.group.id, props.expenseId ?? "");
+  const members = membersQuery.data;
+  const error = membersQuery.errorMessage ?? (props.expenseId ? expenseQuery.errorMessage : null);
+  const retry = () => { void membersQuery.refetch(); if (props.expenseId) void expenseQuery.refetch(); };
+  const ready = members && (!props.expenseId || expenseQuery.data);
+  const isMember = members?.some((member) => member.userId === props.currentUserId);
+
+  if (!ready || !isMember) {
+    const message = members && !isMember ? "You are no longer a member of this group."
+      : expenseQuery.data === null && props.expenseId ? "This expense has been deleted." : error;
+    return (
+      <View className="flex-1 items-center justify-center gap-4 bg-canvas px-5">
+        {message ? <Text className="text-center text-coral">{message}</Text> : <ActivityIndicator />}
+        {message ? <Pressable onPress={retry}><Text className="font-semibold text-brand-700">Retry</Text></Pressable> : null}
+        <Pressable onPress={props.onClose ?? (() => router.back())}><Text className="font-semibold text-ink">Close</Text></Pressable>
+      </View>
+    );
+  }
+
+  return <LoadedExpenseForm key={`${props.group.id}:${props.expenseId ?? "new"}`} {...props}
+    members={members} initialExpense={expenseQuery.data ?? null} />;
+}
+
+function LoadedExpenseForm({ group, currentUserId, expenseId, onClose, headerPanHandlers, members, initialExpense }: ExpenseFormProps & {
+  members: GroupMember[];
+  initialExpense: SharedExpense | null;
 }) {
   const clay = useClayTheme();
   const insets = useSafeAreaInsets();
-  const [members, setMembers] = useState<GroupMember[] | null>(null);
-  const [memberError, setMemberError] = useState<string | null>(null);
-  const [loadAttempt, setLoadAttempt] = useState(0);
-  const [existingExpense, setExistingExpense] = useState<SharedExpense | null>(null);
-  const [description, setDescription] = useState("");
-  const [amount, setAmount] = useState("");
-  const [paidById, setPaidById] = useState(currentUserId);
+  const { createExpense, updateExpense } = useGroupDataActions(group.id);
+  // Capture the revision with the draft so a background read cannot bypass edit-conflict checks.
+  const [existingExpense] = useState(initialExpense);
+  const [description, setDescription] = useState(initialExpense?.description ?? "");
+  const [amount, setAmount] = useState(initialExpense ? String(initialExpense.amountMinor / 100) : "");
+  const [paidById, setPaidById] = useState(initialExpense?.paidById ?? currentUserId);
   const [payerOpen, setPayerOpen] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const animValue = useRef(new Animated.Value(0)).current;
-  const [participantIds, setParticipantIds] = useState<string[]>([]);
-  const [splitMode, setSplitMode] = useState<"equal" | "exact">("equal");
-  const [exactAmounts, setExactAmounts] = useState<Record<string, string>>({});
-  const [note, setNote] = useState("");
+  const [participantIds, setParticipantIds] = useState<string[]>(initialExpense?.shares.map((share) => share.userId) ?? members.map((member) => member.userId));
+  const [splitMode, setSplitMode] = useState<"equal" | "exact">(initialExpense?.splitMode ?? "equal");
+  const [exactAmounts, setExactAmounts] = useState<Record<string, string>>(Object.fromEntries(initialExpense?.shares.map((share) => [share.userId, String(share.amountMinor / 100)]) ?? []));
+  const [note, setNote] = useState(initialExpense?.note ?? "");
   const [isSaving, setIsSaving] = useState(false);
   const savingRef = useRef(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -95,40 +119,6 @@ export function SharedExpenseForm({
       hideSub.remove();
     };
   }, []);
-
-  useEffect(() => {
-    let active = true;
-    setMembers(null);
-    setMemberError(null);
-    void Promise.all([
-      getGroupMembers(group.id),
-      expenseId ? getGroupExpense(group.id, expenseId) : Promise.resolve(null),
-    ])
-      .then(([nextMembers, expense]) => {
-        if (!active) return;
-        if (!nextMembers.some((member) => member.userId === currentUserId)) {
-          setMemberError("You are no longer a member of this group.");
-          return;
-        }
-        setExistingExpense(expense);
-        setMembers(nextMembers);
-        setPaidById(expense?.paidById ?? currentUserId);
-        setParticipantIds(expense?.shares.map((share) => share.userId) ?? nextMembers.map((member) => member.userId));
-        if (expense) {
-          setDescription(expense.description);
-          setAmount(String(expense.amountMinor / 100));
-          setSplitMode(expense.splitMode);
-          setExactAmounts(Object.fromEntries(expense.shares.map((share) => [share.userId, String(share.amountMinor / 100)])));
-          setNote(expense.note ?? "");
-        }
-      })
-      .catch((error: unknown) => {
-        if (active) setMemberError(error instanceof Error ? error.message : "Could not load group members.");
-      });
-    return () => {
-      active = false;
-    };
-  }, [group.id, currentUserId, expenseId, loadAttempt]);
 
   const selectedMembers = useMemo(
     () => members?.filter((member) => participantIds.includes(member.userId)) ?? [],
@@ -208,14 +198,14 @@ export function SharedExpenseForm({
         note: note.trim(),
       };
       if (existingExpense) {
-        await updateGroupExpense({
+        await updateExpense({
           ...input,
           expenseId: existingExpense.id,
           expectedUpdatedAt: existingExpense.updatedAt,
         });
         router.dismissTo({ pathname: "/expenses/[expenseId]", params: { groupId: group.id, expenseId: existingExpense.id } });
       } else {
-        await createGroupExpense({ ...input, expenseDate: localDate() });
+        await createExpense({ ...input, expenseDate: localDate() });
         router.dismissTo(`/groups/${group.id}`);
       }
     } catch (error) {
@@ -473,18 +463,6 @@ export function SharedExpenseForm({
                   </View>
                 </Modal>
               </>
-            ) : memberError ? (
-              <View
-                style={{ backgroundColor: clay.card, borderColor: clay.errorCardBorder }}
-                className="gap-3 rounded-3xl border p-4 shadow-sm"
-              >
-                <Text selectable style={{ color: clay.errorText }} className="text-sm font-semibold">
-                  {memberError}
-                </Text>
-                <Pressable onPress={() => setLoadAttempt((attempt) => attempt + 1)}>
-                  <Text className="text-sm font-bold text-[#F5D298]">Retry</Text>
-                </Pressable>
-              </View>
             ) : (
               <ActivityIndicator color="#F5D298" className="self-start py-2" />
             )}
@@ -512,7 +490,7 @@ export function SharedExpenseForm({
                             ? { backgroundColor: clay.card, borderColor: clay.cardBorder }
                             : undefined
                         }
-                        className={`h-11 flex-1 items-center justify-center rounded-xl ${isSelected ? "border shadow-sm" : ""}`}
+                        className={`h-11 flex-1 items-center justify-center rounded-xl ${isSelected ? "border shadow-sm" : "shadow-none"}`}
                       >
                         <Text
                           style={{ color: isSelected ? clay.textPrimary : clay.textMuted }}
