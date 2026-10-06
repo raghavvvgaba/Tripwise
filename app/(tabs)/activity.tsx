@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 
 import { EmptyState } from "@/components/empty-state";
 import { useClayTheme } from "@/constants/clay-theme";
@@ -31,6 +31,7 @@ export default function ActivityScreen() {
   const namesByGroup = useRef(new Map<string, Map<string, string>>());
   const [items, setItems] = useState<ActivityItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,18 +80,22 @@ export default function ActivityScreen() {
     return { ...page, pageItems };
   }, []);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (isPullRefresh = false) => {
     if (!userId) return;
     const currentRequest = ++requestId.current;
     nextOffset.current = 0;
     loadingMore.current = false;
     namesByGroup.current.clear();
-    setIsLoading(true);
+    if (isPullRefresh) {
+      setIsRefreshing(true);
+    } else {
+      setIsLoading(true);
+      setItems(null);
+    }
     setIsLoadingMore(false);
     setHasMore(false);
     setError(null);
     setPageError(null);
-    setItems(null);
 
     try {
       const groups = await loadGroups();
@@ -105,13 +110,15 @@ export default function ActivityScreen() {
         setError(loadError instanceof Error ? loadError.message : "Could not load activity.");
       }
     } finally {
-      if (requestId.current === currentRequest) setIsLoading(false);
+      if (requestId.current === currentRequest) {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
     }
   }, [loadGroups, loadPage, userId]);
 
   const loadMore = useCallback(async () => {
-    if (!userId || !hasMore || loadingMore.current) return;
-    const currentRequest = requestId.current;
+    if (!userId || loadingMore.current || !hasMore || isLoadingMore) return;
     loadingMore.current = true;
     setIsLoadingMore(true);
     setPageError(null);
@@ -119,22 +126,16 @@ export default function ActivityScreen() {
     try {
       const groups = await loadGroups();
       const page = await loadPage(nextOffset.current, groups, userId);
-      if (requestId.current === currentRequest) {
-        nextOffset.current += page.events.length;
-        setItems((previous) => [...(previous ?? []), ...page.pageItems]);
-        setHasMore(page.hasMore);
-      }
-    } catch (loadError) {
-      if (requestId.current === currentRequest) {
-        setPageError(loadError instanceof Error ? loadError.message : "Could not load more activity.");
-      }
+      nextOffset.current += page.events.length;
+      setItems((current) => [...(current ?? []), ...page.pageItems]);
+      setHasMore(page.hasMore);
+    } catch (err) {
+      setPageError(err instanceof Error ? err.message : "Could not load older activity.");
     } finally {
-      if (requestId.current === currentRequest) {
-        loadingMore.current = false;
-        setIsLoadingMore(false);
-      }
+      loadingMore.current = false;
+      setIsLoadingMore(false);
     }
-  }, [hasMore, loadGroups, loadPage, userId]);
+  }, [hasMore, isLoadingMore, loadGroups, loadPage, userId]);
 
   function openItem(item: ActivityItem) {
     const { event, group } = item;
@@ -183,6 +184,14 @@ export default function ActivityScreen() {
 
   return (
     <ScrollView
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefreshing}
+          onRefresh={() => void refresh(true)}
+          tintColor={clay.isDark ? "#F5D298" : "#2C254E"}
+          colors={["#F5D298"]}
+        />
+      }
       contentInsetAdjustmentBehavior="automatic"
       contentContainerClassName="w-full max-w-5xl self-center gap-6 px-5 pb-12 pt-3 md:px-8 lg:py-8"
       showsVerticalScrollIndicator={false}
@@ -195,9 +204,6 @@ export default function ActivityScreen() {
         <Text style={{ color: clay.textPrimary }} className="text-2xl font-black">
           Recent Activity
         </Text>
-        <Pressable accessibilityRole="button" disabled={isLoading} onPress={() => void refresh()} className="min-h-11 justify-center">
-          <Text style={{ color: clay.textPrimary }} className="font-semibold">Refresh</Text>
-        </Pressable>
       </View>
 
       {isLoading ? <ActivityIndicator color="#F5D298" className="py-12" /> : null}

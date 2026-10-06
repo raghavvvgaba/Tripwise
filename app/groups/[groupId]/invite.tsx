@@ -3,7 +3,7 @@ import * as Clipboard from "expo-clipboard";
 import * as Linking from "expo-linking";
 import { router, Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Platform, Pressable, ScrollView, Share, Text, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, RefreshControl, ScrollView, Share, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useClayTheme } from "@/constants/clay-theme";
@@ -137,19 +137,18 @@ export default function GroupInviteScreen() {
           </Text>
         </View>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Refresh invite"
-          disabled={isLoading}
-          onPress={() => void loadInvite()}
-          style={{ backgroundColor: clay.headerBtn, borderColor: clay.cardBorder }}
-          className="h-11 w-11 items-center justify-center rounded-2xl border active:opacity-75"
-        >
-          <Ionicons name="refresh" size={18} color={clay.textPrimary} />
-        </Pressable>
+        <View className="h-11 w-11" />
       </View>
 
       <ScrollView
+        refreshControl={
+          <RefreshControl
+            refreshing={isLoading && !!invite}
+            onRefresh={() => void loadInvite()}
+            tintColor={clay.isDark ? "#F5D298" : "#2C254E"}
+            colors={["#F5D298"]}
+          />
+        }
         contentInsetAdjustmentBehavior="never"
         contentContainerClassName="w-full max-w-2xl self-center px-5 pb-12 gap-5"
         showsVerticalScrollIndicator={false}
