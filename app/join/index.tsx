@@ -21,6 +21,16 @@ export default function EnterInviteCodeScreen() {
   const clay = useClayTheme();
   const [code, setCode] = useState("");
 
+  function handleCodeChange(raw: string) {
+    let text = raw.trim();
+    // Support pasting full invite URLs like https://tripwise.raghavgaba.me/join/ABCDEFGH
+    const urlMatch = text.match(/\/join\/([A-Za-z0-9]{8})/i);
+    if (urlMatch) {
+      text = urlMatch[1];
+    }
+    setCode(text.replace(/[^a-z0-9]/gi, "").toUpperCase().slice(0, 8));
+  }
+
   function openInvite() {
     if (isInviteCode(code)) {
       Keyboard.dismiss();
@@ -104,7 +114,7 @@ export default function EnterInviteCodeScreen() {
                   placeholder="ABCDEFGH"
                   placeholderTextColor={clay.textMuted}
                   value={code}
-                  onChangeText={(value) => setCode(value.replace(/[^a-z]/gi, "").toUpperCase().slice(0, 8))}
+                  onChangeText={handleCodeChange}
                   onSubmitEditing={openInvite}
                   returnKeyType="go"
                 />
@@ -123,6 +133,13 @@ export default function EnterInviteCodeScreen() {
               </Pressable>
             </View>
 
+            {/* ── Helpful Tip ── */}
+            <View className="flex-row items-center justify-center gap-1.5 px-2 pt-1">
+              <Ionicons name="information-circle-outline" size={15} color={clay.textMuted} />
+              <Text style={{ color: clay.textMuted }} className="text-xs">
+                You can also paste a full invite link here.
+              </Text>
+            </View>
           </ScrollView>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
