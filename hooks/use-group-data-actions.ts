@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createGroupExpense, deleteGroupExpense, updateGroupExpense, type CreateGroupExpenseInput, type UpdateGroupExpenseInput } from "@/lib/expenses";
 import { deleteGroupPayment, recordGroupPayment, type RecordPaymentInput } from "@/lib/payments";
 import { expenseQueryOptions, expensesQueryOptions, paymentsQueryOptions } from "@/lib/group-data-query";
+import { refreshActivity } from "@/lib/refresh-activity";
 import { useAuthStore } from "@/store/use-auth-store";
 import type { SharedExpense } from "@/types/shared-expense";
 import type { SharedPayment } from "@/types/shared-payment";
@@ -23,7 +24,7 @@ export function useGroupDataActions(groupId: string) {
     if (!sameAccount()) return;
     // Do not let a read begun before the write satisfy its refresh.
     await client.cancelQueries({ queryKey });
-    if (sameAccount()) await client.invalidateQueries({ queryKey });
+    if (sameAccount()) await Promise.all([client.invalidateQueries({ queryKey }), refreshActivity(client, userId)]);
   }
 
   const create = useMutation({
@@ -47,7 +48,7 @@ export function useGroupDataActions(groupId: string) {
       client.setQueryData<SharedExpense[]>(expensesKey, (expenses) => expenses?.filter((expense) => expense.id !== expenseId));
       // Keep a tombstone so a mounted detail screen cannot resurrect a deleted expense.
       client.setQueryData(expenseQueryOptions(userId, groupId, expenseId).queryKey, null);
-      await client.invalidateQueries({ queryKey: expensesKey, exact: true });
+      await Promise.all([client.invalidateQueries({ queryKey: expensesKey, exact: true }), refreshActivity(client, userId)]);
     },
   });
   const record = useMutation({
@@ -66,7 +67,7 @@ export function useGroupDataActions(groupId: string) {
       await client.cancelQueries({ queryKey: paymentsKey });
       if (!sameAccount()) return;
       client.setQueryData<SharedPayment[]>(paymentsKey, (payments) => payments?.filter((payment) => payment.id !== paymentId));
-      await client.invalidateQueries({ queryKey: paymentsKey });
+      await Promise.all([client.invalidateQueries({ queryKey: paymentsKey }), refreshActivity(client, userId)]);
     },
   });
 

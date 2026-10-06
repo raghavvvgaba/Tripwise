@@ -1,143 +1,23 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router, useFocusEffect } from "expo-router";
-import { useCallback, useRef, useState } from "react";
+import { router } from "expo-router";
+import { useState } from "react";
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 
 import { EmptyState } from "@/components/empty-state";
 import { useClayTheme } from "@/constants/clay-theme";
-import { listGroupActivity, type GroupActivityEvent } from "@/lib/activity";
-import { useQueryClient } from "@tanstack/react-query";
-import { membersQueryOptions } from "@/lib/group-data-query";
-import { useAuthStore } from "@/store/use-auth-store";
-import { useSharedGroups, useGroupActions } from "@/hooks/use-shared-groups";
-import type { SharedGroup } from "@/types/shared-group";
+import { useActivity } from "@/hooks/use-activity";
+import { useGroupActions } from "@/hooks/use-shared-groups";
 import { formatPaymentDate, formatRelativeTime } from "@/utils/date";
 import { formatMoney } from "@/utils/money";
 import { confirmAction, showError } from "@/utils/dialogs";
 
-type ActivityItem = {
-  event: GroupActivityEvent;
-  group: SharedGroup;
-  actorName: string;
-};
+type ActivityItem = NonNullable<ReturnType<typeof useActivity>["items"]>[number];
 
 export default function ActivityScreen() {
   const clay = useClayTheme();
-  const queryClient = useQueryClient();
-  const userId = useAuthStore((state) => state.session?.user.id);
-  const { loadGroups } = useSharedGroups();
+  const { items, isLoading, isRefreshing, isLoadingMore, isFetching, hasMore, error, pageError, refresh, loadMore } = useActivity();
   const { restoreGroup } = useGroupActions();
-  const requestId = useRef(0);
-  const nextOffset = useRef(0);
-  const loadingMore = useRef(false);
-  const namesByGroup = useRef(new Map<string, Map<string, string>>());
-  const [items, setItems] = useState<ActivityItem[] | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [pageError, setPageError] = useState<string | null>(null);
   const [restoringId, setRestoringId] = useState<string | null>(null);
-
-  const loadPage = useCallback(async (offset: number, groups: SharedGroup[], currentUserId: string) => {
-    const page = await listGroupActivity(offset);
-    const groupById = new Map(groups.map((group) => [group.id, group]));
-    const groupIds = [
-      ...new Set(
-        page.events
-          .filter(
-            (event) =>
-              (event.actorId !== currentUserId ||
-                event.eventType === "payment_recorded" ||
-                event.eventType === "payment_deleted") &&
-              !namesByGroup.current.has(event.groupId)
-          )
-          .map((event) => event.groupId)
-      ),
-    ];
-    const memberResults = await Promise.allSettled(groupIds.map((groupId) => queryClient.fetchQuery(membersQueryOptions(currentUserId, groupId))));
-
-    memberResults.forEach((result, index) => {
-      if (result.status === "fulfilled") {
-        namesByGroup.current.set(groupIds[index], new Map(result.value.map((member) => [member.userId, member.name])));
-      }
-    });
-
-    const pageItems: ActivityItem[] = page.events.flatMap((event) => {
-      const group = groupById.get(event.groupId);
-      if (!group) return [];
-      return [
-        {
-          event,
-          group,
-          actorName:
-            event.actorId === currentUserId
-              ? "You"
-              : namesByGroup.current.get(group.id)?.get(event.actorId) ?? "A member",
-        },
-      ];
-    });
-
-    return { ...page, pageItems };
-  }, [queryClient]);
-
-  const refresh = useCallback(async (isPullRefresh = false) => {
-    if (!userId) return;
-    const currentRequest = ++requestId.current;
-    nextOffset.current = 0;
-    loadingMore.current = false;
-    namesByGroup.current.clear();
-    if (isPullRefresh) {
-      setIsRefreshing(true);
-    } else {
-      setIsLoading(true);
-      setItems(null);
-    }
-    setIsLoadingMore(false);
-    setHasMore(false);
-    setError(null);
-    setPageError(null);
-
-    try {
-      const groups = await loadGroups();
-      const page = await loadPage(0, groups, userId);
-      if (requestId.current === currentRequest) {
-        nextOffset.current = page.events.length;
-        setItems(page.pageItems);
-        setHasMore(page.hasMore);
-      }
-    } catch (loadError) {
-      if (requestId.current === currentRequest) {
-        setError(loadError instanceof Error ? loadError.message : "Could not load activity.");
-      }
-    } finally {
-      if (requestId.current === currentRequest) {
-        setIsLoading(false);
-        setIsRefreshing(false);
-      }
-    }
-  }, [loadGroups, loadPage, userId]);
-
-  const loadMore = useCallback(async () => {
-    if (!userId || loadingMore.current || !hasMore || isLoadingMore) return;
-    loadingMore.current = true;
-    setIsLoadingMore(true);
-    setPageError(null);
-
-    try {
-      const groups = await loadGroups();
-      const page = await loadPage(nextOffset.current, groups, userId);
-      nextOffset.current += page.events.length;
-      setItems((current) => [...(current ?? []), ...page.pageItems]);
-      setHasMore(page.hasMore);
-    } catch (err) {
-      setPageError(err instanceof Error ? err.message : "Could not load older activity.");
-    } finally {
-      loadingMore.current = false;
-      setIsLoadingMore(false);
-    }
-  }, [hasMore, isLoadingMore, loadGroups, loadPage, userId]);
 
   function openItem(item: ActivityItem) {
     const { event, group } = item;
@@ -167,7 +47,6 @@ export default function ActivityScreen() {
     setRestoringId(groupId);
     try {
       await restoreGroup(groupId);
-      await refresh();
     } catch (cause) {
       showError("Could not restore group", cause instanceof Error ? cause.message : "Please try again.");
     } finally {
@@ -175,21 +54,12 @@ export default function ActivityScreen() {
     }
   }
 
-  useFocusEffect(
-    useCallback(() => {
-      void refresh();
-      return () => {
-        requestId.current += 1;
-      };
-    }, [refresh])
-  );
-
   return (
     <ScrollView
       refreshControl={
         <RefreshControl
           refreshing={isRefreshing}
-          onRefresh={() => void refresh(true)}
+          onRefresh={() => void refresh()}
           tintColor={clay.isDark ? "#F5D298" : "#2C254E"}
           colors={["#F5D298"]}
         />
@@ -237,11 +107,7 @@ export default function ActivityScreen() {
               event.eventType === "expense_deleted";
             const isPayment = event.eventType === "payment_recorded" || event.eventType === "payment_deleted";
             const isUnavailableExpense = isExpense && !event.expenseId;
-            const memberNames = namesByGroup.current.get(group.id);
-            const payerName =
-              event.paymentFromId === userId ? "you" : memberNames?.get(event.paymentFromId ?? "") ?? "a member";
-            const recipientName =
-              event.paymentToId === userId ? "you" : memberNames?.get(event.paymentToId ?? "") ?? "a member";
+            const { payerName, recipientName } = item;
 
             return (
               <View key={event.id}>
@@ -321,7 +187,7 @@ export default function ActivityScreen() {
             );
           })}
         </View>
-      ) : items && !error && !hasMore ? (
+      ) : items && !isLoading && !error && !hasMore ? (
         <EmptyState
           icon="flash-outline"
           title="No activity yet"
@@ -338,7 +204,7 @@ export default function ActivityScreen() {
       {items && hasMore ? (
         <Pressable
           accessibilityRole="button"
-          disabled={isLoadingMore}
+          disabled={isFetching}
           onPress={() => void loadMore()}
           style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
           className="h-13 items-center justify-center rounded-2xl border px-5 active:opacity-75 disabled:opacity-50"

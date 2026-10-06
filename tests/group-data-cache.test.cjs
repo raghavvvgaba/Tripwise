@@ -47,7 +47,12 @@ function setup(t, overrides = {}) {
     "@/lib/expenses": backend, "@/lib/payments": backend, "@/lib/group-invites": backend,
   });
   const auth = Object.assign((select) => select({ session }), { getState: () => ({ session }) });
+  const activity = loadModule("lib/activity-query.ts", { "@/lib/activity": { listGroupActivity: async () => ({ events: [], hasMore: false }) } });
+  const refreshActivity = loadModule("lib/refresh-activity.ts", {
+    "@/lib/activity-query": activity, "@/store/use-auth-store": { useAuthStore: auth },
+  });
   const dependencies = {
+    "@/lib/refresh-activity": refreshActivity,
     "@/lib/expenses": backend, "@/lib/payments": backend,
     "@/lib/group-data-query": options, "@/store/use-auth-store": { useAuthStore: auth },
     react: { useCallback: (fn) => fn },
@@ -178,4 +183,25 @@ test("a successful write discards an earlier read before refreshing", async (t) 
   await h.actions.createExpense({ groupId: "trip" });
   finishOld([]);
   assert.equal(h.hooks.useGroupExpenses("trip").data[0].id, "new");
+});
+
+test("every successful expense and payment change invalidates Activity; failures do not", async (t) => {
+  const h = setup(t);
+  const key = ["activity", "alice"];
+  const writes = [
+    () => h.actions.createExpense({ groupId: "trip" }),
+    () => h.actions.updateExpense({ groupId: "trip", expenseId: "expense" }),
+    () => h.actions.deleteExpense("expense"),
+    () => h.actions.recordPayment({ groupId: "trip" }),
+    () => h.actions.deletePayment("payment"),
+  ];
+  for (const write of writes) {
+    h.client.setQueryData(key, { pages: [], pageParams: [] });
+    await write();
+    assert.equal(h.client.getQueryState(key).isInvalidated, true);
+  }
+  h.client.setQueryData(key, { pages: [], pageParams: [] });
+  h.backend.createGroupExpense = async () => { throw new Error("Failed"); };
+  await assert.rejects(h.actions.createExpense({ groupId: "trip" }));
+  assert.equal(h.client.getQueryState(key).isInvalidated, false);
 });

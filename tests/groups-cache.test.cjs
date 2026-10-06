@@ -47,8 +47,13 @@ function setup(t, overrides = {}) {
     ...overrides,
   };
   const auth = Object.assign((select) => select({ session }), { getState: () => ({ session }) });
+  const activity = loadModule("lib/activity-query.ts", { "@/lib/activity": { listGroupActivity: async () => ({ events: [], hasMore: false }) } });
+  const refreshActivity = loadModule("lib/refresh-activity.ts", {
+    "@/lib/activity-query": activity, "@/store/use-auth-store": { useAuthStore: auth },
+  });
   const options = loadModule("lib/groups-query.ts", { "@/lib/groups": backend });
   const hooks = loadModule("hooks/use-shared-groups.ts", {
+    "@/lib/refresh-activity": refreshActivity,
     "@/lib/groups": backend,
     "@/lib/groups-query": options,
     "@/lib/group-data-query": { groupDataKey: (userId, groupId) => ["group-data", userId, groupId] },
@@ -153,4 +158,17 @@ test("post-join forced refresh discards an older in-flight snapshot", async (t) 
   await oldRead;
   assert.equal(joined[0].id, "joined");
   assert.equal(h.client.getQueryData(["groups", "alice"])[0].id, "joined");
+});
+
+test("group changes invalidate the account's Activity cache", async (t) => {
+  const h = setup(t);
+  const actions = h.hooks.useGroupActions();
+  const key = ["activity", "alice"];
+  for (const write of [() => actions.createGroup("New", "INR"),
+    () => actions.deleteGroup("one"), () => actions.restoreGroup("one"),
+    () => actions.setCover("one", null, null)]) {
+    h.client.setQueryData(key, { pages: [], pageParams: [] });
+    await write();
+    assert.equal(h.client.getQueryState(key).isInvalidated, true);
+  }
 });

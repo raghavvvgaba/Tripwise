@@ -5,6 +5,7 @@ import { useCallback } from "react";
 import { createGroup, deleteSharedGroup, restoreSharedGroup, updateGroupCover } from "@/lib/groups";
 import { groupDataKey } from "@/lib/group-data-query";
 import { groupsQueryOptions } from "@/lib/groups-query";
+import { refreshActivity } from "@/lib/refresh-activity";
 import { useAuthStore } from "@/store/use-auth-store";
 import type { CurrencyCode } from "@/types/models";
 import type { SharedGroup } from "@/types/shared-group";
@@ -58,7 +59,7 @@ export function useGroupActions() {
     await client.cancelQueries({ queryKey });
     if (useAuthStore.getState().session?.user.id !== userId) return;
     client.setQueryData<SharedGroup[]>(queryKey, (groups) => groups ? update(groups) : undefined);
-    await client.invalidateQueries({ queryKey });
+    await Promise.all([client.invalidateQueries({ queryKey }), refreshActivity(client, userId)]);
   }
 
   const create = useMutation({

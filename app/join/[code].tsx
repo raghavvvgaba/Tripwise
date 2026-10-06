@@ -15,6 +15,7 @@ import {
   previewGroupInvite,
   type InvitePreview,
 } from "@/lib/group-invites";
+import { refreshActivity } from "@/lib/refresh-activity";
 import { useAuthStore } from "@/store/use-auth-store";
 import { useSharedGroups } from "@/hooks/use-shared-groups";
 
@@ -70,6 +71,7 @@ export default function JoinGroupScreen() {
       const groupId = await acceptGroupInvite(normalizeInviteCode(code));
       setJoinedGroupId(groupId);
       await queryClient.invalidateQueries({ queryKey: groupDataKey(session.user.id, groupId), refetchType: "none" });
+      await refreshActivity(queryClient, session.user.id);
       const loaded = await loadGroups(true);
       if (loaded.some((group) => group.id === groupId)) {
         router.replace(`/groups/${groupId}`);
