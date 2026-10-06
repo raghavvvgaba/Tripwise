@@ -1,90 +1,110 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Link } from "expo-router";
+import { router } from "expo-router";
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 
 import { EmptyState } from "@/components/empty-state";
 import { GroupCard } from "@/components/group-card";
+import { useClayTheme } from "@/constants/clay-theme";
 import { useSharedGroups } from "@/hooks/use-shared-groups";
-import { useThemeColors } from "@/constants/theme";
 
 export default function GroupsScreen() {
-  const colors = useThemeColors();
+  const clay = useClayTheme();
   const { groups, isLoading, isRefreshing, error, refreshError, loadGroups } = useSharedGroups();
   const activeGroups = groups.filter((group) => !group.deletedAt);
 
   return (
     <ScrollView
-      refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => void loadGroups(true).catch(() => undefined)} />}
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefreshing}
+          onRefresh={() => void loadGroups(true).catch(() => undefined)}
+          tintColor={clay.isDark ? "#F5D298" : "#2C254E"}
+          colors={["#F5D298"]}
+        />
+      }
       contentInsetAdjustmentBehavior="automatic"
-      contentContainerClassName="w-full max-w-6xl self-center gap-7 px-5 pb-12 pt-5 md:px-8 lg:gap-8 lg:px-10 lg:py-10"
+      contentContainerClassName="w-full max-w-5xl self-center gap-6 px-5 pb-12 pt-3 md:px-8 lg:py-8"
       showsVerticalScrollIndicator={false}
+      style={{ backgroundColor: clay.canvas }}
     >
-      <View className="hidden gap-1 lg:flex">
-        <Text className="text-3xl font-bold tracking-tight text-ink">Your groups</Text>
-        <Text className="text-sm text-muted">A clear view of every shared expense.</Text>
-      </View>
-
-      <View className="overflow-hidden rounded-xl bg-[#1A1A1A] p-6 lg:p-8">
-        <View className="absolute -right-8 -top-10 h-32 w-32 rounded-full bg-brand-600 opacity-50" />
-        <View className="absolute -bottom-20 right-28 h-36 w-36 rounded-full border border-white/10" />
-        <View className="gap-2">
-          <Text className="text-sm font-medium text-white/70">Your groups</Text>
-          <Text selectable className="text-3xl font-bold tracking-tight text-white">
-            {activeGroups.length} active {activeGroups.length === 1 ? "group" : "groups"}
+      {/* ── Centerpiece Hero Card ── */}
+      <View
+        style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+        className="relative overflow-hidden rounded-3xl border p-6 shadow-sm"
+      >
+        <View className="gap-1">
+          <Text style={{ color: clay.textPrimary }} className="text-2xl font-black tracking-tight">
+            Tripwise
           </Text>
-          <Text className="text-sm leading-5 text-white/60">Shared expenses, all in one place</Text>
+          <Text selectable style={{ color: clay.isDark ? "#F5D298" : "#9A6B1C" }} className="text-3xl font-black">
+            {activeGroups.length} {activeGroups.length === 1 ? "Active Group" : "Active Groups"}
+          </Text>
+        </View>
+
+        {/* ── Quick Action Row ── */}
+        <View className="mt-5 flex-row items-center gap-3">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Create group"
+            onPress={() => router.push("/groups/create")}
+            className="h-12 flex-1 flex-row items-center justify-center gap-2 rounded-2xl bg-[#F5D298] px-4 shadow-sm active:opacity-75"
+          >
+            <Ionicons name="add" size={20} color={clay.heroText} />
+            <Text style={{ color: clay.heroText }} className="text-sm font-extrabold">
+              New Group
+            </Text>
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Join group"
+            onPress={() => router.push("/join")}
+            style={{ backgroundColor: clay.squircle, borderColor: clay.cardBorder }}
+            className="h-12 flex-1 flex-row items-center justify-center gap-2 rounded-2xl border px-4 active:opacity-75"
+          >
+            <Ionicons name="enter-outline" size={18} color={clay.textPrimary} />
+            <Text style={{ color: clay.textPrimary }} className="text-sm font-bold">
+              Join Group
+            </Text>
+          </Pressable>
         </View>
       </View>
 
-      <View className="gap-4">
+      {/* ── Groups Section ── */}
+      <View className="gap-3.5">
         <View className="flex-row items-center justify-between px-1">
-          <Text className="section-label">Your groups</Text>
-          <View className="flex-row items-center gap-2">
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Refresh groups"
-              disabled={isLoading || isRefreshing}
-              onPress={() => void loadGroups(true).catch(() => undefined)}
-              className="h-11 w-11 items-center justify-center rounded-full border border-line bg-surface active:bg-canvas lg:rounded-xl"
-            >
-              <Ionicons name="refresh-outline" size={18} color={colors["brand-700"]} />
-            </Pressable>
-            <Link href="/join" asChild>
-              <Pressable
-                accessibilityLabel="Join a group with a code"
-                className="h-11 flex-row items-center gap-1.5 rounded-full border border-line bg-surface px-3 active:bg-canvas lg:rounded-xl lg:px-4"
-              >
-                <Ionicons name="enter-outline" size={17} color={colors["brand-700"]} />
-                <Text className="text-sm font-semibold text-brand-700">Join</Text>
-              </Pressable>
-            </Link>
-            <Link href="/groups/create" asChild>
-              <Pressable
-                accessibilityLabel="Create group"
-                className="h-11 w-11 flex-row items-center justify-center gap-1 rounded-full bg-brand-600 active:bg-[#086B49] lg:w-auto lg:rounded-xl lg:px-4"
-              >
-                <Text className="text-2xl font-medium leading-7 text-white">+</Text>
-                <Text className="hidden text-sm font-semibold text-white lg:flex">New group</Text>
-              </Pressable>
-            </Link>
-          </View>
+          <Text style={{ color: clay.textMuted }} className="text-xs font-bold uppercase tracking-wider">
+            All Groups
+          </Text>
+          <Text style={{ color: clay.textMuted }} className="text-xs">
+            {activeGroups.length} total
+          </Text>
         </View>
-        {refreshError ? <Text className="text-sm text-coral">Could not refresh groups: {refreshError}. Your saved view is still shown.</Text> : null}
+
+        {refreshError ? (
+          <Text style={{ color: clay.errorText }} className="px-1 text-xs">
+            Could not refresh groups: {refreshError}.
+          </Text>
+        ) : null}
+
         {isLoading ? (
-          <ActivityIndicator color={colors["brand-600"]} />
+          <ActivityIndicator color="#F5D298" className="py-12" />
         ) : error ? (
-          <View className="card gap-3 p-5">
-            <Text className="text-sm text-coral">Could not load groups: {error}</Text>
-            <Pressable onPress={() => void loadGroups(true).catch(() => undefined)}>
-              <Text className="font-semibold text-brand-700">Try again</Text>
+          <View
+            style={{ backgroundColor: clay.card, borderColor: clay.errorCardBorder }}
+            className="gap-3 rounded-3xl border p-5 shadow-sm"
+          >
+            <Text selectable style={{ color: clay.errorText }} className="text-sm font-semibold">
+              Could not load groups: {error}
+            </Text>
+            <Pressable onPress={() => void loadGroups(true).catch(() => undefined)} className="self-start">
+              <Text className="text-sm font-bold text-[#F5D298]">Try again</Text>
             </Pressable>
           </View>
         ) : activeGroups.length > 0 ? (
-          <View className="flex-row flex-wrap gap-4">
+          <View className="gap-3">
             {activeGroups.map((group) => (
-              <View key={group.id} className="w-full lg:w-[48%]">
-                <GroupCard group={group} />
-              </View>
+              <GroupCard key={group.id} group={group} />
             ))}
           </View>
         ) : (

@@ -4,7 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 
 import { EmptyState } from "@/components/empty-state";
-import { useThemeColors } from "@/constants/theme";
+import { useClayTheme } from "@/constants/clay-theme";
 import { listGroupActivity, type GroupActivityEvent } from "@/lib/activity";
 import { getGroupMembers } from "@/lib/group-invites";
 import { useAuthStore } from "@/store/use-auth-store";
@@ -21,7 +21,7 @@ type ActivityItem = {
 };
 
 export default function ActivityScreen() {
-  const colors = useThemeColors();
+  const clay = useClayTheme();
   const userId = useAuthStore((state) => state.session?.user.id);
   const { loadGroups } = useSharedGroups();
   const { restoreGroup } = useGroupActions();
@@ -40,11 +40,19 @@ export default function ActivityScreen() {
   const loadPage = useCallback(async (offset: number, groups: SharedGroup[], currentUserId: string) => {
     const page = await listGroupActivity(offset);
     const groupById = new Map(groups.map((group) => [group.id, group]));
-    const groupIds = [...new Set(
-      page.events
-        .filter((event) => (event.actorId !== currentUserId || event.eventType === "payment_recorded" || event.eventType === "payment_deleted") && !namesByGroup.current.has(event.groupId))
-        .map((event) => event.groupId),
-    )];
+    const groupIds = [
+      ...new Set(
+        page.events
+          .filter(
+            (event) =>
+              (event.actorId !== currentUserId ||
+                event.eventType === "payment_recorded" ||
+                event.eventType === "payment_deleted") &&
+              !namesByGroup.current.has(event.groupId)
+          )
+          .map((event) => event.groupId)
+      ),
+    ];
     const memberResults = await Promise.allSettled(groupIds.map((groupId) => getGroupMembers(groupId)));
 
     memberResults.forEach((result, index) => {
@@ -56,13 +64,16 @@ export default function ActivityScreen() {
     const pageItems: ActivityItem[] = page.events.flatMap((event) => {
       const group = groupById.get(event.groupId);
       if (!group) return [];
-      return [{
-        event,
-        group,
-        actorName: event.actorId === currentUserId
-          ? "You"
-          : namesByGroup.current.get(group.id)?.get(event.actorId) ?? "A member",
-      }];
+      return [
+        {
+          event,
+          group,
+          actorName:
+            event.actorId === currentUserId
+              ? "You"
+              : namesByGroup.current.get(group.id)?.get(event.actorId) ?? "A member",
+        },
+      ];
     });
 
     return { ...page, pageItems };
@@ -129,11 +140,11 @@ export default function ActivityScreen() {
     const { event, group } = item;
     if (group.deletedAt && event.eventType === "group_deleted") {
       confirmAction(
-        "Restore this group?",
-        `Restore ${group.name} and all its expenses for every member?`,
+        `Restore ${group.name}?`,
+        "This group was deleted. Restore it to view its expenses and balances again.",
         "Restore group",
         () => void restoreFromActivity(group.id),
-        false,
+        false
       );
     } else if (group.deletedAt) {
       return;
@@ -161,103 +172,176 @@ export default function ActivityScreen() {
     }
   }
 
-  useFocusEffect(useCallback(() => {
-    void refresh();
-    return () => { requestId.current += 1; };
-  }, [refresh]));
+  useFocusEffect(
+    useCallback(() => {
+      void refresh();
+      return () => {
+        requestId.current += 1;
+      };
+    }, [refresh])
+  );
 
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
-      contentContainerClassName="w-full max-w-5xl self-center gap-6 px-5 pb-12 pt-5 md:px-8 lg:py-10"
+      contentContainerClassName="w-full max-w-5xl self-center gap-6 px-5 pb-12 pt-3 md:px-8 lg:py-8"
       showsVerticalScrollIndicator={false}
+      style={{ backgroundColor: clay.canvas }}
     >
-      <View className="flex-row items-start justify-between gap-4 px-1">
-        <View className="flex-1 gap-1">
-          <Text className="text-2xl font-bold text-ink lg:text-3xl">Recent Activity</Text>
-          <Text className="text-sm leading-5 text-muted">Expenses, payments, and group changes across all your groups.</Text>
-        </View>
+      <View className="px-1 gap-0.5">
+        <Text style={{ color: clay.textMuted }} className="text-[11px] font-black uppercase tracking-widest">
+          Timeline
+        </Text>
+        <Text style={{ color: clay.textPrimary }} className="text-2xl font-black">
+          Recent Activity
+        </Text>
         <Pressable accessibilityRole="button" disabled={isLoading} onPress={() => void refresh()} className="min-h-11 justify-center">
-          <Text className="font-semibold text-brand-700">Refresh</Text>
+          <Text style={{ color: clay.textPrimary }} className="font-semibold">Refresh</Text>
         </Pressable>
       </View>
 
-      {isLoading ? <ActivityIndicator color={colors["brand-600"]} /> : null}
+      {isLoading ? <ActivityIndicator color="#F5D298" className="py-12" /> : null}
+
       {error ? (
-        <View className="card gap-3 p-5">
-          <Text selectable className="text-sm text-coral">{error}</Text>
-          <Pressable accessibilityRole="button" onPress={() => void refresh()}>
-            <Text className="font-semibold text-brand-700">Try again</Text>
+        <View
+          style={{ backgroundColor: clay.card, borderColor: clay.errorCardBorder }}
+          className="gap-3 rounded-3xl border p-5 shadow-sm"
+        >
+          <Text selectable style={{ color: clay.errorText }} className="text-sm font-semibold">
+            {error}
+          </Text>
+          <Pressable accessibilityRole="button" onPress={() => void refresh()} className="self-start">
+            <Text className="text-sm font-bold text-[#F5D298]">Try again</Text>
           </Pressable>
         </View>
       ) : null}
 
       {items && items.length > 0 ? (
-        <View className="card px-4">
+        <View
+          style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+          className="overflow-hidden rounded-3xl border px-4 py-1 shadow-sm"
+        >
           {items.map((item, index) => {
             const { event, group, actorName } = item;
-            const isExpense = event.eventType === "expense_added" || event.eventType === "expense_edited" || event.eventType === "expense_deleted";
+            const isExpense =
+              event.eventType === "expense_added" ||
+              event.eventType === "expense_edited" ||
+              event.eventType === "expense_deleted";
             const isPayment = event.eventType === "payment_recorded" || event.eventType === "payment_deleted";
             const isUnavailableExpense = isExpense && !event.expenseId;
             const memberNames = namesByGroup.current.get(group.id);
-            const payerName = event.paymentFromId === userId ? "you" : memberNames?.get(event.paymentFromId ?? "") ?? "a member";
-            const recipientName = event.paymentToId === userId ? "you" : memberNames?.get(event.paymentToId ?? "") ?? "a member";
+            const payerName =
+              event.paymentFromId === userId ? "you" : memberNames?.get(event.paymentFromId ?? "") ?? "a member";
+            const recipientName =
+              event.paymentToId === userId ? "you" : memberNames?.get(event.paymentToId ?? "") ?? "a member";
+
             return (
               <View key={event.id}>
                 <Pressable
                   accessibilityRole="button"
-                  disabled={restoringId !== null || isUnavailableExpense || Boolean(group.deletedAt && event.eventType !== "group_deleted")}
+                  disabled={
+                    restoringId !== null ||
+                    isUnavailableExpense ||
+                    Boolean(group.deletedAt && event.eventType !== "group_deleted")
+                  }
                   onPress={() => openItem(item)}
-                  className="flex-row items-center gap-3 py-4 active:opacity-60"
+                  className="flex-row items-center gap-3.5 py-4 active:opacity-60"
                 >
-                  <View className="h-11 w-11 items-center justify-center rounded-2xl bg-canvas">
-                    <Ionicons name={event.eventType === "expense_deleted" || event.eventType === "group_deleted" || event.eventType === "payment_deleted" ? "trash-outline" : isPayment ? "swap-horizontal-outline" : isExpense ? "receipt-outline" : "refresh-outline"} size={21} color={colors["brand-700"]} />
+                  <View
+                    style={{ backgroundColor: clay.squircle, borderColor: clay.cardBorder }}
+                    className="h-11 w-11 items-center justify-center rounded-2xl border"
+                  >
+                    <Ionicons
+                      name={
+                        event.eventType === "expense_deleted" ||
+                        event.eventType === "group_deleted" ||
+                        event.eventType === "payment_deleted"
+                          ? "trash-outline"
+                          : isPayment
+                            ? "swap-horizontal-outline"
+                            : isExpense
+                              ? "receipt-outline"
+                              : "refresh-outline"
+                      }
+                      size={20}
+                      color={clay.isDark ? "#F5D298" : "#9A6B1C"}
+                    />
                   </View>
-                  <View className="flex-1 gap-0.5">
-                    <Text className="font-semibold text-ink" numberOfLines={1}>
+
+                  <View className="flex-1 gap-1">
+                    <Text style={{ color: clay.textPrimary }} className="text-sm font-bold" numberOfLines={1}>
                       {isExpense
                         ? `${actorName} ${event.eventType === "expense_deleted" ? "deleted" : event.eventType === "expense_edited" ? "edited" : "added"} “${event.description}”`
                         : isPayment
                           ? `${actorName} ${event.eventType === "payment_deleted" ? "deleted" : "recorded"} a payment`
-                        : `${actorName} ${event.eventType === "group_deleted" ? "deleted" : "restored"} ${group.name}`}
+                          : `${actorName} ${event.eventType === "group_deleted" ? "deleted" : "restored"} ${group.name}`}
                     </Text>
+
                     {isPayment ? (
                       <>
-                        <Text className="text-xs text-muted" numberOfLines={1}>{group.name} · {event.eventType === "payment_deleted" ? "Deleted" : "Recorded"} {formatRelativeTime(event.createdAt)}</Text>
-                        <Text className="text-xs text-muted" numberOfLines={1}>
-                          Paid on {event.paymentDate ? formatPaymentDate(event.paymentDate) : "an earlier date"} · {payerName} → {recipientName}
+                        <Text style={{ color: clay.textMuted }} className="text-xs" numberOfLines={1}>
+                          {group.name} · {event.eventType === "payment_deleted" ? "Deleted" : "Recorded"}{" "}
+                          {formatRelativeTime(event.createdAt)}
+                        </Text>
+                        <Text style={{ color: clay.textMuted }} className="text-xs" numberOfLines={1}>
+                          Paid on {event.paymentDate ? formatPaymentDate(event.paymentDate) : "an earlier date"} ·{" "}
+                          {payerName} → {recipientName}
                         </Text>
                       </>
                     ) : (
-                      <Text className="text-xs text-muted" numberOfLines={1}>
-                        {group.name} · {formatRelativeTime(event.createdAt)}{group.deletedAt && event.eventType === "group_deleted" ? " · Tap to restore" : isUnavailableExpense && event.eventType !== "expense_deleted" ? " · Expense deleted" : ""}
+                      <Text style={{ color: clay.textMuted }} className="text-xs" numberOfLines={1}>
+                        {group.name} · {formatRelativeTime(event.createdAt)}
+                        {group.deletedAt && event.eventType === "group_deleted"
+                          ? " · Tap to restore"
+                          : isUnavailableExpense && event.eventType !== "expense_deleted"
+                            ? " · Expense deleted"
+                            : ""}
                       </Text>
                     )}
                   </View>
+
                   {(isExpense || isPayment) && event.amountMinor !== null ? (
-                    <Text selectable className="text-base font-bold text-ink">
+                    <Text selectable style={{ color: clay.textPrimary }} className="text-base font-black">
                       {formatMoney(event.amountMinor / 100, group.currency)}
                     </Text>
                   ) : null}
                 </Pressable>
-                {index < items.length - 1 ? <View className="h-px bg-line" /> : null}
+                {index < items.length - 1 ? (
+                  <View style={{ backgroundColor: clay.cardBorder }} className="h-px w-full" />
+                ) : null}
               </View>
             );
           })}
         </View>
       ) : items && !error && !hasMore ? (
-        <EmptyState icon="flash-outline" title="No activity yet" message="Expenses, payments, and group changes will appear here." />
+        <EmptyState
+          icon="flash-outline"
+          title="No activity yet"
+          message="Expenses, payments, and group changes will appear here."
+        />
       ) : null}
 
-      {pageError ? <Text selectable className="text-center text-sm text-coral">{pageError}</Text> : null}
+      {pageError ? (
+        <Text selectable style={{ color: clay.errorText }} className="text-center text-sm font-semibold">
+          {pageError}
+        </Text>
+      ) : null}
+
       {items && hasMore ? (
         <Pressable
           accessibilityRole="button"
           disabled={isLoadingMore}
           onPress={() => void loadMore()}
-          className="min-h-11 items-center justify-center rounded-2xl border border-line bg-surface px-5 py-3 active:opacity-60"
+          style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+          className="h-13 items-center justify-center rounded-2xl border px-5 active:opacity-75 disabled:opacity-50"
         >
-          {isLoadingMore ? <ActivityIndicator color={colors["brand-600"]} /> : <Text className="font-semibold text-brand-700">Load more</Text>}
+          {isLoadingMore ? (
+            <ActivityIndicator color="#F5D298" />
+          ) : (
+            <Text style={{ color: clay.isDark ? "#F5D298" : "#9A6B1C" }} className="text-sm font-extrabold">
+              Load More
+            </Text>
+          )}
         </Pressable>
       ) : null}
     </ScrollView>

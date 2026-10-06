@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Text, View } from "react-native";
 
-import { useThemeColors } from "@/constants/theme";
+import { useClayTheme } from "@/constants/clay-theme";
 
 type EmptyStateProps = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -10,14 +10,24 @@ type EmptyStateProps = {
 };
 
 export function EmptyState({ icon, title, message }: EmptyStateProps) {
-  const colors = useThemeColors();
+  const clay = useClayTheme();
   return (
-    <View className="card items-center gap-3 px-8 py-10">
-      <View className="h-16 w-16 items-center justify-center rounded-2xl bg-brand-50">
-        <Ionicons name={icon} size={30} color={colors["brand-700"]} />
+    <View
+      style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+      className="items-center gap-3 rounded-3xl border px-8 py-10 shadow-sm"
+    >
+      <View
+        style={{ backgroundColor: clay.squircle, borderColor: clay.cardBorder }}
+        className="h-16 w-16 items-center justify-center rounded-2xl border"
+      >
+        <Ionicons name={icon} size={28} color={clay.isDark ? "#F5D298" : "#9A6B1C"} />
       </View>
-      <Text className="text-center text-lg font-bold text-ink">{title}</Text>
-      <Text className="text-center text-sm leading-5 text-muted">{message}</Text>
+      <Text style={{ color: clay.textPrimary }} className="text-center text-lg font-black">
+        {title}
+      </Text>
+      <Text style={{ color: clay.textMuted }} className="text-center text-sm leading-5">
+        {message}
+      </Text>
     </View>
   );
 }

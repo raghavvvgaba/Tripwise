@@ -21,40 +21,17 @@
     animation: route-modal-dialog-out 180ms ease-in both;
   }
 
-  .group-settings__surface {
-    @apply border-[#DBD5ED] bg-white dark:border-white/10 dark:bg-[#262243];
-  }
-
-  .group-settings__text {
-    @apply text-[#2C254E] dark:text-white;
-  }
-
-  .group-settings__muted {
-    @apply text-[#6E658E] dark:text-[#A59ECB];
-  }
-
-  .group-settings__divider {
-    @apply border-[#DBD5ED] dark:border-white/10;
-  }
-
-  .group-settings__danger {
-    @apply text-[#DC2626] dark:text-[#FB7185];
-  }
-
-  .group-settings__cover-action {
-    @apply min-h-11 flex-row items-center justify-center gap-2 rounded-2xl border border-[#DBD5ED] bg-white px-4 py-3 active:opacity-75 disabled:opacity-50 dark:border-white/10 dark:bg-[#262243];
-  }
 
   .card {
-    @apply rounded-xl border border-line bg-surface;
+    @apply rounded-3xl border border-line bg-surface shadow-sm;
   }
 
   .field {
-    @apply min-h-14 rounded-xl border border-line bg-surface px-4 text-base text-ink;
+    @apply min-h-14 rounded-2xl border border-line bg-surface px-4 text-base text-ink;
   }
 
   .section-label {
-    @apply text-xs font-semibold uppercase tracking-widest text-muted;
+    @apply text-xs font-bold uppercase tracking-wider text-muted;
   }
 }
 

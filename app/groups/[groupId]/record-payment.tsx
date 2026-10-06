@@ -1,14 +1,30 @@
+import { Ionicons } from "@expo/vector-icons";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, ScrollView, Text, TextInput, View } from "react-native";
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { EmptyState } from "@/components/empty-state";
 import { PaymentDateField } from "@/components/payment-date-field";
-import { PrimaryButton } from "@/components/primary-button";
-import { RouteModal } from "@/components/route-modal";
+import { useClayTheme } from "@/constants/clay-theme";
 import { getGroupMembers, type GroupMember } from "@/lib/group-invites";
 import { listGroupExpenses } from "@/lib/expenses";
-import { createPaymentRequestId, listGroupPayments, PaymentError, recordGroupPayment, type RecordPaymentInput } from "@/lib/payments";
+import {
+  createPaymentRequestId,
+  listGroupPayments,
+  PaymentError,
+  recordGroupPayment,
+  type RecordPaymentInput,
+} from "@/lib/payments";
 import { useSharedGroups } from "@/hooks/use-shared-groups";
 import { formatMoney, getCurrencySymbol, parseMoneyToMinor } from "@/utils/money";
 import { getSharedMemberBalances } from "@/utils/shared-expenses";
@@ -21,6 +37,8 @@ type PaymentDetails = {
 };
 
 export default function RecordPaymentScreen() {
+  const clay = useClayTheme();
+  const insets = useSafeAreaInsets();
   const { groupId, payerId, recipientId, amountMinor } = useLocalSearchParams<{
     groupId: string;
     payerId: string;
@@ -54,36 +72,47 @@ export default function RecordPaymentScreen() {
       getGroupMembers(group.id),
       listGroupExpenses(group.id),
       listGroupPayments(group.id),
-    ]).then(([members, expenses, payments]) => {
-      if (!active) return;
-      const payer = members.find((member) => member.userId === payerId);
-      const recipient = members.find((member) => member.userId === recipientId);
-      const balances = getSharedMemberBalances(members, expenses, payments);
-      const payerNet = balances.find((balance) => balance.member.userId === payerId)?.netMinor ?? 0;
-      const recipientNet = balances.find((balance) => balance.member.userId === recipientId)?.netMinor ?? 0;
-      const maxMinor = Math.min(-payerNet, recipientNet);
-      if (!payer || !recipient || payerId === recipientId || maxMinor <= 0) {
-        setLoadError("This suggested payment is no longer available. Return to the group and refresh.");
-      } else {
-        setDetails({ payer, recipient, maxMinor });
-        const suggestedMinor = Number(amountMinor);
-        const initialMinor = Number.isSafeInteger(suggestedMinor) && suggestedMinor > 0
-          ? Math.min(suggestedMinor, maxMinor)
-          : maxMinor;
-        setAmount(String(initialMinor / 100));
-      }
-    }).catch((error: unknown) => {
-      if (active) setLoadError(error instanceof Error ? error.message : "Could not load the payment.");
-    }).finally(() => {
-      if (active) setIsLoading(false);
-    });
-    return () => { active = false; };
+    ])
+      .then(([members, expenses, payments]) => {
+        if (!active) return;
+        const payer = members.find((member) => member.userId === payerId);
+        const recipient = members.find((member) => member.userId === recipientId);
+        const balances = getSharedMemberBalances(members, expenses, payments);
+        const payerNet = balances.find((balance) => balance.member.userId === payerId)?.netMinor ?? 0;
+        const recipientNet = balances.find((balance) => balance.member.userId === recipientId)?.netMinor ?? 0;
+        const maxMinor = Math.min(-payerNet, recipientNet);
+        if (!payer || !recipient || payerId === recipientId || maxMinor <= 0) {
+          setLoadError("This suggested payment is no longer available. Return to the group and refresh.");
+        } else {
+          setDetails({ payer, recipient, maxMinor });
+          const suggestedMinor = Number(amountMinor);
+          const initialMinor =
+            Number.isSafeInteger(suggestedMinor) && suggestedMinor > 0
+              ? Math.min(suggestedMinor, maxMinor)
+              : maxMinor;
+          setAmount(String(initialMinor / 100));
+        }
+      })
+      .catch((error: unknown) => {
+        if (active) setLoadError(error instanceof Error ? error.message : "Could not load the payment.");
+      })
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [group?.id, group?.deletedAt, payerId, recipientId, amountMinor, canRecord]);
 
   const parsedAmount = parseMoneyToMinor(amount);
   const today = localDateString();
-  const isValid = details !== null && parsedAmount !== null && parsedAmount > 0 && parsedAmount <= details.maxMinor
-    && parseLocalDate(paymentDate) !== null && paymentDate <= today;
+  const isValid =
+    details !== null &&
+    parsedAmount !== null &&
+    parsedAmount > 0 &&
+    parsedAmount <= details.maxMinor &&
+    parseLocalDate(paymentDate) !== null &&
+    paymentDate <= today;
 
   async function save() {
     if (!group || !details || !canRecord || savingRef.current) return;
@@ -115,8 +144,6 @@ export default function RecordPaymentScreen() {
         setSaveError(null);
       } else {
         setSaveError(error instanceof Error ? error.message : "Could not record the payment.");
-        // A database rejection rolled back. Unknown/network failures may have
-        // committed: preserve the exact request and reuse its ID on retry.
         if (error instanceof PaymentError && /^[0-9A-Z]{5}$/.test(error.code) && !error.code.startsWith("08")) {
           pendingRequest.current = null;
           setHasPendingRequest(false);
@@ -130,77 +157,227 @@ export default function RecordPaymentScreen() {
   }
 
   return (
-    <RouteModal title="Record payment">{(dismiss) => (
-      <>
-        <Stack.Screen options={{ title: "Record payment" }} />
-        <KeyboardAvoidingView behavior={process.env.EXPO_OS === "ios" ? "padding" : undefined} className="flex-1">
-          <ScrollView contentInsetAdjustmentBehavior="automatic" keyboardShouldPersistTaps="handled" contentContainerClassName="w-full max-w-2xl self-center gap-5 px-5 pb-8 pt-5 md:px-8 lg:py-10">
-            {!group || group.deletedAt ? (
-              <EmptyState icon="alert-circle-outline" title="Group unavailable" message="Return to the group and try again." />
-            ) : !canRecord ? (
-              <EmptyState icon="lock-closed-outline" title="Payment unavailable" message="Only the sender or recipient can record this payment." />
-            ) : isLoading ? <ActivityIndicator /> : loadError ? (
-              <View className="card gap-4 p-5">
-                <Text selectable className="text-sm text-coral">{loadError}</Text>
-                <PrimaryButton label="Back to group" variant="secondary" onPress={dismiss} />
-              </View>
-            ) : details ? (
-              <>
-                <View className="card gap-4 p-5">
-                  <View className="gap-1">
-                    <Text className="section-label">Payment</Text>
-                    <Text className="text-xl font-bold text-ink">
-                      {details.payer.userId === currentUserId ? "You" : details.payer.name} paid {details.recipient.userId === currentUserId ? "you" : details.recipient.name}
+    <SafeAreaView style={{ flex: 1, backgroundColor: clay.canvas }}>
+      <Stack.Screen options={{ headerShown: false }} />
+
+      {/* ── Top Bar Header ── */}
+      <View className="flex-row items-center justify-between px-5 pt-2 pb-3">
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+          onPress={() => router.back()}
+          style={{ backgroundColor: clay.headerBtn, borderColor: clay.cardBorder }}
+          className="h-11 w-11 items-center justify-center rounded-2xl border active:opacity-75"
+        >
+          <Ionicons name="close" size={22} color={clay.textPrimary} />
+        </Pressable>
+
+        <View className="items-center">
+          <Text style={{ color: clay.textMuted }} className="text-[11px] font-bold uppercase tracking-widest">
+            Record Payment
+          </Text>
+          <Text style={{ color: clay.textPrimary }} className="max-w-[200px] text-base font-extrabold" numberOfLines={1}>
+            {group?.name ?? "Settle Up"}
+          </Text>
+        </View>
+
+        <View className="h-11 w-11" />
+      </View>
+
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} className="flex-1">
+        <ScrollView
+          contentInsetAdjustmentBehavior="never"
+          keyboardShouldPersistTaps="handled"
+          contentContainerClassName="w-full max-w-2xl self-center px-5 pb-8 gap-5"
+          showsVerticalScrollIndicator={false}
+        >
+          {!group || group.deletedAt ? (
+            <EmptyState
+              icon="alert-circle-outline"
+              title="Group unavailable"
+              message="Return to the group and try again."
+            />
+          ) : !canRecord ? (
+            <EmptyState
+              icon="lock-closed-outline"
+              title="Payment unavailable"
+              message="Only the sender or recipient can record this payment."
+            />
+          ) : isLoading ? (
+            <ActivityIndicator color="#F5D298" className="py-16" />
+          ) : loadError ? (
+            <View
+              style={{ backgroundColor: clay.card, borderColor: clay.errorCardBorder }}
+              className="gap-4 rounded-3xl border p-5 shadow-sm"
+            >
+              <Text selectable style={{ color: clay.errorText }} className="text-sm font-semibold">
+                {loadError}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.back()}
+                style={{ backgroundColor: clay.squircle, borderColor: clay.cardBorder }}
+                className="h-12 items-center justify-center rounded-2xl border active:opacity-75"
+              >
+                <Text style={{ color: clay.textPrimary }} className="font-bold">
+                  Back to group
+                </Text>
+              </Pressable>
+            </View>
+          ) : details ? (
+            <>
+              {/* ── Payment Info Card ── */}
+              <View
+                style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+                className="gap-4 rounded-3xl border p-5 shadow-sm"
+              >
+                <View className="flex-row items-center gap-3.5">
+                  <View
+                    style={{ backgroundColor: clay.squircle, borderColor: clay.cardBorder }}
+                    className="h-12 w-12 items-center justify-center rounded-2xl border"
+                  >
+                    <Ionicons name="swap-horizontal" size={24} color={clay.isDark ? "#F5D298" : "#9A6B1C"} />
+                  </View>
+                  <View className="flex-1">
+                    <Text style={{ color: clay.textMuted }} className="text-[11px] font-bold uppercase tracking-wider">
+                      Transfer
+                    </Text>
+                    <Text style={{ color: clay.textPrimary }} className="text-lg font-black" numberOfLines={1}>
+                      {details.payer.userId === currentUserId ? "You" : details.payer.name} paid{" "}
+                      {details.recipient.userId === currentUserId ? "you" : details.recipient.name}
                     </Text>
                   </View>
-                  <View className="gap-2">
-                    <Text className="section-label">Amount paid</Text>
-                    <View className="field flex-row items-center gap-2">
-                      <Text className="text-2xl font-semibold text-muted">{getCurrencySymbol(group.currency)}</Text>
-                      <TextInput
-                        className="flex-1 py-3 text-2xl font-bold text-ink"
-                        keyboardType="decimal-pad"
-                        placeholder="0"
-                        placeholderTextColor="#9AA39D"
-                        value={amount}
-                        editable={!hasPendingRequest && !isSaving}
-                        onChangeText={setAmount}
-                        accessibilityLabel="Amount paid"
-                      />
-                    </View>
-                    <Text className="text-sm text-muted">Up to {formatMoney(details.maxMinor / 100, group.currency)} can be recorded for this payment.</Text>
-                    {parsedAmount !== null && parsedAmount > details.maxMinor ? (
-                      <Text className="text-sm text-coral">Amount exceeds the current balance.</Text>
-                    ) : null}
-                    {amount.length > 0 && parsedAmount === null ? (
-                      <Text className="text-sm text-coral">Enter an amount with up to two decimal places.</Text>
-                    ) : null}
-                  </View>
-                  <View className="gap-2">
-                    <Text className="section-label">Paid on</Text>
-                    <PaymentDateField value={paymentDate} maxDate={today} onChange={setPaymentDate} disabled={hasPendingRequest || isSaving} />
-                    {paymentDate && (!parseLocalDate(paymentDate) || paymentDate > today) ? (
-                      <Text className="text-sm text-coral">Choose today or an earlier date.</Text>
-                    ) : null}
-                  </View>
                 </View>
-                <Text className="px-1 text-sm text-muted">This records money already paid outside the app. It does not send money.</Text>
-                {saveError ? <Text selectable className="text-sm text-coral">{saveError}</Text> : null}
-                {isDuplicate ? (
-                  <View className="card gap-2 p-4">
-                    <Text className="font-semibold text-ink">Similar payment already recorded</Text>
-                    <Text className="text-sm leading-5 text-muted">A payment with these people, amount, and date already exists. Check Recorded payments in the group. Record another only if you made a separate transfer.</Text>
+
+                {/* Amount Field */}
+                <View className="gap-2">
+                  <Text style={{ color: clay.textMuted }} className="text-xs font-bold uppercase tracking-wider">
+                    Amount Paid
+                  </Text>
+                  <View
+                    style={{ backgroundColor: clay.squircle, borderColor: clay.cardBorder }}
+                    className="flex-row items-center rounded-2xl border px-4"
+                  >
+                    <Text style={{ color: clay.textMuted }} className="text-2xl font-black">
+                      {getCurrencySymbol(group.currency)}
+                    </Text>
+                    <TextInput
+                      style={{ color: clay.textPrimary }}
+                      className="flex-1 py-3 pl-2 text-2xl font-black"
+                      keyboardType="decimal-pad"
+                      placeholder="0.00"
+                      placeholderTextColor={clay.textMuted}
+                      value={amount}
+                      editable={!hasPendingRequest && !isSaving}
+                      onChangeText={setAmount}
+                      accessibilityLabel="Amount paid"
+                    />
                   </View>
-                ) : hasPendingRequest && saveError ? (
-                  <Text className="text-sm leading-5 text-muted">The payment may have been saved. Retry to check the same request safely, or return to the group to check Recorded payments.</Text>
-                ) : null}
-                <PrimaryButton label={isDuplicate ? "Record another payment" : hasPendingRequest ? "Retry payment" : "Record payment"} loading={isSaving} disabled={!hasPendingRequest && !isValid} onPress={() => void save()} />
-                {hasPendingRequest ? <PrimaryButton label="Back to group" variant="secondary" disabled={isSaving} onPress={() => router.dismissTo(`/groups/${group.id}`)} /> : null}
-              </>
-            ) : null}
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </>
-    )}</RouteModal>
+                  <Text style={{ color: clay.textMuted }} className="px-1 text-xs">
+                    Up to {formatMoney(details.maxMinor / 100, group.currency)} can be recorded for this payment.
+                  </Text>
+                  {parsedAmount !== null && parsedAmount > details.maxMinor ? (
+                    <Text style={{ color: clay.errorText }} className="px-1 text-xs">
+                      Amount exceeds the current balance.
+                    </Text>
+                  ) : null}
+                  {amount.length > 0 && parsedAmount === null ? (
+                    <Text style={{ color: clay.errorText }} className="px-1 text-xs">
+                      Enter an amount with up to two decimal places.
+                    </Text>
+                  ) : null}
+                </View>
+
+                {/* Paid On Date Field */}
+                <View className="gap-2">
+                  <Text style={{ color: clay.textMuted }} className="text-xs font-bold uppercase tracking-wider">
+                    Paid On
+                  </Text>
+                  <PaymentDateField
+                    value={paymentDate}
+                    maxDate={today}
+                    onChange={setPaymentDate}
+                    disabled={hasPendingRequest || isSaving}
+                  />
+                  {paymentDate && (!parseLocalDate(paymentDate) || paymentDate > today) ? (
+                    <Text style={{ color: clay.errorText }} className="px-1 text-xs">
+                      Choose today or an earlier date.
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+
+              <Text style={{ color: clay.textMuted }} className="px-1 text-xs leading-5">
+                This records money already paid outside the app. It does not transfer money directly.
+              </Text>
+
+              {saveError ? (
+                <Text selectable style={{ color: clay.errorText }} className="px-1 text-xs font-semibold">
+                  {saveError}
+                </Text>
+              ) : null}
+
+              {isDuplicate ? (
+                <View
+                  style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+                  className="gap-2 rounded-3xl border p-4 shadow-sm"
+                >
+                  <Text style={{ color: clay.textPrimary }} className="font-bold">
+                    Similar payment already recorded
+                  </Text>
+                  <Text style={{ color: clay.textMuted }} className="text-xs leading-5">
+                    A payment with these people, amount, and date already exists. Check Recorded payments in the group.
+                  </Text>
+                </View>
+              ) : hasPendingRequest && saveError ? (
+                <Text style={{ color: clay.textMuted }} className="text-xs leading-5">
+                  The payment may have been saved. Retry to check the same request safely, or return to the group.
+                </Text>
+              ) : null}
+            </>
+          ) : null}
+        </ScrollView>
+
+        {details ? (
+          <View
+            style={{
+              backgroundColor: clay.canvas,
+              borderColor: clay.cardBorder,
+              paddingBottom: Math.max(insets.bottom, 12) + 8,
+            }}
+            className="w-full max-w-2xl self-center border-t px-5 pt-3"
+          >
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={
+                isDuplicate
+                  ? "Record another payment"
+                  : hasPendingRequest
+                    ? "Retry payment"
+                    : "Record payment"
+              }
+              disabled={(!hasPendingRequest && !isValid) || isSaving}
+              onPress={() => void save()}
+              className="h-14 flex-row items-center justify-center gap-2 rounded-2xl bg-[#F5D298] px-5 shadow-sm active:opacity-75 disabled:opacity-40"
+            >
+              {isSaving ? (
+                <ActivityIndicator color={clay.heroText} />
+              ) : (
+                <>
+                  <Ionicons name="checkmark-circle-outline" size={20} color={clay.heroText} />
+                  <Text style={{ color: clay.heroText }} className="text-base font-extrabold">
+                    {isDuplicate
+                      ? "Record Another Payment"
+                      : hasPendingRequest
+                        ? "Retry Payment"
+                        : "Record Payment"}
+                  </Text>
+                </>
+              )}
+            </Pressable>
+          </View>
+        ) : null}
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }

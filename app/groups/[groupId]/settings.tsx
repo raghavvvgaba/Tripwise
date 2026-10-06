@@ -94,11 +94,12 @@ export default function GroupSettingsScreen() {
           accessibilityRole="button"
           accessibilityLabel="Go back"
           onPress={() => router.back()}
-          className="group-settings__surface h-11 w-11 items-center justify-center rounded-2xl border active:opacity-75"
+          style={{ backgroundColor: clay.headerBtn, borderColor: clay.cardBorder }}
+          className="h-11 w-11 items-center justify-center rounded-2xl border active:opacity-75"
         >
           <Ionicons name="chevron-back" size={20} color={clay.textPrimary} />
         </Pressable>
-        <Text className="group-settings__text flex-1 text-lg font-semibold">Group settings</Text>
+        <Text style={{ color: clay.textPrimary }} className="flex-1 text-lg font-semibold">Group settings</Text>
       </View>
 
       <ScrollView
@@ -109,16 +110,19 @@ export default function GroupSettingsScreen() {
         {isLoading && !group ? (
           <ActivityIndicator color={clay.heroAccent} className="py-16" />
         ) : !group || group.deletedAt ? (
-          <View className="group-settings__surface items-center gap-3 rounded-3xl border px-6 py-10">
+          <View
+            style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+            className="items-center gap-3 rounded-3xl border px-6 py-10 shadow-sm"
+          >
             <Ionicons
               name={group?.deletedAt ? "trash-outline" : "search-outline"}
               size={28}
               color={group?.deletedAt ? clay.errorText : clay.textMuted}
             />
-            <Text className="group-settings__text text-center text-lg font-semibold">
+            <Text style={{ color: clay.textPrimary }} className="text-center text-lg font-semibold">
               {group?.deletedAt ? "Group deleted" : "Group not found"}
             </Text>
-            <Text className="group-settings__muted text-center text-sm leading-5">
+            <Text style={{ color: clay.textMuted }} className="text-center text-sm leading-5">
               {group?.deletedAt
                 ? "Restore it from Activity or Deleted groups in Account settings."
                 : "Return to your groups and try again."}
@@ -134,17 +138,18 @@ export default function GroupSettingsScreen() {
                 accessibilityState={{ expanded: isEditingCover, disabled: isSavingCover || isDeleting }}
                 disabled={isSavingCover || isDeleting}
                 onPress={() => setIsEditingCover((value) => !value)}
-                className="absolute bottom-3 right-3 min-h-11 flex-row items-center justify-center gap-2 rounded-full bg-white px-4 active:opacity-75 disabled:opacity-75"
+                style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+                className="absolute bottom-3 right-3 min-h-11 flex-row items-center justify-center gap-2 rounded-full border px-4 shadow-sm active:opacity-75 disabled:opacity-75"
               >
                 {isSavingCover ? (
                   <>
-                    <ActivityIndicator color="#2C254E" size="small" />
-                    <Text className="text-sm font-semibold text-[#2C254E]">Saving…</Text>
+                    <ActivityIndicator color={clay.textPrimary} size="small" />
+                    <Text style={{ color: clay.textPrimary }} className="text-sm font-semibold">Saving…</Text>
                   </>
                 ) : (
                   <>
-                    <Ionicons name={isEditingCover ? "close" : "pencil-outline"} size={16} color="#2C254E" />
-                    <Text className="text-sm font-semibold text-[#2C254E]">
+                    <Ionicons name={isEditingCover ? "close" : "pencil-outline"} size={16} color={clay.textPrimary} />
+                    <Text style={{ color: clay.textPrimary }} className="text-sm font-semibold">
                       {isEditingCover ? "Done" : "Edit"}
                     </Text>
                   </>
@@ -158,10 +163,11 @@ export default function GroupSettingsScreen() {
                   accessibilityRole="button"
                   disabled={isSavingCover || isDeleting}
                   onPress={() => void chooseCover()}
-                  className="group-settings__cover-action"
+                  style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+                  className="min-h-11 flex-row items-center justify-center gap-2 rounded-2xl border px-4 py-3 active:opacity-75 disabled:opacity-50"
                 >
                   <Ionicons name="image-outline" size={18} color={clay.textPrimary} />
-                  <Text className="group-settings__text text-sm font-medium">
+                  <Text style={{ color: clay.textPrimary }} className="text-sm font-medium">
                     {group.coverPath ? "Change photo" : "Add photo"}
                   </Text>
                 </Pressable>
@@ -171,21 +177,22 @@ export default function GroupSettingsScreen() {
                     accessibilityLabel="Remove cover photo"
                     disabled={isSavingCover || isDeleting}
                     onPress={() => void removeCover()}
-                    className="group-settings__cover-action"
+                    style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+                    className="min-h-11 flex-row items-center justify-center gap-2 rounded-2xl border px-4 py-3 active:opacity-75 disabled:opacity-50"
                   >
                     <Ionicons name="trash-outline" size={18} color={clay.textMuted} />
-                    <Text className="group-settings__muted text-sm font-medium">Remove photo</Text>
+                    <Text style={{ color: clay.textMuted }} className="text-sm font-medium">Remove photo</Text>
                   </Pressable>
                 ) : null}
               </View>
             ) : null}
 
             <View className="gap-1 pt-5">
-              <Text className="group-settings__text text-2xl font-semibold">{group.name}</Text>
-              <Text className="group-settings__muted text-sm">{group.currency} · Shared group</Text>
+              <Text style={{ color: clay.textPrimary }} className="text-2xl font-semibold">{group.name}</Text>
+              <Text style={{ color: clay.textMuted }} className="text-sm">{group.currency} · Shared group</Text>
             </View>
 
-            <View className="group-settings__divider mb-3 mt-8 border-t" />
+            <View style={{ backgroundColor: clay.cardBorder }} className="mb-3 mt-8 h-px w-full" />
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Delete group"
@@ -205,11 +212,10 @@ export default function GroupSettingsScreen() {
               ) : (
                 <Ionicons name="trash-outline" size={20} color={clay.errorText} />
               )}
-              <Text className="group-settings__danger text-base font-medium">
+              <Text style={{ color: clay.errorText }} className="text-base font-medium">
                 {isDeleting ? "Deleting…" : "Delete group"}
               </Text>
             </Pressable>
-            <Text className="group-settings__muted text-sm leading-5">Can be restored later.</Text>
           </>
         )}
       </ScrollView>

@@ -34,6 +34,7 @@ export function SharedExpenseDetails({ group, expenseId }: { group: SharedGroup;
   useFocusEffect(
     useCallback(() => {
       let active = true;
+      void loadAttempt;
       setExpense(null);
       setError(null);
       void Promise.all([getGroupExpense(group.id, expenseId), getGroupMembers(group.id)])

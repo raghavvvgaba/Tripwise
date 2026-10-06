@@ -1,68 +1,80 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useThemeColors } from "@/constants/theme";
+import { Platform } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { useClayTheme } from "@/constants/clay-theme";
 
 export default function TabsLayout() {
-  const colors = useThemeColors();
+  const clay = useClayTheme();
+  const insets = useSafeAreaInsets();
+
+  const bottomInset = insets.bottom > 0 ? insets.bottom : 8;
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }} edges={['top']}>
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: colors["brand-700"],
-        tabBarInactiveTintColor: colors.muted,
-        tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.line,
-          borderTopWidth: 1,
-        },
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: "600",
-        },
-      }}
-    >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "Groups",
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? "people" : "people-outline"}
-              size={22}
-              color={color}
-            />
-          ),
+    <SafeAreaView style={{ flex: 1, backgroundColor: clay.canvas }} edges={["top"]}>
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarHideOnKeyboard: true,
+          tabBarActiveTintColor: clay.isDark ? "#F5D298" : "#2C254E",
+          tabBarInactiveTintColor: clay.textMuted,
+          tabBarStyle: {
+            backgroundColor: clay.card,
+            borderTopColor: clay.cardBorder,
+            borderTopWidth: 1,
+            elevation: 8,
+            height: 56 + bottomInset,
+            paddingTop: 8,
+            paddingBottom: bottomInset,
+          },
+          tabBarLabelStyle: {
+            fontSize: 11,
+            fontWeight: "700",
+            marginBottom: Platform.OS === "android" ? 2 : 0,
+          },
         }}
-      />
-      <Tabs.Screen
-        name="activity"
-        options={{
-          title: "Activity",
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? "flash" : "flash-outline"}
-              size={22}
-              color={color}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="account"
-        options={{
-          title: "Account",
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? "person" : "person-outline"}
-              size={22}
-              color={color}
-            />
-          ),
-        }}
-      />
-    </Tabs>
+      >
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: "Groups",
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons
+                name={focused ? "people" : "people-outline"}
+                size={22}
+                color={color}
+              />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="activity"
+          options={{
+            title: "Activity",
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons
+                name={focused ? "flash" : "flash-outline"}
+                size={22}
+                color={color}
+              />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="account"
+          options={{
+            title: "Account",
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons
+                name={focused ? "person" : "person-outline"}
+                size={22}
+                color={color}
+              />
+            ),
+          }}
+        />
+      </Tabs>
     </SafeAreaView>
   );
 }

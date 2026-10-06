@@ -2,21 +2,22 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, Stack } from "expo-router";
 import { useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Animated,
   Easing,
   Keyboard,
   KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { PrimaryButton } from "@/components/primary-button";
-import { RouteModal } from "@/components/route-modal";
-import { themeColors, themeVariables, useThemeColors } from "@/constants/theme";
+import { useClayTheme } from "@/constants/clay-theme";
 import { useCurrencyStore } from "@/store/use-currency-store";
 import { useGroupActions } from "@/hooks/use-shared-groups";
 import type { CurrencyCode } from "@/types/models";
@@ -24,7 +25,7 @@ import { showError } from "@/utils/dialogs";
 import { SUPPORTED_CURRENCIES } from "@/utils/money";
 
 export default function CreateGroupScreen() {
-  const colors = useThemeColors();
+  const clay = useClayTheme();
   const { createGroup } = useGroupActions();
   const defaultCurrency = useCurrencyStore((state) => state.defaultCurrency);
   const [name, setName] = useState("");
@@ -33,7 +34,8 @@ export default function CreateGroupScreen() {
   const [currencyModalVisible, setCurrencyModalVisible] = useState(false);
   const currencyAnim = useRef(new Animated.Value(0)).current;
   const [isSaving, setIsSaving] = useState(false);
-  const selectedCurrency = SUPPORTED_CURRENCIES.find((item) => item.code === currency) ?? SUPPORTED_CURRENCIES[0];
+  const selectedCurrency =
+    SUPPORTED_CURRENCIES.find((item) => item.code === currency) ?? SUPPORTED_CURRENCIES[0];
 
   function openCurrencyModal() {
     Keyboard.dismiss();
@@ -78,9 +80,10 @@ export default function CreateGroupScreen() {
       router.dismissTo("/");
       router.push(`/groups/${group.id}`);
     } catch (error) {
-      const message = error && typeof error === "object" && "message" in error && typeof error.message === "string"
-        ? error.message
-        : "Please try again.";
+      const message =
+        error && typeof error === "object" && "message" in error && typeof error.message === "string"
+          ? error.message
+          : "Please try again.";
       showError("Could not create group", message);
     } finally {
       setIsSaving(false);
@@ -88,70 +91,133 @@ export default function CreateGroupScreen() {
   }
 
   return (
-    <RouteModal title="New group">{(dismiss) => (
-    <>
-      <Stack.Screen
-        options={{
-          title: "New group",
-          headerLeft: () => (
-            <Pressable
-              accessibilityLabel="Close new group"
-              accessibilityRole="button"
-              onPress={dismiss}
-              className="h-11 w-11 items-center justify-center rounded-full active:bg-line"
-            >
-              <Text className="text-3xl font-light leading-8 text-ink">×</Text>
-            </Pressable>
-          ),
-        }}
-      />
-      <KeyboardAvoidingView behavior={process.env.EXPO_OS === "ios" ? "padding" : undefined} className="flex-1">
-        <ScrollView
-          contentInsetAdjustmentBehavior="automatic"
-          keyboardShouldPersistTaps="handled"
-          contentContainerClassName="w-full max-w-2xl self-center gap-6 px-5 pb-10 pt-5 md:px-8 lg:py-10"
+    <SafeAreaView style={{ flex: 1, backgroundColor: clay.canvas }}>
+      <Stack.Screen options={{ headerShown: false }} />
+
+      {/* ── Top Bar Header ── */}
+      <View className="flex-row items-center justify-between px-5 pt-2 pb-3">
+        <Pressable
+          accessibilityLabel="Close"
+          accessibilityRole="button"
+          onPress={() => router.back()}
+          style={{ backgroundColor: clay.headerBtn, borderColor: clay.cardBorder }}
+          className="h-11 w-11 items-center justify-center rounded-2xl border active:opacity-75"
         >
-          <View className="gap-2">
-            <Text className="section-label">Group name</Text>
-            <TextInput
-              autoFocus
-              className="field"
-              placeholder="Goa Trip"
-              placeholderTextColor="#9AA39D"
-              value={name}
-              onChangeText={setName}
-              returnKeyType="next"
-            />
+          <Ionicons name="close" size={22} color={clay.textPrimary} />
+        </Pressable>
+
+        <View className="items-center">
+          <Text style={{ color: clay.textMuted }} className="text-[11px] font-bold uppercase tracking-widest">
+            New Group
+          </Text>
+          <Text style={{ color: clay.textPrimary }} className="text-base font-extrabold">
+            Create Bill Group
+          </Text>
+        </View>
+
+        <View className="h-11 w-11" />
+      </View>
+
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} className="flex-1">
+        <ScrollView
+          contentInsetAdjustmentBehavior="never"
+          keyboardShouldPersistTaps="handled"
+          contentContainerClassName="w-full max-w-2xl self-center gap-5 px-5 pb-10 pt-3 md:px-8"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* ── Form Card ── */}
+          <View
+            style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+            className="gap-4 rounded-3xl border p-5 shadow-sm"
+          >
+            <View className="gap-2">
+              <Text style={{ color: clay.textMuted }} className="text-xs font-bold uppercase tracking-wider">
+                Group Name
+              </Text>
+              <TextInput
+                autoFocus
+                style={{
+                  backgroundColor: clay.squircle,
+                  borderColor: clay.cardBorder,
+                  color: clay.textPrimary,
+                }}
+                className="h-14 rounded-2xl border px-4 text-base font-bold"
+                placeholder="e.g. Manali Trip, Flatmates, Weekend Brunch"
+                placeholderTextColor={clay.textMuted}
+                value={name}
+                onChangeText={setName}
+                returnKeyType="next"
+              />
+            </View>
+
+            <View className="gap-2">
+              <Text style={{ color: clay.textMuted }} className="text-xs font-bold uppercase tracking-wider">
+                Default Currency
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Group currency, ${selectedCurrency.label}`}
+                accessibilityState={{ expanded: isCurrencyOpen }}
+                onPress={openCurrencyModal}
+                style={{
+                  backgroundColor: clay.squircle,
+                  borderColor: clay.cardBorder,
+                }}
+                className="h-14 flex-row items-center justify-between rounded-2xl border px-4 active:opacity-80"
+              >
+                <View className="flex-1 flex-row items-center gap-3">
+                  <Text style={{ color: clay.textPrimary }} className="text-lg font-black">
+                    {selectedCurrency.symbol}
+                  </Text>
+                  <Text style={{ color: clay.textPrimary }} className="text-sm font-black">
+                    {selectedCurrency.code}
+                  </Text>
+                  <Text style={{ color: clay.textMuted }} className="flex-1 text-xs" numberOfLines={1}>
+                    {selectedCurrency.label}
+                  </Text>
+                </View>
+                <Ionicons
+                  name={isCurrencyOpen ? "chevron-up" : "chevron-down"}
+                  size={18}
+                  color={clay.textMuted}
+                />
+              </Pressable>
+            </View>
           </View>
 
-          <View className="gap-2">
-            <Text className="section-label">Group currency</Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Group currency, ${selectedCurrency.label}`}
-              accessibilityState={{ expanded: isCurrencyOpen }}
-              onPress={openCurrencyModal}
-              className={`min-h-14 flex-row items-center justify-between rounded-xl border bg-surface px-4 active:bg-canvas ${
-                isCurrencyOpen ? "border-brand-500" : "border-line"
-              }`}
-            >
-              <View className="flex-1 flex-row items-center gap-3">
-                <Text className="text-lg font-semibold text-ink">{selectedCurrency.symbol}</Text>
-                <Text className="text-base font-semibold text-ink">{selectedCurrency.code}</Text>
-                <Text className="flex-1 text-sm text-muted" numberOfLines={1}>{selectedCurrency.label}</Text>
-              </View>
-              <Ionicons name={isCurrencyOpen ? "chevron-up" : "chevron-down"} size={18} color={colors.muted} />
-            </Pressable>
-          </View>
-
-          <PrimaryButton label="Create group" onPress={handleCreate} disabled={!name.trim()} loading={isSaving} />
+          {/* ── Action Button ── */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Create group"
+            disabled={!name.trim() || isSaving}
+            onPress={() => void handleCreate()}
+            className="h-14 flex-row items-center justify-center gap-2 rounded-2xl bg-[#F5D298] px-5 shadow-sm active:opacity-75 disabled:opacity-40"
+          >
+            {isSaving ? (
+              <ActivityIndicator color={clay.heroText} />
+            ) : (
+              <>
+                <Ionicons name="add" size={22} color={clay.heroText} />
+                <Text style={{ color: clay.heroText }} className="text-base font-extrabold">
+                  Create Group
+                </Text>
+              </>
+            )}
+          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
-      <Modal transparent visible={currencyModalVisible} animationType="none" onRequestClose={() => closeCurrencyModal()}>
-        <View className="flex-1 justify-end" style={colors === themeColors.dark ? themeVariables.dark : themeVariables.light}>
+
+      {/* ── Currency Selection Bottom Sheet Modal ── */}
+      <Modal
+        transparent
+        visible={currencyModalVisible}
+        animationType="none"
+        onRequestClose={() => closeCurrencyModal()}
+      >
+        <View className="flex-1 justify-end">
           <Animated.View
             style={{ opacity: currencyBackdropOpacity }}
-            className="absolute inset-0 bg-black/40"
+            className="absolute inset-0 bg-black/50"
           >
             <Pressable
               accessibilityLabel="Close currency options"
@@ -159,50 +225,96 @@ export default function CreateGroupScreen() {
               className="flex-1"
             />
           </Animated.View>
+
           <Animated.View
-            style={{ transform: [{ translateY: currencySheetTranslateY }] }}
-            className="rounded-t-3xl border-t border-line bg-surface px-5 pb-10 pt-5"
+            style={[
+              { transform: [{ translateY: currencySheetTranslateY }] },
+              { backgroundColor: clay.card, borderTopColor: clay.cardBorder },
+            ]}
+            className="rounded-t-3xl border-t px-5 pb-10 pt-5 shadow-2xl"
           >
             <View className="w-full max-w-2xl self-center gap-4">
               <View className="flex-row items-center justify-between">
-                <Text className="text-lg font-bold text-ink">Choose currency</Text>
+                <Text style={{ color: clay.textPrimary }} className="text-lg font-black">
+                  Choose Currency
+                </Text>
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Close currency options"
                   onPress={() => closeCurrencyModal()}
-                  className="h-10 w-10 items-center justify-center rounded-full active:bg-canvas"
+                  style={{ backgroundColor: clay.squircle }}
+                  className="h-9 w-9 items-center justify-center rounded-xl"
                 >
-                  <Ionicons name="close" size={22} color={colors.muted} />
+                  <Ionicons name="close" size={20} color={clay.textMuted} />
                 </Pressable>
               </View>
-              <View className="overflow-hidden rounded-xl border border-line">
-                {SUPPORTED_CURRENCIES.map((curr) => {
+
+              <View
+                style={{ borderColor: clay.cardBorder }}
+                className="overflow-hidden rounded-2xl border"
+              >
+                {SUPPORTED_CURRENCIES.map((curr, idx) => {
                   const isSelected = currency === curr.code;
                   return (
-                    <Pressable
-                      key={curr.code}
-                      accessibilityRole="radio"
-                      accessibilityLabel={`${curr.label}, ${curr.code}`}
-                      accessibilityState={{ selected: isSelected }}
-                      onPress={() => {
-                        setCurrency(curr.code);
-                        closeCurrencyModal();
-                      }}
-                      className={`min-h-14 flex-row items-center gap-3 px-4 active:bg-canvas ${
-                        isSelected ? "bg-brand-50" : "bg-surface"
-                      }`}
-                    >
-                      <Text className={`w-6 text-lg font-semibold ${isSelected ? "text-brand-700" : "text-ink"}`}>
-                        {curr.symbol}
-                      </Text>
-                      <Text className={`w-12 font-semibold ${isSelected ? "text-brand-700" : "text-ink"}`}>
-                        {curr.code}
-                      </Text>
-                      <Text className={`flex-1 text-sm ${isSelected ? "text-brand-700" : "text-muted"}`}>
-                        {curr.label}
-                      </Text>
-                      {isSelected ? <Ionicons name="checkmark" size={18} color={colors["brand-700"]} /> : null}
-                    </Pressable>
+                    <View key={curr.code}>
+                      <Pressable
+                        accessibilityRole="radio"
+                        accessibilityLabel={`${curr.label}, ${curr.code}`}
+                        accessibilityState={{ selected: isSelected }}
+                        onPress={() => {
+                          setCurrency(curr.code);
+                          closeCurrencyModal();
+                        }}
+                        style={
+                          isSelected
+                            ? { backgroundColor: clay.isDark ? "#322C54" : "#E8E3F5" }
+                            : undefined
+                        }
+                        className="h-14 flex-row items-center gap-3 px-4 active:opacity-75"
+                      >
+                        <Text
+                          style={{
+                            color: isSelected
+                              ? clay.isDark
+                                ? "#F5D298"
+                                : "#2C254E"
+                              : clay.textPrimary,
+                          }}
+                          className="w-7 text-lg font-black"
+                        >
+                          {curr.symbol}
+                        </Text>
+                        <Text
+                          style={{
+                            color: isSelected
+                              ? clay.isDark
+                                ? "#F5D298"
+                                : "#2C254E"
+                              : clay.textPrimary,
+                          }}
+                          className="w-12 text-sm font-black"
+                        >
+                          {curr.code}
+                        </Text>
+                        <Text
+                          style={{ color: clay.textMuted }}
+                          className="flex-1 text-xs"
+                          numberOfLines={1}
+                        >
+                          {curr.label}
+                        </Text>
+                        {isSelected ? (
+                          <Ionicons
+                            name="checkmark-circle"
+                            size={20}
+                            color={clay.isDark ? "#F5D298" : "#2C254E"}
+                          />
+                        ) : null}
+                      </Pressable>
+                      {idx < SUPPORTED_CURRENCIES.length - 1 ? (
+                        <View style={{ backgroundColor: clay.cardBorder }} className="h-px w-full" />
+                      ) : null}
+                    </View>
                   );
                 })}
               </View>
@@ -210,7 +322,6 @@ export default function CreateGroupScreen() {
           </Animated.View>
         </View>
       </Modal>
-    </>
-    )}</RouteModal>
+    </SafeAreaView>
   );
 }

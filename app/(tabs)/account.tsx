@@ -1,9 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Link } from "expo-router";
+import { router } from "expo-router";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { PrimaryButton } from "@/components/primary-button";
-import { useThemeColors } from "@/constants/theme";
+import { useClayTheme } from "@/constants/clay-theme";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/use-auth-store";
 import { useCurrencyStore } from "@/store/use-currency-store";
@@ -14,7 +14,7 @@ import { showError } from "@/utils/dialogs";
 import { SUPPORTED_CURRENCIES } from "@/utils/money";
 
 export default function AccountScreen() {
-  const colors = useThemeColors();
+  const clay = useClayTheme();
   const accountEmail = useAuthStore((state) => state.session?.user.email);
   const accountName = useAuthStore((state) => {
     const metadata = state.session?.user.user_metadata;
@@ -37,69 +37,125 @@ export default function AccountScreen() {
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
-      contentContainerClassName="w-full max-w-3xl self-center gap-5 px-5 pb-12 pt-5 md:px-8 lg:py-10"
+      contentContainerClassName="w-full max-w-3xl self-center gap-5 px-5 pb-12 pt-3 md:px-8 lg:py-8"
       showsVerticalScrollIndicator={false}
+      style={{ backgroundColor: clay.canvas }}
     >
-      <View className="gap-1 px-1">
-        <Text className="text-2xl font-bold text-ink lg:text-3xl">Account & Settings</Text>
-        <Text className="text-sm leading-5 text-muted">
-          Manage your account, preferences, and groups.
+      <View className="gap-0.5 px-1">
+        <Text style={{ color: clay.textMuted }} className="text-[11px] font-black uppercase tracking-widest">
+          Profile & Preferences
+        </Text>
+        <Text style={{ color: clay.textPrimary }} className="text-2xl font-black">
+          Account
         </Text>
       </View>
 
-      <View className="card flex-row items-center gap-4 p-4">
-        <View className="h-12 w-12 items-center justify-center rounded-full bg-brand-50">
-          <Text className="text-lg font-bold text-brand-700">{(accountName ?? accountEmail)?.[0]?.toUpperCase() ?? "?"}</Text>
-        </View>
-        <View className="min-w-0 flex-1 gap-0.5">
-          <Text selectable numberOfLines={1} className="text-base font-semibold text-ink">{accountName ?? accountEmail ?? "Signed in"}</Text>
-          <Text selectable numberOfLines={1} className="text-xs text-muted">{accountEmail ?? "Signed in"}</Text>
-        </View>
-      </View>
-
-      <View className="gap-3">
-        <Text className="section-label px-1">Sign-in details</Text>
-        <View className="overflow-hidden rounded-2xl bg-surface">
-          <Link href="/account/change-email" asChild>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Change email address"
-              className="min-h-16 flex-row items-center gap-3 px-4 py-3 active:bg-canvas"
-            >
-              <Ionicons name="mail-outline" size={21} color={colors.ink} />
-              <View className="min-w-0 flex-1">
-                <Text className="text-sm font-semibold text-ink">Email address</Text>
-                <Text numberOfLines={1} className="text-xs text-muted">{accountEmail ?? "Signed in"}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.muted} />
-            </Pressable>
-          </Link>
-          <View className="h-px bg-line" />
-          <Link href="/account/change-password" asChild>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Change password"
-              className="min-h-16 flex-row items-center gap-3 px-4 py-3 active:bg-canvas"
-            >
-              <Ionicons name="lock-closed-outline" size={21} color={colors.ink} />
-              <View className="flex-1">
-                <Text className="text-sm font-semibold text-ink">Password</Text>
-                <Text className="text-xs text-muted">Change your sign-in password</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.muted} />
-            </Pressable>
-          </Link>
-        </View>
-      </View>
-
-      <View className="gap-3">
-        <View className="gap-1 px-1">
-          <Text className="section-label">Theme</Text>
-          <Text className="text-xs leading-4 text-muted">
-            Choose an appearance or follow your device setting.
+      {/* ── Profile Summary Card ── */}
+      <View
+        style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+        className="flex-row items-center gap-4 rounded-3xl border p-4 shadow-sm"
+      >
+        <View
+          style={{ backgroundColor: clay.squircle, borderColor: clay.cardBorder }}
+          className="h-14 w-14 items-center justify-center rounded-2xl border"
+        >
+          <Text style={{ color: clay.isDark ? "#F5D298" : "#9A6B1C" }} className="text-xl font-black">
+            {((accountName ?? accountEmail)?.[0] ?? "?").toUpperCase()}
           </Text>
         </View>
-        <View className="flex-row gap-2">
+
+        <View className="min-w-0 flex-1 gap-0.5">
+          <Text
+            selectable
+            numberOfLines={1}
+            style={{ color: clay.textPrimary }}
+            className="text-base font-black"
+          >
+            {accountName ?? accountEmail ?? "Signed In"}
+          </Text>
+          <Text
+            selectable
+            numberOfLines={1}
+            style={{ color: clay.textMuted }}
+            className="text-xs font-semibold"
+          >
+            {accountEmail ?? "Signed in"}
+          </Text>
+        </View>
+      </View>
+
+      {/* ── Sign-in Details ── */}
+      <View className="gap-2.5">
+        <Text style={{ color: clay.textMuted }} className="px-1 text-xs font-bold uppercase tracking-wider">
+          Sign-in Details
+        </Text>
+
+        <View
+          style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+          className="overflow-hidden rounded-3xl border shadow-sm"
+        >
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Change email address"
+            onPress={() => router.push("/account/change-email")}
+            className="min-h-16 flex-row items-center gap-3.5 px-4 py-3 active:opacity-70"
+          >
+            <View
+              style={{ backgroundColor: clay.squircle, borderColor: clay.cardBorder }}
+              className="h-10 w-10 items-center justify-center rounded-xl border"
+            >
+              <Ionicons name="mail-outline" size={19} color={clay.textPrimary} />
+            </View>
+            <View className="min-w-0 flex-1">
+              <Text style={{ color: clay.textPrimary }} className="text-sm font-bold">
+                Email Address
+              </Text>
+              <Text numberOfLines={1} style={{ color: clay.textMuted }} className="text-xs">
+                {accountEmail ?? "Signed in"}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={17} color={clay.textMuted} />
+          </Pressable>
+
+          <View style={{ backgroundColor: clay.cardBorder }} className="h-px w-full" />
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Change password"
+            onPress={() => router.push("/account/change-password")}
+            className="min-h-16 flex-row items-center gap-3.5 px-4 py-3 active:opacity-70"
+          >
+            <View
+              style={{ backgroundColor: clay.squircle, borderColor: clay.cardBorder }}
+              className="h-10 w-10 items-center justify-center rounded-xl border"
+            >
+              <Ionicons name="lock-closed-outline" size={19} color={clay.textPrimary} />
+            </View>
+            <View className="flex-1">
+              <Text style={{ color: clay.textPrimary }} className="text-sm font-bold">
+                Password
+              </Text>
+              <Text style={{ color: clay.textMuted }} className="text-xs">
+                Change your sign-in password
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={17} color={clay.textMuted} />
+          </Pressable>
+        </View>
+      </View>
+
+      {/* ── Theme Appearance ── */}
+      <View className="gap-2.5">
+        <View className="gap-0.5 px-1">
+          <Text style={{ color: clay.textMuted }} className="text-xs font-bold uppercase tracking-wider">
+            Theme Appearance
+          </Text>
+          <Text style={{ color: clay.textMuted }} className="text-xs">
+            Choose light or dark, or sync with your system.
+          </Text>
+        </View>
+
+        <View className="flex-row gap-2.5">
           {([
             { id: "system", label: "System", icon: "phone-portrait-outline" },
             { id: "light", label: "Light", icon: "sunny-outline" },
@@ -112,18 +168,21 @@ export default function AccountScreen() {
                 accessibilityRole="radio"
                 accessibilityState={{ checked: isSelected }}
                 onPress={() => setThemePreference(option.id)}
-                className={`min-h-12 flex-1 flex-row items-center justify-center gap-1.5 rounded-xl border p-2 ${
-                  isSelected
-                    ? "border-brand-500 bg-brand-50"
-                    : "border-transparent bg-surface active:bg-canvas"
-                }`}
+                style={{
+                  backgroundColor: isSelected ? clay.activeTabBg : clay.card,
+                  borderColor: isSelected ? clay.activeTabBg : clay.cardBorder,
+                }}
+                className="min-h-12 flex-1 flex-row items-center justify-center gap-1.5 rounded-2xl border p-2 shadow-sm active:opacity-75"
               >
                 <Ionicons
                   name={option.icon}
                   size={16}
-                  color={isSelected ? colors["brand-700"] : colors.muted}
+                  color={isSelected ? clay.activeTabText : clay.textMuted}
                 />
-                <Text className={`text-xs font-semibold ${isSelected ? "text-brand-700" : "text-ink"}`}>
+                <Text
+                  style={{ color: isSelected ? clay.activeTabText : clay.textPrimary }}
+                  className="text-xs font-extrabold"
+                >
                   {option.label}
                 </Text>
               </Pressable>
@@ -132,17 +191,17 @@ export default function AccountScreen() {
         </View>
       </View>
 
-      <Text className="px-1 text-xs leading-5 text-muted">
-        Groups, expenses, and balances are saved to your account.
-      </Text>
-
-      <View className="gap-3">
-        <View className="gap-1 px-1">
-          <Text className="section-label">Default currency</Text>
-          <Text className="text-xs leading-4 text-muted">
-            Selected currency will pre-fill when creating new groups.
+      {/* ── Default Currency ── */}
+      <View className="gap-2.5">
+        <View className="gap-0.5 px-1">
+          <Text style={{ color: clay.textMuted }} className="text-xs font-bold uppercase tracking-wider">
+            Default Currency
+          </Text>
+          <Text style={{ color: clay.textMuted }} className="text-xs">
+            Pre-fills when creating new groups.
           </Text>
         </View>
+
         <View className="flex-row gap-2">
           {SUPPORTED_CURRENCIES.map((curr) => {
             const isSelected = defaultCurrency === curr.code;
@@ -150,16 +209,22 @@ export default function AccountScreen() {
               <Pressable
                 key={curr.code}
                 onPress={() => setDefaultCurrency(curr.code)}
-                className={`min-h-12 flex-1 items-center justify-center rounded-xl border p-2 ${
-                  isSelected
-                    ? "border-brand-500 bg-brand-50"
-                    : "border-transparent bg-surface active:bg-canvas"
-                }`}
+                style={{
+                  backgroundColor: isSelected ? clay.activeTabBg : clay.card,
+                  borderColor: isSelected ? clay.activeTabBg : clay.cardBorder,
+                }}
+                className="min-h-13 flex-1 items-center justify-center rounded-2xl border p-2 shadow-sm active:opacity-75"
               >
-                <Text className={`text-sm font-bold ${isSelected ? "text-brand-700" : "text-ink"}`}>
+                <Text
+                  style={{ color: isSelected ? clay.activeTabText : clay.textPrimary }}
+                  className="text-sm font-black"
+                >
                   {curr.symbol}
                 </Text>
-                <Text className={`text-[10px] font-medium ${isSelected ? "text-brand-700" : "text-muted"}`}>
+                <Text
+                  style={{ color: isSelected ? clay.activeTabText : clay.textMuted }}
+                  className="text-[10px] font-extrabold"
+                >
                   {curr.code}
                 </Text>
               </Pressable>
@@ -168,31 +233,51 @@ export default function AccountScreen() {
         </View>
       </View>
 
-      <View className="gap-3">
-        <Text className="section-label px-1">Groups management</Text>
-        <Link href="/groups/deleted" asChild>
-          <Pressable className="flex-row items-center justify-between rounded-2xl bg-surface p-4 active:bg-canvas">
-            <View className="flex-row items-center gap-3">
-              <View className="h-10 w-10 items-center justify-center rounded-xl bg-canvas">
-                <Ionicons name="trash-outline" size={20} color={colors.ink} />
-              </View>
-              <View>
-                <Text className="font-semibold text-ink">Deleted groups</Text>
-                <Text className="text-xs text-muted">
-                  {groups.filter((g) => g.deletedAt).length} deleted · Restorable by any member
-                </Text>
-              </View>
+      {/* ── Groups Management ── */}
+      <View className="gap-2.5">
+        <Text style={{ color: clay.textMuted }} className="px-1 text-xs font-bold uppercase tracking-wider">
+          Groups Management
+        </Text>
+
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push("/groups/deleted")}
+          style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+          className="flex-row items-center justify-between rounded-3xl border p-4 shadow-sm active:opacity-75"
+        >
+          <View className="flex-row items-center gap-3.5">
+            <View
+              style={{ backgroundColor: clay.squircle, borderColor: clay.cardBorder }}
+              className="h-11 w-11 items-center justify-center rounded-2xl border"
+            >
+              <Ionicons name="trash-outline" size={19} color={clay.textPrimary} />
             </View>
-            <Text className="text-xl text-muted">›</Text>
-          </Pressable>
-        </Link>
+            <View>
+              <Text style={{ color: clay.textPrimary }} className="text-sm font-bold">
+                Deleted Groups
+              </Text>
+              <Text style={{ color: clay.textMuted }} className="text-xs">
+                {groups.filter((g) => g.deletedAt).length} deleted · Restorable by any member
+              </Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={17} color={clay.textMuted} />
+        </Pressable>
       </View>
 
-      <PrimaryButton label="Sign out" variant="secondary" onPress={signOut} />
+      {/* ── Sign Out ── */}
+      <View className="pt-2">
+        <PrimaryButton label="Sign out" variant="secondary" onPress={signOut} />
+      </View>
 
-      <View className="items-center gap-1 py-4">
-        <Text className="text-xs font-medium text-muted">Tripwise · MVP v1.0.0</Text>
-        <Text className="text-[11px] text-muted">Account connected · Groups synced</Text>
+      {/* ── Footer ── */}
+      <View className="items-center gap-0.5 py-4">
+        <Text style={{ color: clay.textMuted }} className="text-xs font-bold">
+          Tripwise · MVP v1.0.0
+        </Text>
+        <Text style={{ color: clay.textMuted }} className="text-[11px]">
+          Tactile Clay Design · Synced
+        </Text>
       </View>
     </ScrollView>
   );

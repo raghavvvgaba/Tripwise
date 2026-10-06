@@ -1,15 +1,26 @@
 import * as Linking from "expo-linking";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { KeyboardAvoidingView, ScrollView, Text, TextInput, View } from "react-native";
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { PrimaryButton } from "@/components/primary-button";
 import { BrandIcon } from "@/components/brand-icon";
+import { useClayTheme } from "@/constants/clay-theme";
 import { isInviteCode, normalizeInviteCode } from "@/lib/group-invites";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/use-auth-store";
 
 export default function SignInScreen() {
+  const clay = useClayTheme();
   const { inviteCode } = useLocalSearchParams<{ inviteCode?: string }>();
   const incomingUrl = Linking.useURL();
   const handledAuthUrl = useRef<string | null>(null);
@@ -42,13 +53,17 @@ export default function SignInScreen() {
     if (typeof code !== "string") return;
 
     setIsSubmitting(true);
-    void supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
-      if (error) setMessage(error.message);
-    }).catch((error: unknown) => {
-      setMessage(error instanceof Error ? error.message : "Google sign-in failed. Please try again.");
-    }).finally(() => {
-      setIsSubmitting(false);
-    });
+    void supabase.auth
+      .exchangeCodeForSession(code)
+      .then(({ error }) => {
+        if (error) setMessage(error.message);
+      })
+      .catch((error: unknown) => {
+        setMessage(error instanceof Error ? error.message : "Google sign-in failed. Please try again.");
+      })
+      .finally(() => {
+        setIsSubmitting(false);
+      });
   }, [incomingUrl]);
 
   async function submit() {
@@ -104,99 +119,196 @@ export default function SignInScreen() {
   }
 
   return (
-    <>
-      <Stack.Screen options={{ title: isCreatingAccount ? "Create account" : "Sign in" }} />
-      <KeyboardAvoidingView behavior={process.env.EXPO_OS === "ios" ? "padding" : undefined} className="flex-1">
+    <SafeAreaView style={{ flex: 1, backgroundColor: clay.canvas }}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} className="flex-1">
         <ScrollView
           contentInsetAdjustmentBehavior="automatic"
           keyboardShouldPersistTaps="handled"
-          contentContainerClassName="w-full max-w-5xl flex-grow self-center justify-center gap-6 px-5 py-10 md:px-8 lg:flex-row lg:items-center lg:gap-20"
+          contentContainerClassName="w-full max-w-md flex-grow self-center justify-center gap-6 px-5 py-8"
+          showsVerticalScrollIndicator={false}
         >
-          <View className="gap-3 lg:flex-1">
-            <View className="mb-3 hidden h-12 w-12 lg:flex">
-              <BrandIcon size={48} />
+          {/* ── Brand Logo & Welcome ── */}
+          <View className="items-center gap-2">
+            <View
+              style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+              className="h-16 w-16 items-center justify-center rounded-3xl border shadow-sm"
+            >
+              <BrandIcon size={34} />
             </View>
-            <Text className="text-3xl font-bold tracking-tight text-ink lg:text-5xl">{isCreatingAccount ? "Create your account" : "Welcome to Tripwise"}</Text>
-            <Text className="text-sm leading-5 text-muted lg:max-w-md lg:text-base lg:leading-7">Keep your shared expenses in one calm, clear place.</Text>
+            <Text style={{ color: clay.textPrimary }} className="text-2xl font-black tracking-tight">
+              {isCreatingAccount ? "Create Account" : "Welcome to Tripwise"}
+            </Text>
+            <Text style={{ color: clay.textMuted }} className="text-center text-xs">
+              Split bills effortlessly with tactile precision.
+            </Text>
           </View>
 
-          <View className="card gap-4 p-5 lg:w-[420px] lg:p-8">
+          {/* ── Auth Card ── */}
+          <View
+            style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+            className="gap-4 rounded-3xl border p-5 shadow-sm"
+          >
+            {/* Segmented Auth Toggle */}
+            <View
+              style={{ backgroundColor: clay.squircle, borderColor: clay.cardBorder }}
+              className="flex-row rounded-2xl border p-1"
+            >
+              <Pressable
+                onPress={() => {
+                  setIsCreatingAccount(false);
+                  setMessage("");
+                }}
+                style={
+                  !isCreatingAccount
+                    ? { backgroundColor: clay.card, borderColor: clay.cardBorder }
+                    : undefined
+                }
+                className={`h-10 flex-1 items-center justify-center rounded-xl ${!isCreatingAccount ? "border shadow-sm" : ""}`}
+              >
+                <Text
+                  style={{ color: !isCreatingAccount ? clay.textPrimary : clay.textMuted }}
+                  className="text-xs font-black"
+                >
+                  Sign In
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => {
+                  setIsCreatingAccount(true);
+                  setMessage("");
+                }}
+                style={
+                  isCreatingAccount
+                    ? { backgroundColor: clay.card, borderColor: clay.cardBorder }
+                    : undefined
+                }
+                className={`h-10 flex-1 items-center justify-center rounded-xl ${isCreatingAccount ? "border shadow-sm" : ""}`}
+              >
+                <Text
+                  style={{ color: isCreatingAccount ? clay.textPrimary : clay.textMuted }}
+                  className="text-xs font-black"
+                >
+                  Register
+                </Text>
+              </Pressable>
+            </View>
+
             {isCreatingAccount ? (
-              <View className="gap-2">
-                <Text className="section-label">Name</Text>
+              <View className="gap-1.5">
+                <Text style={{ color: clay.textMuted }} className="text-xs font-bold uppercase tracking-wider">
+                  Full Name
+                </Text>
                 <TextInput
-                  className="field"
+                  style={{
+                    backgroundColor: clay.squircle,
+                    borderColor: clay.cardBorder,
+                    color: clay.textPrimary,
+                  }}
+                  className="h-13 rounded-2xl border px-4 text-base font-bold"
                   autoCapitalize="words"
                   autoComplete="name"
-                  placeholder="Your name"
-                  placeholderTextColor="#9AA39D"
+                  placeholder="e.g. Alex River"
+                  placeholderTextColor={clay.textMuted}
                   value={name}
                   onChangeText={setName}
                   editable={!isSubmitting}
                 />
               </View>
             ) : null}
-            <View className="gap-2">
-              <Text className="section-label">Email</Text>
+
+            <View className="gap-1.5">
+              <Text style={{ color: clay.textMuted }} className="text-xs font-bold uppercase tracking-wider">
+                Email Address
+              </Text>
               <TextInput
-                className="field"
+                style={{
+                  backgroundColor: clay.squircle,
+                  borderColor: clay.cardBorder,
+                  color: clay.textPrimary,
+                }}
+                className="h-13 rounded-2xl border px-4 text-base font-bold"
                 autoCapitalize="none"
                 autoComplete="email"
                 keyboardType="email-address"
                 placeholder="you@example.com"
-                placeholderTextColor="#9AA39D"
+                placeholderTextColor={clay.textMuted}
                 value={email}
                 onChangeText={setEmail}
                 editable={!isSubmitting}
               />
             </View>
-            <View className="gap-2">
-              <Text className="section-label">Password</Text>
+
+            <View className="gap-1.5">
+              <Text style={{ color: clay.textMuted }} className="text-xs font-bold uppercase tracking-wider">
+                Password
+              </Text>
               <TextInput
-                className="field"
+                style={{
+                  backgroundColor: clay.squircle,
+                  borderColor: clay.cardBorder,
+                  color: clay.textPrimary,
+                }}
+                className="h-13 rounded-2xl border px-4 text-base font-bold"
                 autoCapitalize="none"
                 autoComplete={isCreatingAccount ? "new-password" : "current-password"}
                 secureTextEntry
-                placeholder="Your password"
-                placeholderTextColor="#9AA39D"
+                placeholder="••••••••"
+                placeholderTextColor={clay.textMuted}
                 value={password}
                 onChangeText={setPassword}
                 editable={!isSubmitting}
                 onSubmitEditing={submit}
               />
             </View>
-            {message ? <Text selectable className="text-sm text-coral">{message}</Text> : null}
-            <PrimaryButton
-              label={isCreatingAccount ? "Create account" : "Sign in"}
-              loading={isSubmitting}
-              disabled={!email.trim() || !password || (isCreatingAccount && !name.trim())}
-              onPress={submit}
-            />
-            <View className="flex-row items-center gap-3">
-              <View className="h-px flex-1 bg-line" />
-              <Text className="text-xs text-muted">or</Text>
-              <View className="h-px flex-1 bg-line" />
-            </View>
-            <PrimaryButton
-              label="Continue with Google"
-              icon="logo-google"
-              variant="secondary"
-              loading={isSubmitting}
-              onPress={continueWithGoogle}
-            />
-            <Text
+
+            {message ? (
+              <Text selectable style={{ color: clay.errorText }} className="px-1 text-xs font-semibold">
+                {message}
+              </Text>
+            ) : null}
+
+            <Pressable
               accessibilityRole="button"
-              onPress={() => {
-                setIsCreatingAccount((value) => !value);
-                setMessage("");
-              }}
-              className="py-2 text-center text-sm font-semibold text-brand-700"
+              disabled={!email.trim() || !password || (isCreatingAccount && !name.trim()) || isSubmitting}
+              onPress={() => void submit()}
+              className="mt-1 h-14 flex-row items-center justify-center gap-2 rounded-2xl bg-[#F5D298] px-5 shadow-sm active:opacity-75 disabled:opacity-40"
             >
-              {isCreatingAccount ? "Already have an account? Sign in" : "New here? Create an account"}
-            </Text>
+              {isSubmitting ? (
+                <ActivityIndicator color={clay.heroText} />
+              ) : (
+                <Text style={{ color: clay.heroText }} className="text-base font-extrabold">
+                  {isCreatingAccount ? "Create Account" : "Sign In"}
+                </Text>
+              )}
+            </Pressable>
+
+            <View className="my-1 flex-row items-center gap-3">
+              <View style={{ backgroundColor: clay.cardBorder }} className="h-px flex-1" />
+              <Text style={{ color: clay.textMuted }} className="text-[11px] font-bold uppercase">
+                or
+              </Text>
+              <View style={{ backgroundColor: clay.cardBorder }} className="h-px flex-1" />
+            </View>
+
+            <Pressable
+              accessibilityRole="button"
+              disabled={isSubmitting}
+              onPress={() => void continueWithGoogle()}
+              style={{
+                backgroundColor: clay.squircle,
+                borderColor: clay.cardBorder,
+              }}
+              className="h-13 flex-row items-center justify-center gap-2.5 rounded-2xl border px-5 active:opacity-75 disabled:opacity-50"
+            >
+              <Text style={{ color: clay.textPrimary }} className="text-sm font-bold">
+                Continue with Google
+              </Text>
+            </Pressable>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </>
+    </SafeAreaView>
   );
 }
