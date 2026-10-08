@@ -22,6 +22,50 @@
   }
 
 
+  .account-settings__canvas {
+    @apply bg-[#ECE9F5] dark:bg-[#181528];
+  }
+
+  .account-settings__surface {
+    @apply bg-white dark:bg-[#262243];
+  }
+
+  .account-settings__group {
+    @apply overflow-hidden rounded-3xl border border-[#DBD5ED] bg-white shadow-sm dark:border-white/10 dark:bg-[#262243];
+  }
+
+  .account-settings__text {
+    @apply text-[#2C254E] dark:text-white;
+  }
+
+  .account-settings__muted {
+    @apply text-[#6E658E] dark:text-[#A59ECB];
+  }
+
+  .account-settings__section-label {
+    @apply px-1 text-xs font-bold uppercase tracking-wider text-[#6E658E] dark:text-[#A59ECB];
+  }
+
+  .account-settings__divider {
+    @apply border-[#DBD5ED] dark:border-white/10;
+  }
+
+  .account-settings__icon {
+    @apply h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#DBD5ED] bg-[#E8E3F5] dark:border-white/10 dark:bg-[#322C54];
+  }
+
+  .account-settings__row-label {
+    @apply flex-1 text-sm font-bold text-[#2C254E] dark:text-white;
+  }
+
+  .account-settings__value {
+    @apply rounded-full bg-[#2C254E]/[0.08] px-2.5 py-1 dark:bg-white/10;
+  }
+
+  .account-settings__row {
+    @apply min-h-16 flex-row items-center gap-3 px-4 py-3 active:opacity-70;
+  }
+
   .card {
     @apply rounded-3xl border border-line bg-surface shadow-sm;
   }

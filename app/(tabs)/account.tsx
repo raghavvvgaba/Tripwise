@@ -1,15 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { useState } from "react";
+import { Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { PrimaryButton } from "@/components/primary-button";
 import { useClayTheme } from "@/constants/clay-theme";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/use-auth-store";
 import { useCurrencyStore } from "@/store/use-currency-store";
 import { useSharedGroups } from "@/hooks/use-shared-groups";
 import { useSettingsStore } from "@/store/use-settings-store";
-import type { CurrencyCode } from "@/types/models";
+import { version } from "@/package.json";
 import { showError } from "@/utils/dialogs";
 import { SUPPORTED_CURRENCIES } from "@/utils/money";
 
@@ -29,256 +30,224 @@ export default function AccountScreen() {
   const themePreference = useSettingsStore((state) => state.themePreference);
   const setThemePreference = useSettingsStore((state) => state.setThemePreference);
 
+  const [activeSheet, setActiveSheet] = useState<"appearance" | "currency">("appearance");
+  const [isSheetVisible, setIsSheetVisible] = useState(false);
+  const appearanceLabel = { system: "System", light: "Light", dark: "Dark" }[themePreference];
+  const deletedGroupCount = groups.filter((group) => group.deletedAt).length;
+  const sheetOptions = activeSheet === "appearance"
+    ? ([
+        { id: "system", label: "Follow system" },
+        { id: "light", label: "Light" },
+        { id: "dark", label: "Dark" },
+      ] as const).map((option) => ({
+        id: option.id,
+        label: option.label,
+        detail: null,
+        selected: themePreference === option.id,
+        onSelect: () => setThemePreference(option.id),
+      }))
+    : SUPPORTED_CURRENCIES.map((currency) => ({
+        id: currency.code,
+        label: `${currency.symbol}  ${currency.code}`,
+        detail: currency.label,
+        selected: defaultCurrency === currency.code,
+        onSelect: () => setDefaultCurrency(currency.code),
+      }));
+
+  function openSheet(sheet: "appearance" | "currency") {
+    setActiveSheet(sheet);
+    setIsSheetVisible(true);
+  }
+
   async function signOut() {
     const { error } = await supabase.auth.signOut();
     if (error) showError("Could not sign out", error.message);
   }
 
   return (
-    <ScrollView
-      contentInsetAdjustmentBehavior="automatic"
-      contentContainerClassName="w-full max-w-3xl self-center gap-5 px-5 pb-12 pt-3 md:px-8 lg:py-8"
-      showsVerticalScrollIndicator={false}
-      style={{ backgroundColor: clay.canvas }}
-    >
-      <View className="gap-0.5 px-1">
-        <Text style={{ color: clay.textMuted }} className="text-[11px] font-black uppercase tracking-widest">
-          Profile & Preferences
-        </Text>
-        <Text style={{ color: clay.textPrimary }} className="text-2xl font-black">
-          Account
-        </Text>
-      </View>
-
-      {/* ── Profile Summary Card ── */}
-      <View
-        style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
-        className="flex-row items-center gap-4 rounded-3xl border p-4 shadow-sm"
+    <>
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerClassName="w-full max-w-2xl self-center gap-5 px-5 pb-10 pt-3 md:px-8 md:pt-8"
+        showsVerticalScrollIndicator={false}
+        className="account-settings__canvas"
+        accessibilityElementsHidden={isSheetVisible}
+        importantForAccessibility={isSheetVisible ? "no-hide-descendants" : "auto"}
       >
-        <View
-          style={{ backgroundColor: clay.squircle, borderColor: clay.cardBorder }}
-          className="h-14 w-14 items-center justify-center rounded-2xl border"
-        >
-          <Text style={{ color: clay.isDark ? "#F5D298" : "#9A6B1C" }} className="text-xl font-black">
-            {((accountName ?? accountEmail)?.[0] ?? "?").toUpperCase()}
-          </Text>
-        </View>
+        <Text className="account-settings__text px-1 text-2xl font-black tracking-tight">Account</Text>
 
-        <View className="min-w-0 flex-1 gap-0.5">
-          <Text
-            selectable
-            numberOfLines={1}
-            style={{ color: clay.textPrimary }}
-            className="text-base font-black"
-          >
-            {accountName ?? accountEmail ?? "Signed In"}
-          </Text>
-          <Text
-            selectable
-            numberOfLines={1}
-            style={{ color: clay.textMuted }}
-            className="text-xs font-semibold"
-          >
-            {accountEmail ?? "Signed in"}
-          </Text>
-        </View>
-      </View>
-
-      {/* ── Sign-in Details ── */}
-      <View className="gap-2.5">
-        <Text style={{ color: clay.textMuted }} className="px-1 text-xs font-bold uppercase tracking-wider">
-          Sign-in Details
-        </Text>
-
-        <View
-          style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
-          className="overflow-hidden rounded-3xl border shadow-sm"
-        >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Change email address"
-            onPress={() => router.push("/account/change-email")}
-            className="min-h-16 flex-row items-center gap-3.5 px-4 py-3 active:opacity-70"
-          >
-            <View
-              style={{ backgroundColor: clay.squircle, borderColor: clay.cardBorder }}
-              className="h-10 w-10 items-center justify-center rounded-xl border"
-            >
-              <Ionicons name="mail-outline" size={19} color={clay.textPrimary} />
-            </View>
-            <View className="min-w-0 flex-1">
-              <Text style={{ color: clay.textPrimary }} className="text-sm font-bold">
-                Email Address
-              </Text>
-              <Text numberOfLines={1} style={{ color: clay.textMuted }} className="text-xs">
-                {accountEmail ?? "Signed in"}
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={17} color={clay.textMuted} />
-          </Pressable>
-
-          <View style={{ backgroundColor: clay.cardBorder }} className="h-px w-full" />
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Change password"
-            onPress={() => router.push("/account/change-password")}
-            className="min-h-16 flex-row items-center gap-3.5 px-4 py-3 active:opacity-70"
-          >
-            <View
-              style={{ backgroundColor: clay.squircle, borderColor: clay.cardBorder }}
-              className="h-10 w-10 items-center justify-center rounded-xl border"
-            >
-              <Ionicons name="lock-closed-outline" size={19} color={clay.textPrimary} />
-            </View>
-            <View className="flex-1">
-              <Text style={{ color: clay.textPrimary }} className="text-sm font-bold">
-                Password
-              </Text>
-              <Text style={{ color: clay.textMuted }} className="text-xs">
-                Change your sign-in password
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={17} color={clay.textMuted} />
-          </Pressable>
-        </View>
-      </View>
-
-      {/* ── Theme Appearance ── */}
-      <View className="gap-2.5">
-        <View className="gap-0.5 px-1">
-          <Text style={{ color: clay.textMuted }} className="text-xs font-bold uppercase tracking-wider">
-            Theme Appearance
-          </Text>
-          <Text style={{ color: clay.textMuted }} className="text-xs">
-            Choose light or dark, or sync with your system.
-          </Text>
-        </View>
-
-        <View className="flex-row gap-2.5">
-          {([
-            { id: "system", label: "System", icon: "phone-portrait-outline" },
-            { id: "light", label: "Light", icon: "sunny-outline" },
-            { id: "dark", label: "Dark", icon: "moon-outline" },
-          ] as const).map((option) => {
-            const isSelected = themePreference === option.id;
-            return (
-              <Pressable
-                key={option.id}
-                accessibilityRole="radio"
-                accessibilityState={{ checked: isSelected }}
-                onPress={() => setThemePreference(option.id)}
-                style={{
-                  backgroundColor: isSelected ? clay.activeTabBg : clay.card,
-                  borderColor: isSelected ? clay.activeTabBg : clay.cardBorder,
-                }}
-                className="min-h-12 flex-1 flex-row items-center justify-center gap-1.5 rounded-2xl border p-2 shadow-sm active:opacity-75"
-              >
-                <Ionicons
-                  name={option.icon}
-                  size={16}
-                  color={isSelected ? clay.activeTabText : clay.textMuted}
-                />
-                <Text
-                  style={{ color: isSelected ? clay.activeTabText : clay.textPrimary }}
-                  className="text-xs font-extrabold"
-                >
-                  {option.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
-
-      {/* ── Default Currency ── */}
-      <View className="gap-2.5">
-        <View className="gap-0.5 px-1">
-          <Text style={{ color: clay.textMuted }} className="text-xs font-bold uppercase tracking-wider">
-            Default Currency
-          </Text>
-          <Text style={{ color: clay.textMuted }} className="text-xs">
-            Pre-fills when creating new groups.
-          </Text>
-        </View>
-
-        <View className="flex-row gap-2">
-          {SUPPORTED_CURRENCIES.map((curr) => {
-            const isSelected = defaultCurrency === curr.code;
-            return (
-              <Pressable
-                key={curr.code}
-                onPress={() => setDefaultCurrency(curr.code)}
-                style={{
-                  backgroundColor: isSelected ? clay.activeTabBg : clay.card,
-                  borderColor: isSelected ? clay.activeTabBg : clay.cardBorder,
-                }}
-                className="min-h-13 flex-1 items-center justify-center rounded-2xl border p-2 shadow-sm active:opacity-75"
-              >
-                <Text
-                  style={{ color: isSelected ? clay.activeTabText : clay.textPrimary }}
-                  className="text-sm font-black"
-                >
-                  {curr.symbol}
-                </Text>
-                <Text
-                  style={{ color: isSelected ? clay.activeTabText : clay.textMuted }}
-                  className="text-[10px] font-extrabold"
-                >
-                  {curr.code}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
-
-      {/* ── Groups Management ── */}
-      <View className="gap-2.5">
-        <Text style={{ color: clay.textMuted }} className="px-1 text-xs font-bold uppercase tracking-wider">
-          Groups Management
-        </Text>
-
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => router.push("/groups/deleted")}
-          style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
-          className="flex-row items-center justify-between rounded-3xl border p-4 shadow-sm active:opacity-75"
-        >
-          <View className="flex-row items-center gap-3.5">
-            <View
-              style={{ backgroundColor: clay.squircle, borderColor: clay.cardBorder }}
-              className="h-11 w-11 items-center justify-center rounded-2xl border"
-            >
-              <Ionicons name="trash-outline" size={19} color={clay.textPrimary} />
-            </View>
-            <View>
-              <Text style={{ color: clay.textPrimary }} className="text-sm font-bold">
-                Deleted Groups
-              </Text>
-              <Text style={{ color: clay.textMuted }} className="text-xs">
-                {groups.filter((g) => g.deletedAt).length} deleted · Restorable by any member
-              </Text>
-            </View>
+        <View className="account-settings__group flex-row items-center gap-4 p-4">
+          <View className="h-14 w-14 items-center justify-center rounded-2xl border border-[#DBD5ED] bg-[#E8E3F5] dark:border-white/10 dark:bg-[#322C54]">
+            <Text className="text-xl font-black text-[#9A6B1C] dark:text-[#F5D298]">
+              {((accountName ?? accountEmail)?.[0] ?? "?").toUpperCase()}
+            </Text>
           </View>
-          <Ionicons name="chevron-forward" size={17} color={clay.textMuted} />
-        </Pressable>
-      </View>
+          <View className="min-w-0 flex-1 gap-1">
+            <Text selectable className="account-settings__text text-lg font-black tracking-tight">
+              {accountName ?? "Your account"}
+            </Text>
+            {accountEmail ? (
+              <Text selectable className="account-settings__muted text-sm">{accountEmail}</Text>
+            ) : null}
+          </View>
+        </View>
 
-      {/* ── Sign Out ── */}
-      <View className="pt-2">
-        <PrimaryButton label="Sign out" variant="secondary" onPress={signOut} />
-      </View>
+        <View className="gap-2">
+          <Text className="account-settings__section-label">Account</Text>
+          <View className="account-settings__group">
+            {([
+              { label: "Change email", route: "/account/change-email", icon: "mail-outline" },
+              { label: "Change password", route: "/account/change-password", icon: "lock-closed-outline" },
+            ] as const).map((action, index) => (
+              <View key={action.route}>
+                {index > 0 ? <View className="account-settings__divider ml-[68px] mr-4 border-t" /> : null}
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => router.push(action.route)}
+                  className="account-settings__row"
+                >
+                  <View className="account-settings__icon">
+                    <Ionicons name={action.icon} size={19} color={clay.isDark ? "#F5D298" : "#9A6B1C"} />
+                  </View>
+                  <Text className="account-settings__row-label">{action.label}</Text>
+                  <Ionicons name="chevron-forward" size={18} color={clay.textMuted} />
+                </Pressable>
+              </View>
+            ))}
+          </View>
+        </View>
 
-      {/* ── Footer ── */}
-      <View className="items-center gap-0.5 py-4">
-        <Text style={{ color: clay.textMuted }} className="text-xs font-bold">
-          Tripwise · MVP v1.0.0
-        </Text>
-        <Text style={{ color: clay.textMuted }} className="text-[11px]">
-          Tactile Clay Design · Synced
-        </Text>
-      </View>
-    </ScrollView>
+        <View className="gap-2">
+          <Text className="account-settings__section-label">Preferences</Text>
+          <View className="account-settings__group">
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Appearance, ${appearanceLabel}`}
+              onPress={() => openSheet("appearance")}
+              className="account-settings__row"
+            >
+              <View className="account-settings__icon">
+                <Ionicons name="color-palette-outline" size={19} color={clay.isDark ? "#F5D298" : "#9A6B1C"} />
+              </View>
+              <Text className="account-settings__row-label">Appearance</Text>
+              <View className="account-settings__value">
+                <Text className="account-settings__muted text-xs font-bold">{appearanceLabel}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={clay.textMuted} />
+            </Pressable>
+            <View className="account-settings__divider ml-[68px] mr-4 border-t" />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Default currency, ${defaultCurrency}`}
+              onPress={() => openSheet("currency")}
+              className="account-settings__row"
+            >
+              <View className="account-settings__icon">
+                <Ionicons name="cash-outline" size={19} color={clay.isDark ? "#F5D298" : "#9A6B1C"} />
+              </View>
+              <Text className="account-settings__row-label">Default currency</Text>
+              <View className="account-settings__value">
+                <Text className="account-settings__muted text-xs font-bold">{defaultCurrency}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={clay.textMuted} />
+            </Pressable>
+          </View>
+        </View>
+
+        <View className="account-settings__group">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Deleted groups, ${deletedGroupCount}`}
+            onPress={() => router.push("/groups/deleted")}
+            className="account-settings__row"
+          >
+            <View className="account-settings__icon">
+              <Ionicons name="trash-outline" size={19} color={clay.isDark ? "#F5D298" : "#9A6B1C"} />
+            </View>
+            <Text className="account-settings__row-label">Deleted groups</Text>
+            <View className="account-settings__value">
+              <Text className="account-settings__muted text-xs font-bold">{deletedGroupCount}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={clay.textMuted} />
+          </Pressable>
+        </View>
+
+        <View className="account-settings__group">
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => void signOut()}
+            className="account-settings__row"
+          >
+            <View className="h-10 w-10 items-center justify-center rounded-xl bg-[#FFE4E6] dark:bg-[#451C28]">
+              <Ionicons name="log-out-outline" size={19} color={clay.errorText} />
+            </View>
+            <Text className="flex-1 text-sm font-bold text-[#DC2626] dark:text-[#FB7185]">Sign out</Text>
+          </Pressable>
+        </View>
+        <Text className="account-settings__muted py-2 text-center text-xs">Tripwise · {version}</Text>
+      </ScrollView>
+
+      <Modal
+        transparent
+        visible={isSheetVisible}
+        animationType="fade"
+        onRequestClose={() => setIsSheetVisible(false)}
+      >
+        <View className="flex-1 justify-end bg-black/40 pt-12 sm:items-center sm:justify-center sm:p-6">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close selection"
+            onPress={() => setIsSheetVisible(false)}
+            className="absolute inset-0"
+          />
+          <View
+            accessibilityViewIsModal
+            className="account-settings__surface max-h-full w-full max-w-md overflow-hidden rounded-t-3xl sm:rounded-3xl"
+          >
+            <SafeAreaView edges={["bottom"]} style={{ backgroundColor: clay.card, flexShrink: 1 }}>
+              <ScrollView contentContainerClassName="px-5 pb-5 pt-3" bounces={false}>
+                <View className="h-1 w-10 self-center rounded-full bg-[#DBD5ED] dark:bg-[#A59ECB] sm:hidden" />
+                <View className="mb-2 mt-2 flex-row items-center gap-3">
+                  <Text accessibilityRole="header" className="account-settings__text flex-1 text-lg font-semibold">
+                    {activeSheet === "appearance" ? "Appearance" : "Default currency"}
+                  </Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Close selection"
+                    onPress={() => setIsSheetVisible(false)}
+                    className="account-settings__icon active:opacity-70"
+                  >
+                    <Ionicons name="close" size={22} color={clay.textMuted} />
+                  </Pressable>
+                </View>
+                {activeSheet === "currency" ? (
+                  <Text className="account-settings__muted mb-3 text-sm leading-5">Used when creating new groups.</Text>
+                ) : null}
+                <View accessibilityRole="radiogroup" className="gap-1">
+                  {sheetOptions.map((option) => (
+                    <Pressable
+                      key={option.id}
+                      accessibilityRole="radio"
+                      accessibilityState={{ checked: option.selected }}
+                      onPress={() => {
+                        option.onSelect();
+                        setIsSheetVisible(false);
+                      }}
+                      className={`min-h-14 flex-row items-center gap-3 rounded-2xl px-4 py-3 active:opacity-70 ${option.selected ? "bg-[#E8E3F5] dark:bg-[#322C54]" : ""}`}
+                    >
+                      <View className="flex-1 gap-1">
+                        <Text className="account-settings__text text-sm font-bold">{option.label}</Text>
+                        {option.detail ? <Text className="account-settings__muted text-sm">{option.detail}</Text> : null}
+                      </View>
+                      {option.selected ? <Ionicons name="checkmark" size={22} color={clay.textPrimary} /> : null}
+                    </Pressable>
+                  ))}
+                </View>
+              </ScrollView>
+            </SafeAreaView>
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 }
