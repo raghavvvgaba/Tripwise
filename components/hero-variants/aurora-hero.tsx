@@ -14,7 +14,7 @@ export function AuroraHero({ activeGroupsCount }: AuroraHeroProps) {
   return (
     <View
       style={{
-        backgroundColor: clay.isDark ? "rgba(38, 34, 67, 0.85)" : "rgba(255, 255, 255, 0.9)",
+        backgroundColor: clay.isDark ? "rgba(24, 21, 40, 0.85)" : "rgba(255, 255, 255, 0.9)",
         borderColor: clay.isDark ? "rgba(245, 210, 152, 0.25)" : "rgba(154, 107, 28, 0.2)",
       }}
       className="relative overflow-hidden rounded-3xl border p-6 shadow-lg"

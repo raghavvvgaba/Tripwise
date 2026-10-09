@@ -267,7 +267,7 @@ export default function CreateGroupScreen() {
                         }}
                         style={
                           isSelected
-                            ? { backgroundColor: clay.isDark ? "#322C54" : "#E8E3F5" }
+                            ? { backgroundColor: clay.isDark ? "#221C38" : "#E8E3F5" }
                             : undefined
                         }
                         className="h-14 flex-row items-center gap-3 px-4 active:opacity-75"

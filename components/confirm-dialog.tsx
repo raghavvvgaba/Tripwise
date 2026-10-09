@@ -58,7 +58,7 @@ export function ConfirmDialog() {
                   request.destructive ? "bg-[#DC2626] dark:bg-[#FB7185]" : "bg-brand-600"
                 }`}
               >
-                <Text className={`font-semibold ${request.destructive ? "text-white dark:text-[#181528]" : "text-[#2C254E]"}`}>
+                <Text className={`font-semibold ${request.destructive ? "text-white dark:text-[#0E0C18]" : "text-[#2C254E]"}`}>
                   {request.actionLabel}
                 </Text>
               </Pressable>

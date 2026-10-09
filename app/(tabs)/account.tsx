@@ -77,7 +77,7 @@ export default function AccountScreen() {
         <Text className="account-settings__text px-1 text-2xl font-black tracking-tight">Account</Text>
 
         <View className="account-settings__group flex-row items-center gap-4 p-4">
-          <View className="h-14 w-14 items-center justify-center rounded-2xl border border-[#DBD5ED] bg-[#E8E3F5] dark:border-white/10 dark:bg-[#322C54]">
+          <View className="h-14 w-14 items-center justify-center rounded-2xl border border-[#DBD5ED] bg-[#E8E3F5] dark:border-white/10 dark:bg-[#221C38]">
             <Text className="text-xl font-black text-[#9A6B1C] dark:text-[#F5D298]">
               {((accountName ?? accountEmail)?.[0] ?? "?").toUpperCase()}
             </Text>
@@ -206,7 +206,7 @@ export default function AccountScreen() {
           >
             <SafeAreaView edges={["bottom"]} style={{ backgroundColor: clay.card, flexShrink: 1 }}>
               <ScrollView contentContainerClassName="px-5 pb-5 pt-3" bounces={false}>
-                <View className="h-1 w-10 self-center rounded-full bg-[#DBD5ED] dark:bg-[#A59ECB] sm:hidden" />
+                <View className="h-1 w-10 self-center rounded-full bg-[#DBD5ED] dark:bg-[#958EB8] sm:hidden" />
                 <View className="mb-2 mt-2 flex-row items-center gap-3">
                   <Text accessibilityRole="header" className="account-settings__text flex-1 text-lg font-semibold">
                     {activeSheet === "appearance" ? "Appearance" : "Default currency"}
@@ -233,7 +233,7 @@ export default function AccountScreen() {
                         option.onSelect();
                         setIsSheetVisible(false);
                       }}
-                      className={`min-h-14 flex-row items-center gap-3 rounded-2xl px-4 py-3 active:opacity-70 ${option.selected ? "bg-[#E8E3F5] dark:bg-[#322C54]" : ""}`}
+                      className={`min-h-14 flex-row items-center gap-3 rounded-2xl px-4 py-3 active:opacity-70 ${option.selected ? "bg-[#E8E3F5] dark:bg-[#221C38]" : ""}`}
                     >
                       <View className="flex-1 gap-1">
                         <Text className="account-settings__text text-sm font-bold">{option.label}</Text>

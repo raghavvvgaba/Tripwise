@@ -59,7 +59,7 @@ function MemberAvatar({
         borderRadius: size / 2,
         borderColor: color,
         borderWidth: 2,
-        backgroundColor: bg ?? "#2C274B",
+        backgroundColor: bg ?? "#1E1834",
       }}
       className="items-center justify-center"
     >

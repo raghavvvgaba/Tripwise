@@ -48,7 +48,7 @@ export function BaggageTagHero({ activeGroupsCount }: BaggageTagHeroProps) {
       <View className="flex-row">
         {/* ── Left Luggage Tag Eyelet Strip ── */}
         <View
-          style={{ backgroundColor: clay.isDark ? "#1C1832" : "#DDD7ED" }}
+          style={{ backgroundColor: clay.isDark ? "#120F20" : "#DDD7ED" }}
           className="w-12 items-center justify-between border-r border-dashed border-white/15 py-4"
         >
           {/* ── Brass Grommet & String Loop ── */}
@@ -62,7 +62,7 @@ export function BaggageTagHero({ activeGroupsCount }: BaggageTagHeroProps) {
             <View
               style={{
                 borderColor: clay.isDark ? "#F5D298" : "#9A6B1C",
-                backgroundColor: clay.isDark ? "#282142" : "#D4CCE2",
+                backgroundColor: clay.isDark ? "#1E1A33" : "#D4CCE2",
               }}
               className="h-6 w-6 items-center justify-center rounded-full border-2"
             >

@@ -23,15 +23,15 @@
 
 
   .account-settings__canvas {
-    @apply bg-[#ECE9F5] dark:bg-[#181528];
+    @apply bg-[#ECE9F5] dark:bg-[#0E0C18];
   }
 
   .account-settings__surface {
-    @apply bg-white dark:bg-[#262243];
+    @apply bg-white dark:bg-[#181528];
   }
 
   .account-settings__group {
-    @apply overflow-hidden rounded-3xl border border-[#DBD5ED] bg-white shadow-sm dark:border-white/10 dark:bg-[#262243];
+    @apply overflow-hidden rounded-3xl border border-[#DBD5ED] bg-white shadow-sm dark:border-white/10 dark:bg-[#181528];
   }
 
   .account-settings__text {
@@ -39,11 +39,11 @@
   }
 
   .account-settings__muted {
-    @apply text-[#6E658E] dark:text-[#A59ECB];
+    @apply text-[#6E658E] dark:text-[#958EB8];
   }
 
   .account-settings__section-label {
-    @apply px-1 text-xs font-bold uppercase tracking-wider text-[#6E658E] dark:text-[#A59ECB];
+    @apply px-1 text-xs font-bold uppercase tracking-wider text-[#6E658E] dark:text-[#958EB8];
   }
 
   .account-settings__divider {
@@ -51,7 +51,7 @@
   }
 
   .account-settings__icon {
-    @apply h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#DBD5ED] bg-[#E8E3F5] dark:border-white/10 dark:bg-[#322C54];
+    @apply h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#DBD5ED] bg-[#E8E3F5] dark:border-white/10 dark:bg-[#221C38];
   }
 
   .account-settings__row-label {
