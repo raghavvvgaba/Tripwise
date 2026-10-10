@@ -1,7 +1,9 @@
 import { QueryClient } from "@tanstack/react-query";
 
+export const GROUPS_CACHE_MAX_AGE = 24 * 60 * 60_000;
+
 export function createQueryClient() {
-  return new QueryClient({
+  const client = new QueryClient({
     defaultOptions: {
       queries: {
         staleTime: 60_000,
@@ -10,4 +12,6 @@ export function createQueryClient() {
       },
     },
   });
+  client.setQueryDefaults(["groups"], { gcTime: GROUPS_CACHE_MAX_AGE });
+  return client;
 }

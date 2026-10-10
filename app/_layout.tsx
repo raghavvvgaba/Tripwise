@@ -87,7 +87,7 @@ export default function RootLayout() {
   );
 
   return (
-    <QueryProvider key={session?.user.id ?? "signed-out"}>
+    <QueryProvider key={session?.user.id ?? "signed-out"} userId={session?.user.id ?? null}>
       <View key="themed-app-root" className="flex-1 bg-canvas" style={themeVariables[scheme]}>
         <StatusBar style={scheme === "dark" ? "light" : "dark"} />
         <ThemeProvider value={navigationTheme}>
