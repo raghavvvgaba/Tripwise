@@ -4,6 +4,7 @@ import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -12,7 +13,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BrandIcon } from "@/components/brand-icon";
 import { GoogleIcon } from "@/components/google-icon";
@@ -23,6 +24,8 @@ import { useAuthStore } from "@/store/use-auth-store";
 
 export default function SignInScreen() {
   const clay = useClayTheme();
+  const insets = useSafeAreaInsets();
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const { inviteCode } = useLocalSearchParams<{ inviteCode?: string }>();
   const incomingUrl = Linking.useURL();
   const handledAuthUrl = useRef<string | null>(null);
@@ -35,6 +38,15 @@ export default function SignInScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    const show = Keyboard.addListener("keyboardDidShow", () => setIsKeyboardVisible(true));
+    const hide = Keyboard.addListener("keyboardDidHide", () => setIsKeyboardVisible(false));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
 
   useEffect(() => {
     if (!session) return;
@@ -155,30 +167,36 @@ export default function SignInScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : Platform.OS === "android" ? "height" : undefined}
-        className="flex-1"
+        keyboardVerticalOffset={insets.top}
+        // Keep flex numeric: Android's height behavior overrides it while the keyboard is open.
+        style={{ flex: 1 }}
       >
         <ScrollView
           className="flex-1"
           contentInsetAdjustmentBehavior="never"
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
-          contentContainerClassName="w-full max-w-md flex-grow self-center justify-center gap-6 px-5 py-8"
+          contentContainerClassName={`w-full max-w-md flex-grow self-center px-5 ${isKeyboardVisible ? "justify-start gap-4 py-4" : "justify-center gap-6 py-8"}`}
           showsVerticalScrollIndicator={false}
         >
           {/* ── Brand Logo & Welcome ── */}
           <View className="items-center gap-2">
-            <View
-              style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
-              className="h-16 w-16 items-center justify-center rounded-3xl border shadow-sm"
-            >
-              <BrandIcon size={34} />
-            </View>
+            {!isKeyboardVisible ? (
+              <View
+                style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+                className="h-16 w-16 items-center justify-center rounded-3xl border shadow-sm"
+              >
+                <BrandIcon size={34} />
+              </View>
+            ) : null}
             <Text style={{ color: clay.textPrimary }} className="text-2xl font-black tracking-tight">
               {isCreatingAccount ? "Create Account" : "Welcome to Tripwise"}
             </Text>
-            <Text style={{ color: clay.textMuted }} className="text-center text-xs">
-              Split bills effortlessly with tactile precision.
-            </Text>
+            {!isKeyboardVisible ? (
+              <Text style={{ color: clay.textMuted }} className="text-center text-xs">
+                Split bills effortlessly with tactile precision.
+              </Text>
+            ) : null}
           </View>
 
           {/* ── Auth Card ── */}
@@ -297,7 +315,9 @@ export default function SignInScreen() {
                   autoCorrect={false}
                   placeholder="••••••••"
                   placeholderTextColor={clay.textMuted}
-                  value={password}
+                  // Let Android retain its native reveal span instead of rewriting text on each keystroke.
+                  defaultValue=""
+                  value={Platform.OS === "android" ? undefined : password}
                   onChangeText={setPassword}
                   editable={!isSubmitting && !isGoogleSubmitting}
                   onSubmitEditing={submit}
