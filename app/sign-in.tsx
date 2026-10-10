@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import * as Linking from "expo-linking";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
@@ -30,6 +31,7 @@ export default function SignInScreen() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
   const [message, setMessage] = useState("");
@@ -151,9 +153,14 @@ export default function SignInScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: clay.canvas }}>
       <Stack.Screen options={{ headerShown: false }} />
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} className="flex-1">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : Platform.OS === "android" ? "height" : undefined}
+        className="flex-1"
+      >
         <ScrollView
-          contentInsetAdjustmentBehavior="automatic"
+          className="flex-1"
+          contentInsetAdjustmentBehavior="never"
+          keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
           contentContainerClassName="w-full max-w-md flex-grow self-center justify-center gap-6 px-5 py-8"
           showsVerticalScrollIndicator={false}
@@ -187,6 +194,7 @@ export default function SignInScreen() {
               <Pressable
                 onPress={() => {
                   setIsCreatingAccount(false);
+                  setIsPasswordVisible(false);
                   setMessage("");
                 }}
                 style={
@@ -207,6 +215,7 @@ export default function SignInScreen() {
               <Pressable
                 onPress={() => {
                   setIsCreatingAccount(true);
+                  setIsPasswordVisible(false);
                   setMessage("");
                 }}
                 style={
@@ -236,7 +245,7 @@ export default function SignInScreen() {
                     borderColor: clay.cardBorder,
                     color: clay.textPrimary,
                   }}
-                  className="h-13 rounded-2xl border px-4 text-base font-bold"
+                  className="h-14 rounded-2xl border px-4 text-base font-bold"
                   autoCapitalize="words"
                   autoComplete="name"
                   placeholder="e.g. Alex River"
@@ -258,7 +267,7 @@ export default function SignInScreen() {
                   borderColor: clay.cardBorder,
                   color: clay.textPrimary,
                 }}
-                className="h-13 rounded-2xl border px-4 text-base font-bold"
+                className="h-14 rounded-2xl border px-4 text-base font-bold"
                 autoCapitalize="none"
                 autoComplete="email"
                 keyboardType="email-address"
@@ -274,23 +283,38 @@ export default function SignInScreen() {
               <Text style={{ color: clay.textMuted }} className="text-xs font-bold uppercase tracking-wider">
                 Password
               </Text>
-              <TextInput
-                style={{
-                  backgroundColor: clay.squircle,
-                  borderColor: clay.cardBorder,
-                  color: clay.textPrimary,
-                }}
-                className="h-13 rounded-2xl border px-4 text-base font-bold"
-                autoCapitalize="none"
-                autoComplete={isCreatingAccount ? "new-password" : "current-password"}
-                secureTextEntry
-                placeholder="••••••••"
-                placeholderTextColor={clay.textMuted}
-                value={password}
-                onChangeText={setPassword}
-                editable={!isSubmitting && !isGoogleSubmitting}
-                onSubmitEditing={submit}
-              />
+              <View className="relative">
+                <TextInput
+                  style={{
+                    backgroundColor: clay.squircle,
+                    borderColor: clay.cardBorder,
+                    color: clay.textPrimary,
+                  }}
+                  className="h-14 rounded-2xl border pl-4 pr-14 text-base font-bold"
+                  autoCapitalize="none"
+                  autoComplete={isCreatingAccount ? "new-password" : "current-password"}
+                  secureTextEntry={!isPasswordVisible}
+                  autoCorrect={false}
+                  placeholder="••••••••"
+                  placeholderTextColor={clay.textMuted}
+                  value={password}
+                  onChangeText={setPassword}
+                  editable={!isSubmitting && !isGoogleSubmitting}
+                  onSubmitEditing={submit}
+                />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={isPasswordVisible ? "Hide password" : "Show password"}
+                  onPress={() => setIsPasswordVisible((visible) => !visible)}
+                  className="absolute right-1 top-1 h-12 w-12 items-center justify-center rounded-xl active:opacity-60"
+                >
+                  <Ionicons
+                    name={isPasswordVisible ? "eye-off-outline" : "eye-outline"}
+                    size={22}
+                    color={clay.textMuted}
+                  />
+                </Pressable>
+              </View>
             </View>
 
             {message ? (
