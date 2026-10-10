@@ -206,7 +206,7 @@ export function BaggageTagHero({ activeGroupsCount }: BaggageTagHeroProps) {
             >
               <Ionicons name="key-outline" size={16} color={clay.textPrimary} />
               <Text style={{ color: clay.textPrimary }} className="text-xs font-bold uppercase">
-                Join PIN
+                Join Group
               </Text>
             </Pressable>
           </View>
