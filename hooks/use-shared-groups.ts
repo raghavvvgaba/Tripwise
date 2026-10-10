@@ -6,6 +6,7 @@ import { createGroup, deleteSharedGroup, restoreSharedGroup, updateGroupCover } 
 import { groupDataKey } from "@/lib/group-data-query";
 import { groupsQueryOptions } from "@/lib/groups-query";
 import { refreshActivity } from "@/lib/refresh-activity";
+import { queryErrorMessage } from "@/lib/query-error";
 import { useAuthStore } from "@/store/use-auth-store";
 import type { CurrencyCode } from "@/types/models";
 import type { SharedGroup } from "@/types/shared-group";
@@ -36,8 +37,8 @@ export function useSharedGroups() {
     userId,
     isLoading: !!userId && query.isPending,
     isRefreshing: query.isFetching && !query.isPending,
-    error: query.data === undefined ? query.error?.message ?? null : null,
-    refreshError: query.data !== undefined ? query.error?.message ?? null : null,
+    error: query.data === undefined ? queryErrorMessage(query.error, false, query.fetchStatus === "paused") : null,
+    refreshError: query.data !== undefined ? queryErrorMessage(query.error, true) : null,
     loadGroups,
   };
 }

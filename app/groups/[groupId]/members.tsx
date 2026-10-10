@@ -108,7 +108,7 @@ export default function GroupMembersScreen() {
         </View>
 
         {/* ── Loading State ── */}
-        {isLoading && !members ? (
+        {isLoading && !members && !error ? (
           <ActivityIndicator color="#F5D298" className="py-10" />
         ) : null}
 

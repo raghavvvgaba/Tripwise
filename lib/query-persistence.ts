@@ -2,7 +2,7 @@ import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persi
 import type { DehydrateOptions, Query } from "@tanstack/react-query";
 import type { PersistedClient } from "@tanstack/react-query-persist-client";
 
-import { GROUPS_CACHE_MAX_AGE } from "@/lib/query-client";
+import { OFFLINE_CACHE_MAX_AGE } from "@/lib/query-client";
 
 export type CacheStorage = {
   getItem: (key: string) => Promise<string | null>;
@@ -22,18 +22,24 @@ function inOrder<T>(key: string, operation: () => Promise<T>): Promise<T> {
   return result;
 }
 
-export function createGroupsPersistence(userId: string, storage: CacheStorage, isCurrentAccount: () => boolean) {
+export function createQueryPersistence(userId: string, storage: CacheStorage, isCurrentAccount: () => boolean) {
   const key = `tripwise:query-cache:v1:${userId}`;
   let removed = false;
   const canUseCache = () => !removed && isCurrentAccount();
-  const isGroupsKey = (queryKey: readonly unknown[]) =>
-    queryKey.length === 2 && queryKey[0] === "groups" && queryKey[1] === userId;
+  // Persist lists only; expense details reuse the saved expense list.
+  const isPersistedKey = (queryKey: readonly unknown[]) => {
+    if (queryKey[1] !== userId) return false;
+    if (queryKey[0] === "groups") return queryKey.length === 2;
+    return queryKey[0] === "group-data" && queryKey.length === 4 &&
+      typeof queryKey[2] === "string" && queryKey[2].length > 0 &&
+      (queryKey[3] === "members" || queryKey[3] === "expenses" || queryKey[3] === "payments");
+  };
   const isUnexpired = (updatedAt: number) =>
-    Number.isFinite(updatedAt) && updatedAt > 0 && Date.now() - updatedAt <= GROUPS_CACHE_MAX_AGE;
+    Number.isFinite(updatedAt) && updatedAt > 0 && Date.now() - updatedAt <= OFFLINE_CACHE_MAX_AGE;
   const dehydrateOptions: DehydrateOptions = {
     shouldDehydrateMutation: () => false,
     // A failed background refresh still has the last successful result.
-    shouldDehydrateQuery: (query: Query) => isGroupsKey(query.queryKey) &&
+    shouldDehydrateQuery: (query: Query) => isPersistedKey(query.queryKey) &&
       query.state.data !== undefined && isUnexpired(query.state.dataUpdatedAt),
   };
   const persister = createAsyncStoragePersister({
@@ -61,17 +67,18 @@ export function createGroupsPersistence(userId: string, storage: CacheStorage, i
     deserialize: (value) => {
       const snapshot: PersistedClient = JSON.parse(value);
       if (!snapshot || !Number.isFinite(snapshot.timestamp) || !Array.isArray(snapshot.clientState?.queries)) {
-        throw new Error("Invalid saved groups cache");
+        throw new Error("Invalid saved query cache");
       }
       return { ...snapshot, clientState: { mutations: [], queries: snapshot.clientState.queries.filter((query) =>
-        Array.isArray(query.queryKey) && isGroupsKey(query.queryKey) &&
+        Array.isArray(query.queryKey) && isPersistedKey(query.queryKey) &&
         Array.isArray(query.state?.data) && isUnexpired(query.state.dataUpdatedAt)
       ) } };
     },
   });
 
   return {
-    persistOptions: { persister, maxAge: GROUPS_CACHE_MAX_AGE, buster: "groups-v1", dehydrateOptions },
+    // Keep the Phase 1 storage version so existing saved groups still restore.
+    persistOptions: { persister, maxAge: OFFLINE_CACHE_MAX_AGE, buster: "groups-v1", dehydrateOptions },
     remove: () => {
       removed = true; // Also blocks saves still waiting in the adapter's throttle.
       return inOrder(key, () => storage.removeItem(key));

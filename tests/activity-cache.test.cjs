@@ -126,6 +126,7 @@ test("Activity hook deduplicates rows, shares member names, and reflects current
     },
     react: { useCallback: (fn) => fn },
     "expo-router": { useFocusEffect: (fn) => callbacks.push(fn) },
+    "@/lib/query-error": loadModule("lib/query-error.ts", {}),
     "@/lib/activity-query": activity,
     "@/lib/group-data-query": { membersQueryOptions: (_, id) => ({ queryKey: ["members", id] }) },
     "@/store/use-auth-store": { useAuthStore: (select) => select({ session: { user: { id: "alice" } } }) },

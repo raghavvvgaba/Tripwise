@@ -52,6 +52,7 @@ function setup(t, overrides = {}) {
     "@/lib/activity-query": activity, "@/store/use-auth-store": { useAuthStore: auth },
   });
   const dependencies = {
+    "@/lib/query-error": loadModule("lib/query-error.ts", {}),
     "@/lib/refresh-activity": refreshActivity,
     "@/lib/expenses": backend, "@/lib/payments": backend,
     "@/lib/group-data-query": options, "@/store/use-auth-store": { useAuthStore: auth },
@@ -116,7 +117,7 @@ test("expense details reuse the cached list and manual refresh errors retain dat
   await detail.refetch();
   const cached = h.hooks.useGroupExpense("trip", "expense");
   assert.equal(cached.data.id, "expense");
-  assert.equal(cached.errorMessage, "Offline");
+  assert.equal(cached.errorMessage, null);
 });
 
 test("create, edit, and delete refresh lists and detail caches", async (t) => {
@@ -204,4 +205,80 @@ test("every successful expense and payment change invalidates Activity; failures
   h.backend.createGroupExpense = async () => { throw new Error("Failed"); };
   await assert.rejects(h.actions.createExpense({ groupId: "trip" }));
   assert.equal(h.client.getQueryState(key).isInvalidated, false);
+});
+
+test("restored expense lists seed details without a network request", async (t) => {
+  const policy = loadModule("lib/query-client.ts");
+  const { createQueryPersistence } = loadModule("lib/query-persistence.ts", { "@/lib/query-client": policy });
+  const { persistQueryClientSave, persistQueryClientRestore } = require("@tanstack/react-query-persist-client");
+  let saved = null;
+  const storage = { getItem: async () => saved, setItem: async (_, value) => { saved = value; }, removeItem: async () => { saved = null; } };
+  const before = setup(t);
+  await loadLists(before);
+  const persistence = createQueryPersistence("alice", storage, () => true);
+  await persistQueryClientSave({ queryClient: before.client, ...persistence.persistOptions });
+  const after = setup(t, { getGroupExpense: async () => { throw new Error("Offline"); } });
+  await persistQueryClientRestore({ queryClient: after.client, ...persistence.persistOptions });
+  const detail = after.hooks.useGroupExpense("trip", "expense");
+  assert.equal(detail.data.id, "expense");
+  assert.equal(detail.dataUpdatedAt, before.client.getQueryState(before.options.expensesQueryOptions("alice", "trip").queryKey).dataUpdatedAt);
+  assert.deepEqual(after.reads, { members: 0, expenses: 0, payments: 0, detail: 0 });
+});
+
+test("unavailable unsaved group data explains that internet is needed", async (t) => {
+  const h = setup(t, { getGroupMembers: async () => { throw new Error("Offline"); } });
+  await h.hooks.useGroupMembers("unopened").refetch();
+  h.client.setDefaultOptions({ queries: { retry: false, retryOnMount: false } });
+  const result = h.hooks.useGroupMembers("unopened");
+  assert.equal(result.data, undefined);
+  assert.match(result.errorMessage, /not saved on this device.*Connect to the internet/);
+});
+
+test("an invalidated saved list still supplies expense details over repeated offline restarts", async (t) => {
+  const policy = loadModule("lib/query-client.ts");
+  const { createQueryPersistence } = loadModule("lib/query-persistence.ts", { "@/lib/query-client": policy });
+  const { persistQueryClientSave, persistQueryClientRestore } = require("@tanstack/react-query-persist-client");
+  let saved = null;
+  const storage = { getItem: async () => saved, setItem: async (_, value) => { saved = value; }, removeItem: async () => { saved = null; } };
+  const persistence = () => createQueryPersistence("alice", storage, () => true).persistOptions;
+  const before = setup(t);
+  await loadLists(before);
+  const listKey = before.options.expensesQueryOptions("alice", "trip").queryKey;
+  const original = before.client.getQueryData(listKey)[0];
+  await before.client.invalidateQueries({ queryKey: listKey, refetchType: "none" });
+  await persistQueryClientSave({ queryClient: before.client, ...persistence() });
+  for (let restart = 0; restart < 4; restart++) {
+    const offline = async () => { throw new Error('Error: fetch failed: java.net.UnknownHostException: Unable to resolve host "example.test"'); };
+    const h = setup(t, { getGroupExpense: offline, listGroupExpenses: offline, getGroupMembers: offline, listGroupPayments: offline });
+    await persistQueryClientRestore({ queryClient: h.client, ...persistence() });
+    const detail = h.hooks.useGroupExpense("trip", "expense");
+    assert.deepEqual(detail.data, original);
+    await Promise.all([detail.refetch(), h.hooks.useGroupExpenses("trip").refetch(), h.hooks.useGroupMembers("trip").refetch(), h.hooks.useGroupPayments("trip").refetch()]);
+    assert.deepEqual(h.hooks.useGroupExpense("trip", "expense").data, original);
+    assert.equal(h.hooks.useGroupExpense("trip", "expense").errorMessage, null);
+    await persistQueryClientSave({ queryClient: h.client, ...persistence() });
+  }
+});
+
+test("a failed detail query can recover from an invalidated list without reviving deletion markers", async (t) => {
+  const h = setup(t, { getGroupExpense: async () => { throw new Error("Offline"); } });
+  await loadLists(h);
+  const detailKey = h.options.expenseQueryOptions("alice", "trip", "expense").queryKey;
+  await assert.rejects(h.client.fetchQuery(h.options.expenseQueryOptions("alice", "trip", "expense")));
+  await h.client.invalidateQueries({ queryKey: h.options.expensesQueryOptions("alice", "trip").queryKey, refetchType: "none" });
+  assert.equal(h.hooks.useGroupExpense("trip", "expense").data.amountMinor, 10000);
+  h.client.setQueryData(detailKey, null);
+  assert.equal(h.hooks.useGroupExpense("trip", "expense").data, null);
+});
+
+test("cached reads hide native network failures while unsaved reads and permission failures remain explained", () => {
+  const { queryErrorMessage } = loadModule("lib/query-error.ts");
+  for (const message of ["TypeError: Network request failed", "Failed to fetch", "Error: fetch failed: java.net.UnknownHostException: Unable to resolve host example.test"]) {
+    assert.equal(queryErrorMessage({ message }, true), null);
+    assert.match(queryErrorMessage({ message }, false), /not saved.*Connect to the internet/);
+    assert.doesNotMatch(queryErrorMessage({ message }, false), /java|example.test|TypeError/);
+  }
+  assert.equal(queryErrorMessage(null, true, true), null);
+  assert.match(queryErrorMessage(null, false, true), /Connect to the internet/);
+  assert.equal(queryErrorMessage(new Error("You no longer have access to this group."), true), "You no longer have access to this group.");
 });

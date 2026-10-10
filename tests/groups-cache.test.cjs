@@ -53,6 +53,7 @@ function setup(t, overrides = {}) {
   });
   const options = loadModule("lib/groups-query.ts", { "@/lib/groups": backend });
   const hooks = loadModule("hooks/use-shared-groups.ts", {
+    "@/lib/query-error": loadModule("lib/query-error.ts", {}),
     "@/lib/refresh-activity": refreshActivity,
     "@/lib/groups": backend,
     "@/lib/groups-query": options,
@@ -108,7 +109,7 @@ test("manual refresh bypasses freshness and errors preserve cached data", async 
   const screen = h.hooks.useSharedGroups();
   assert.deepEqual(screen.groups, cached);
   assert.equal(screen.error, null);
-  assert.equal(screen.refreshError, "Offline");
+  assert.equal(screen.refreshError, null);
   assert.equal(screen.isLoading, false);
 });
 

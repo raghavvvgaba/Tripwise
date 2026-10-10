@@ -4,6 +4,7 @@ import { useCallback } from "react";
 
 import { activityQueryKey, activityQueryOptions } from "@/lib/activity-query";
 import { membersQueryOptions } from "@/lib/group-data-query";
+import { queryErrorMessage } from "@/lib/query-error";
 import { useAuthStore } from "@/store/use-auth-store";
 import { useSharedGroups } from "@/hooks/use-shared-groups";
 
@@ -59,8 +60,8 @@ export function useActivity() {
     isLoadingMore: query.isFetchingNextPage,
     isFetching: query.isFetching,
     hasMore: query.hasNextPage,
-    error: groups.error ?? groups.refreshError ?? (!query.isFetchNextPageError ? query.error?.message ?? null : null),
-    pageError: query.isFetchNextPageError ? query.error?.message ?? null : null,
+    error: groups.error ?? groups.refreshError ?? (!query.isFetchNextPageError ? queryErrorMessage(query.error, query.data !== undefined, query.fetchStatus === "paused") : null),
+    pageError: query.isFetchNextPageError ? queryErrorMessage(query.error, false) : null,
     refresh, loadMore,
   };
 }

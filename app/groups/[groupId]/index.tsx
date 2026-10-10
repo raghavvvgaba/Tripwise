@@ -192,9 +192,9 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
   const members = membersQuery.data ?? null;
   const expenses = expensesQuery.data ?? null;
   const payments = paymentsQuery.data ?? null;
-  const isLoadingMembers = membersQuery.isPending;
-  const isLoadingExpenses = expensesQuery.isPending;
-  const isLoadingPayments = paymentsQuery.isPending;
+  const isLoadingMembers = membersQuery.isPending && !membersQuery.errorMessage;
+  const isLoadingExpenses = expensesQuery.isPending && !expensesQuery.errorMessage;
+  const isLoadingPayments = paymentsQuery.isPending && !paymentsQuery.errorMessage;
   const memberError = membersQuery.errorMessage;
   const expenseError = expensesQuery.errorMessage;
   const paymentError = paymentsQuery.errorMessage;

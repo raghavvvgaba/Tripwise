@@ -3,6 +3,7 @@ import { useFocusEffect } from "expo-router";
 import { useCallback } from "react";
 
 import { expenseQueryOptions, expensesQueryOptions, membersQueryOptions, paymentsQueryOptions } from "@/lib/group-data-query";
+import { queryErrorMessage } from "@/lib/query-error";
 import { useAuthStore } from "@/store/use-auth-store";
 import type { SharedExpense } from "@/types/shared-expense";
 
@@ -17,7 +18,9 @@ function useCachedGroupQuery<T, K extends QueryKey>(options: UseQueryOptions<T, 
     void client.refetchQueries({ queryKey: JSON.parse(key), exact: true, stale: true, type: "active" }, { cancelRefetch: false });
   }, [client, key, canLoad]));
 
-  return { ...query, errorMessage: query.error?.message ?? null };
+  const errorMessage = queryErrorMessage(query.error, query.data !== undefined,
+    canLoad && query.fetchStatus === "paused");
+  return { ...query, errorMessage };
 }
 
 export function useGroupMembers(groupId: string, enabled = true) {
@@ -40,9 +43,11 @@ export function useGroupExpense(groupId: string, expenseId: string) {
   const client = useQueryClient();
   const listKey = expensesQueryOptions(userId, groupId).queryKey;
   const listState = client.getQueryState<SharedExpense[]>(listKey);
-  const cachedExpense = listState?.isInvalidated ? undefined : listState?.data?.find((expense) => expense.id === expenseId);
+  const cachedExpense = listState?.data?.find((expense) => expense.id === expenseId);
   return useCachedGroupQuery({
     ...expenseQueryOptions(userId, groupId, expenseId),
+    // Invalidation means refresh is needed; the saved result is still usable offline.
+    ...(listState?.isInvalidated ? { staleTime: 0 } : {}),
     initialData: cachedExpense,
     initialDataUpdatedAt: cachedExpense ? listState?.dataUpdatedAt : undefined,
   });

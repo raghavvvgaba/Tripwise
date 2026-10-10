@@ -15,7 +15,7 @@ function loadModule(file, dependencies = {}) {
   return module.exports;
 }
 const policy = loadModule("lib/query-client.ts");
-const { createGroupsPersistence } = loadModule("lib/groups-persistence.ts", { "@/lib/query-client": policy });
+const { createQueryPersistence } = loadModule("lib/query-persistence.ts", { "@/lib/query-client": policy });
 const group = { id: "trip", name: "Trip", currency: "INR", coverPath: null,
   coverThumbnailPath: null, deletedAt: null, createdAt: "2026-10-08" };
 
@@ -31,7 +31,7 @@ function setup(t) {
   t.after(() => clients.forEach((client) => client.clear()));
   return { values, storage,
     client: () => { const client = policy.createQueryClient(); clients.push(client); return client; },
-    persistence: (userId = "alice") => createGroupsPersistence(userId, storage, () => userId === currentUser),
+    persistence: (userId = "alice") => createQueryPersistence(userId, storage, () => userId === currentUser),
     switchUser: (id) => { currentUser = id; },
   };
 }
@@ -59,7 +59,7 @@ test("restart restores only this account's groups, with original freshness and 2
   assert.equal(restored.getQueryData(["groups", "bob"]), undefined);
   assert.equal(restored.getQueryState(["groups", "alice"]).dataUpdatedAt,
     client.getQueryState(["groups", "alice"]).dataUpdatedAt);
-  assert.equal(restored.getQueryCache().find({ queryKey: ["groups", "alice"] }).gcTime, policy.GROUPS_CACHE_MAX_AGE);
+  assert.equal(restored.getQueryCache().find({ queryKey: ["groups", "alice"] }).gcTime, policy.OFFLINE_CACHE_MAX_AGE);
   let reads = 0;
   await restored.fetchQuery({ queryKey: ["groups", "alice"], queryFn: async () => { reads++; throw new Error("Offline"); } });
   assert.equal(reads, 0);
@@ -84,7 +84,7 @@ test("expired snapshots and changed cache versions are removed", async (t) => {
   const h = setup(t);
   const { key } = await seed(h);
   const original = h.values.get(key);
-  for (const change of [{ timestamp: Date.now() - policy.GROUPS_CACHE_MAX_AGE - 1 }, { buster: "older-version" }]) {
+  for (const change of [{ timestamp: Date.now() - policy.OFFLINE_CACHE_MAX_AGE - 1 }, { buster: "older-version" }]) {
     h.values.set(key, JSON.stringify({ ...JSON.parse(original), ...change }));
     const restored = h.client();
     await persistQueryClientRestore(options(restored, h.persistence()));
@@ -97,7 +97,7 @@ test("a recently saved snapshot cannot extend an old groups result's expiry", as
   const h = setup(t);
   const { key } = await seed(h);
   const snapshot = JSON.parse(h.values.get(key));
-  snapshot.clientState.queries[0].state.dataUpdatedAt = Date.now() - policy.GROUPS_CACHE_MAX_AGE - 1;
+  snapshot.clientState.queries[0].state.dataUpdatedAt = Date.now() - policy.OFFLINE_CACHE_MAX_AGE - 1;
   h.values.set(key, JSON.stringify(snapshot));
   const restored = h.client();
   await persistQueryClientRestore(options(restored, h.persistence()));
@@ -189,7 +189,7 @@ test("provider gates screens until restore and its auth listener clears memory a
   let restoring = true;
   const { QueryProvider } = loadModule("components/query-provider.tsx", {
     "@react-native-async-storage/async-storage": { __esModule: true, default: h.storage },
-    "@/lib/groups-persistence": { createGroupsPersistence },
+    "@/lib/query-persistence": { createQueryPersistence },
     "@/lib/query-client": { createQueryClient: () => client },
     "@/store/use-auth-store": { useAuthStore: {
       getState: () => ({ session: currentUser ? { user: { id: currentUser } } : null }),
@@ -207,11 +207,80 @@ test("provider gates screens until restore and its auth listener clears memory a
   restoring = false;
   assert.equal(gate.type(gate.props), "screens");
   client.setQueryData(["groups", "alice"], [group]);
+  client.setQueryData(["group-data", "alice", "trip", "members"], [{ userId: "alice" }]);
   await persistQueryClientSave({ queryClient: client, ...element.props.persistOptions });
   assert.equal(h.values.size, 1);
   currentUser = null;
   listeners.forEach((listener) => listener());
   assert.equal(client.getQueryData(["groups", "alice"]), undefined);
+  assert.equal(client.getQueryData(["group-data", "alice", "trip", "members"]), undefined);
   await element.props.persistOptions.persister.restoreClient();
   assert.equal(h.values.size, 0);
+});
+
+test("group lists restore across restarts, preserve balances, and exclude details and other accounts", async (t) => {
+  const h = setup(t);
+  const client = h.client();
+  const members = [{ userId: "alice", name: "Alice" }, { userId: "bob", name: "Bob" }];
+  const expenses = [{ id: "dinner", amountMinor: 10000, paidById: "alice",
+    shares: [{ userId: "alice", amountMinor: 5000 }, { userId: "bob", amountMinor: 5000 }] }];
+  const payments = [{ id: "payment", payerId: "bob", recipientId: "alice", amountMinor: 2000 }];
+  const lists = { members, expenses, payments };
+  const key = (kind, user = "alice", groupId = "trip") => ["group-data", user, groupId, kind];
+  for (const [kind, data] of Object.entries(lists)) client.setQueryData(key(kind), data);
+  client.setQueryData(key("payments", "alice", "empty-trip"), []);
+  client.setQueryData(key("members", "bob"), members);
+  client.setQueryData([...key("expenses"), "dinner"], expenses[0]);
+  client.setQueryData(key("invites"), ["private-token"]);
+  await persistQueryClientSave(options(client, h.persistence()));
+  const restored = h.client();
+  await persistQueryClientRestore(options(restored, h.persistence()));
+  for (const [kind, data] of Object.entries(lists)) {
+    assert.deepEqual(restored.getQueryData(key(kind)), data);
+    assert.equal(restored.getQueryState(key(kind)).dataUpdatedAt, client.getQueryState(key(kind)).dataUpdatedAt);
+    assert.equal(restored.getQueryCache().find({ queryKey: key(kind), exact: true }).gcTime, policy.OFFLINE_CACHE_MAX_AGE);
+  }
+  assert.deepEqual(restored.getQueryData(key("payments", "alice", "empty-trip")), []);
+  assert.equal(restored.getQueryData(key("members", "bob")), undefined);
+  assert.equal(restored.getQueryData([...key("expenses"), "dinner"]), undefined);
+  assert.equal(restored.getQueryData(key("invites")), undefined);
+  assert.equal(restored.getQueryData(key("expenses", "alice", "unopened")), undefined);
+  const { getSharedMemberBalances } = loadModule("utils/shared-expenses.ts");
+  assert.deepEqual(getSharedMemberBalances(...Object.keys(lists).map((kind) => restored.getQueryData(key(kind)))),
+    getSharedMemberBalances(members, expenses, payments));
+  assert.deepEqual(getSharedMemberBalances(members, expenses, payments).map((balance) => balance.netMinor), [3000, -3000]);
+});
+
+test("offline refresh failures preserve every group list through repeated restarts", async (t) => {
+  const h = setup(t);
+  let client = h.client();
+  const kinds = ["members", "expenses", "payments"];
+  for (const kind of kinds) client.setQueryData(["group-data", "alice", "trip", kind], [{ id: kind }]);
+  for (let restart = 0; restart < 2; restart++) {
+    for (const kind of kinds) await assert.rejects(client.fetchQuery({
+      queryKey: ["group-data", "alice", "trip", kind], staleTime: 0, retry: false,
+      queryFn: async () => { throw new Error("Offline"); },
+    }));
+    await persistQueryClientSave(options(client, h.persistence()));
+    client = h.client();
+    await persistQueryClientRestore(options(client, h.persistence()));
+    for (const kind of kinds) {
+      assert.deepEqual(client.getQueryData(["group-data", "alice", "trip", kind]), [{ id: kind }]);
+      assert.equal(client.getQueryState(["group-data", "alice", "trip", kind]).status, "success");
+    }
+  }
+});
+
+test("each group list expires independently of freshly saved groups", async (t) => {
+  const h = setup(t);
+  const client = h.client();
+  client.setQueryData(["groups", "alice"], [group]);
+  client.setQueryData(["group-data", "alice", "trip", "expenses"], [], { updatedAt: Date.now() - policy.OFFLINE_CACHE_MAX_AGE - 1 });
+  client.setQueryData(["group-data", "alice", "trip", "members"], []);
+  await persistQueryClientSave(options(client, h.persistence()));
+  const restored = h.client();
+  await persistQueryClientRestore(options(restored, h.persistence()));
+  assert.deepEqual(restored.getQueryData(["groups", "alice"]), [group]);
+  assert.equal(restored.getQueryData(["group-data", "alice", "trip", "expenses"]), undefined);
+  assert.deepEqual(restored.getQueryData(["group-data", "alice", "trip", "members"]), []);
 });
