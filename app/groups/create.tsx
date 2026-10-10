@@ -101,21 +101,21 @@ export default function CreateGroupScreen() {
           accessibilityRole="button"
           onPress={() => router.back()}
           style={{ backgroundColor: clay.headerBtn, borderColor: clay.cardBorder }}
-          className="h-11 w-11 items-center justify-center rounded-2xl border active:opacity-75"
+          className="h-11 w-11 shrink-0 items-center justify-center rounded-2xl border active:opacity-75"
         >
           <Ionicons name="close" size={22} color={clay.textPrimary} />
         </Pressable>
 
-        <View className="items-center">
+        <View className="min-w-0 flex-1 items-center px-3">
           <Text style={{ color: clay.textMuted }} className="text-[11px] font-bold uppercase tracking-widest">
             New Group
           </Text>
-          <Text style={{ color: clay.textPrimary }} className="text-base font-extrabold">
+          <Text style={{ color: clay.textPrimary }} className="text-center text-base font-extrabold">
             Create Bill Group
           </Text>
         </View>
 
-        <View className="h-11 w-11" />
+        <View className="h-11 w-11 shrink-0" />
       </View>
 
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} className="flex-1">
@@ -141,8 +141,10 @@ export default function CreateGroupScreen() {
                   borderColor: clay.cardBorder,
                   color: clay.textPrimary,
                 }}
-                className="h-14 rounded-2xl border px-4 text-base font-bold"
-                placeholder="e.g. Manali Trip, Flatmates, Weekend Brunch"
+                className="min-h-14 rounded-2xl border px-4 py-3 text-base font-bold"
+                multiline={false}
+                numberOfLines={1}
+                placeholder="e.g. Manali Trip"
                 placeholderTextColor={clay.textMuted}
                 value={name}
                 onChangeText={setName}
@@ -163,16 +165,16 @@ export default function CreateGroupScreen() {
                   backgroundColor: clay.squircle,
                   borderColor: clay.cardBorder,
                 }}
-                className="h-14 flex-row items-center justify-between rounded-2xl border px-4 active:opacity-80"
+                className="min-h-14 flex-row items-center justify-between gap-3 rounded-2xl border px-4 py-3 active:opacity-80"
               >
-                <View className="flex-1 flex-row items-center gap-3">
+                <View className="min-w-0 flex-1 flex-row items-center gap-3">
                   <Text style={{ color: clay.textPrimary }} className="text-lg font-black">
                     {selectedCurrency.symbol}
                   </Text>
                   <Text style={{ color: clay.textPrimary }} className="text-sm font-black">
                     {selectedCurrency.code}
                   </Text>
-                  <Text style={{ color: clay.textMuted }} className="flex-1 text-xs" numberOfLines={1}>
+                  <Text style={{ color: clay.textMuted }} className="min-w-0 flex-1 text-xs" numberOfLines={1}>
                     {selectedCurrency.label}
                   </Text>
                 </View>
@@ -191,14 +193,14 @@ export default function CreateGroupScreen() {
             accessibilityLabel="Create group"
             disabled={!name.trim() || isSaving}
             onPress={() => void handleCreate()}
-            className="h-14 flex-row items-center justify-center gap-2 rounded-2xl bg-[#F5D298] px-5 shadow-sm active:opacity-75 disabled:opacity-40"
+            className="min-h-14 flex-row items-center justify-center gap-2 rounded-2xl bg-[#F5D298] px-5 py-3 shadow-sm active:opacity-75 disabled:opacity-40"
           >
             {isSaving ? (
               <ActivityIndicator color={clay.heroText} />
             ) : (
               <>
                 <Ionicons name="add" size={22} color={clay.heroText} />
-                <Text style={{ color: clay.heroText }} className="text-base font-extrabold">
+                <Text style={{ color: clay.heroText }} className="shrink text-center text-base font-extrabold">
                   Create Group
                 </Text>
               </>
