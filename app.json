@@ -9,9 +9,9 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/tripwise-icon-dark.png",
+      "image": "./assets/tripwise-icon-light.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0F1115"
+      "backgroundColor": "#ECE9F5"
     },
     "ios": {
       "supportsTablet": true,
@@ -48,7 +48,7 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/tripwise-icon-foreground.png",
         "monochromeImage": "./assets/tripwise-icon-foreground.png",
-        "backgroundColor": "#111416"
+        "backgroundColor": "#0E0C18"
       }
     },
     "web": {
@@ -68,12 +68,12 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#F7F7F8",
+          "backgroundColor": "#ECE9F5",
           "image": "./assets/tripwise-icon-light.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "dark": {
-            "backgroundColor": "#0F1115",
+            "backgroundColor": "#0E0C18",
             "image": "./assets/tripwise-icon-dark.png"
           }
         }
