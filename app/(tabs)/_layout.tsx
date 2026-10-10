@@ -3,6 +3,8 @@ import { Tabs } from "expo-router";
 import { Platform } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { AnimatedTabBar, AnimatedTabButton } from "@/components/animated-tab-bar";
+
 import { useClayTheme } from "@/constants/clay-theme";
 
 export default function TabsLayout() {
@@ -14,9 +16,13 @@ export default function TabsLayout() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: clay.canvas }} edges={["top"]}>
       <Tabs
+        tabBar={(props) => <AnimatedTabBar {...props} />}
+        backBehavior={Platform.OS === "android" ? "firstRoute" : undefined}
         screenOptions={{
           headerShown: false,
           tabBarHideOnKeyboard: true,
+          tabBarButton: (props) => <AnimatedTabButton {...props} />,
+          tabBarLabelPosition: "below-icon",
           tabBarActiveTintColor: clay.isDark ? "#F5D298" : "#2C254E",
           tabBarInactiveTintColor: clay.textMuted,
           tabBarStyle: {
