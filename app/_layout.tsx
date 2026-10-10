@@ -88,7 +88,7 @@ export default function RootLayout() {
 
   return (
     <QueryProvider key={session?.user.id ?? "signed-out"}>
-      <View className="flex-1 bg-canvas" style={themeVariables[scheme]}>
+      <View key="themed-app-root" className="flex-1 bg-canvas" style={themeVariables[scheme]}>
         <StatusBar style={scheme === "dark" ? "light" : "dark"} />
         <ThemeProvider value={navigationTheme}>
           {Platform.OS === "web" && session ? <WebAppShell>{screens}</WebAppShell> : screens}
