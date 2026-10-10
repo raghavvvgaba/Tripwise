@@ -208,12 +208,14 @@ test("provider gates screens until restore and its auth listener clears memory a
   assert.equal(gate.type(gate.props), "screens");
   client.setQueryData(["groups", "alice"], [group]);
   client.setQueryData(["group-data", "alice", "trip", "members"], [{ userId: "alice" }]);
+  client.setQueryData(["activity", "alice"], { pages: [{ events: [], hasMore: false }], pageParams: [0] });
   await persistQueryClientSave({ queryClient: client, ...element.props.persistOptions });
   assert.equal(h.values.size, 1);
   currentUser = null;
   listeners.forEach((listener) => listener());
   assert.equal(client.getQueryData(["groups", "alice"]), undefined);
   assert.equal(client.getQueryData(["group-data", "alice", "trip", "members"]), undefined);
+  assert.equal(client.getQueryData(["activity", "alice"]), undefined);
   await element.props.persistOptions.persister.restoreClient();
   assert.equal(h.values.size, 0);
 });
@@ -283,4 +285,129 @@ test("each group list expires independently of freshly saved groups", async (t) 
   assert.deepEqual(restored.getQueryData(["groups", "alice"]), [group]);
   assert.equal(restored.getQueryData(["group-data", "alice", "trip", "expenses"]), undefined);
   assert.deepEqual(restored.getQueryData(["group-data", "alice", "trip", "members"]), []);
+});
+
+function activityBackend() {
+  let events = Array.from({ length: 45 }, (_, i) => ({ id: `event-${i}`, groupId: "trip", actorId: "alice", eventType: "expense_added" }));
+  let offline = false;
+  const reads = [];
+  const activity = loadModule("lib/activity-query.ts", { "@/lib/activity": { listGroupActivity: async (offset) => {
+    reads.push(offset);
+    if (offline) throw new Error("Offline");
+    return { events: events.slice(offset, offset + 20), hasMore: offset + 20 < events.length };
+  } } });
+  return { reads,
+    options: () => ({ ...activity.activityQueryOptions("alice"), retry: false }),
+    setOffline: (value) => { offline = value; },
+    prepend: () => { events = [{ id: "new-event", groupId: "trip", actorId: "alice", eventType: "expense_added" }, ...events]; },
+  };
+}
+
+test("Activity restores all loaded pages and offsets with account isolation and original freshness", async (t) => {
+  const h = setup(t);
+  const backend = activityBackend();
+  const client = h.client();
+  await client.fetchInfiniteQuery(backend.options());
+  const { InfiniteQueryObserver } = require("@tanstack/react-query");
+  const observer = new InfiniteQueryObserver(client, backend.options());
+  await observer.fetchNextPage();
+  const data = client.getQueryData(["activity", "alice"]);
+  client.setQueryData(["groups", "alice"], [group]);
+  client.setQueryData(["activity", "bob"], data);
+  client.setQueryData(["activity", "alice", "unapproved-suffix"], data);
+  await persistQueryClientSave(options(client, h.persistence()));
+  const restored = h.client();
+  await persistQueryClientRestore(options(restored, h.persistence()));
+  assert.deepEqual(restored.getQueryData(["activity", "alice"]), data);
+  assert.deepEqual(data.pageParams, [0, 20]);
+  assert.equal(data.pages.flatMap((page) => page.events).length, 40);
+  assert.deepEqual(restored.getQueryData(["groups", "alice"]), [group]);
+  assert.equal(restored.getQueryData(["activity", "bob"]), undefined);
+  assert.equal(restored.getQueryData(["activity", "alice", "unapproved-suffix"]), undefined);
+  assert.equal(restored.getQueryState(["activity", "alice"]).dataUpdatedAt, client.getQueryState(["activity", "alice"]).dataUpdatedAt);
+  assert.equal(restored.getQueryCache().find({ queryKey: ["activity", "alice"], exact: true }).gcTime, policy.OFFLINE_CACHE_MAX_AGE);
+  backend.setOffline(true);
+  await restored.fetchInfiniteQuery(backend.options());
+  assert.deepEqual(backend.reads, [0, 20]);
+});
+
+test("failed Activity load-more and refresh preserve saved pages through four offline restarts, then reconnect", async (t) => {
+  const h = setup(t);
+  const backend = activityBackend();
+  const { InfiniteQueryObserver } = require("@tanstack/react-query");
+  let client = h.client();
+  await client.fetchInfiniteQuery(backend.options());
+  await new InfiniteQueryObserver(client, backend.options()).fetchNextPage();
+  const original = client.getQueryData(["activity", "alice"]);
+  const updatedAt = client.getQueryState(["activity", "alice"]).dataUpdatedAt;
+  backend.setOffline(true);
+  for (let restart = 0; restart < 4; restart++) {
+    const observer = new InfiniteQueryObserver(client, backend.options());
+    await observer.fetchNextPage();
+    assert.equal(observer.getCurrentResult().isFetchNextPageError, true);
+    await observer.refetch();
+    assert.equal(observer.getCurrentResult().isRefetchError, true);
+    await persistQueryClientSave(options(client, h.persistence()));
+    client = h.client();
+    await persistQueryClientRestore(options(client, h.persistence()));
+    assert.deepEqual(client.getQueryData(["activity", "alice"]), original);
+    assert.equal(client.getQueryState(["activity", "alice"]).dataUpdatedAt, updatedAt);
+    assert.equal(client.getQueryState(["activity", "alice"]).status, "success");
+  }
+  backend.setOffline(false);
+  backend.prepend();
+  const observer = new InfiniteQueryObserver(client, backend.options());
+  await observer.refetch();
+  assert.equal(observer.getCurrentResult().data.pages[0].events[0].id, "new-event");
+  assert.deepEqual(backend.reads.slice(-2), [0, 20]);
+  await observer.fetchNextPage();
+  assert.equal(backend.reads.at(-1), 40);
+  const events = observer.getCurrentResult().data.pages.flatMap((page) => page.events);
+  assert.equal(events.length, 46);
+  assert.equal(new Set(events.map((event) => event.id)).size, 46);
+  assert.equal(observer.getCurrentResult().hasNextPage, false);
+});
+
+test("Activity expiry is independent of snapshot saves and newer group data", async (t) => {
+  const h = setup(t);
+  const { client, key } = await seed(h);
+  const snapshot = JSON.parse(h.values.get(key));
+  snapshot.clientState.queries.push({ ...snapshot.clientState.queries[0], queryKey: ["activity", "alice"],
+    queryHash: JSON.stringify(["activity", "alice"]), state: { ...snapshot.clientState.queries[0].state,
+      data: { pages: [{ events: [], hasMore: false }], pageParams: [0] }, dataUpdatedAt: Date.now() - policy.OFFLINE_CACHE_MAX_AGE - 1 } });
+  h.values.set(key, JSON.stringify(snapshot));
+  const restored = h.client();
+  await persistQueryClientRestore(options(restored, h.persistence()));
+  assert.equal(restored.getQueryData(["activity", "alice"]), undefined);
+  assert.deepEqual(restored.getQueryData(["groups", "alice"]), [group]);
+  client.setQueryData(["activity", "alice"], { pages: [{ events: [], hasMore: false }], pageParams: [0] },
+    { updatedAt: Date.now() - policy.OFFLINE_CACHE_MAX_AGE - 1 });
+  await persistQueryClientSave(options(client, h.persistence()));
+  assert.equal(JSON.parse(h.values.get(key)).clientState.queries.some((query) => query.queryKey[0] === "activity"), false);
+});
+
+test("malformed Activity pages are discarded without losing other saved data; an empty timeline restores", async (t) => {
+  const h = setup(t);
+  const { key } = await seed(h);
+  const original = h.values.get(key);
+  const invalid = [[], { pages: [], pageParams: [] }, { pages: [{ events: [], hasMore: false }], pageParams: [] },
+    { pages: [null], pageParams: [0] }, { pages: [{ events: null, hasMore: true }], pageParams: [0] },
+    { pages: [{ events: [], hasMore: false }], pageParams: [-1] }];
+  for (const data of invalid) {
+    const snapshot = JSON.parse(original);
+    snapshot.clientState.queries.push({ ...snapshot.clientState.queries[0], queryKey: ["activity", "alice"],
+      queryHash: JSON.stringify(["activity", "alice"]), state: { ...snapshot.clientState.queries[0].state, data } });
+    h.values.set(key, JSON.stringify(snapshot));
+    const restored = h.client();
+    await persistQueryClientRestore(options(restored, h.persistence()));
+    assert.equal(restored.getQueryData(["activity", "alice"]), undefined);
+    assert.deepEqual(restored.getQueryData(["groups", "alice"]), [group]);
+  }
+  const client = h.client();
+  const empty = { pages: [{ events: [], hasMore: false }], pageParams: [0] };
+  client.setQueryData(["activity", "alice"], empty);
+  await persistQueryClientSave(options(client, h.persistence()));
+  const restored = h.client();
+  await persistQueryClientRestore(options(restored, h.persistence()));
+  assert.deepEqual(restored.getQueryData(["activity", "alice"]), empty);
 });

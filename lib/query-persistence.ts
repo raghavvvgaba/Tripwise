@@ -26,13 +26,22 @@ export function createQueryPersistence(userId: string, storage: CacheStorage, is
   const key = `tripwise:query-cache:v1:${userId}`;
   let removed = false;
   const canUseCache = () => !removed && isCurrentAccount();
-  // Persist lists only; expense details reuse the saved expense list.
+  // Persist lists and the loaded Activity pages; expense details reuse their list.
   const isPersistedKey = (queryKey: readonly unknown[]) => {
     if (queryKey[1] !== userId) return false;
-    if (queryKey[0] === "groups") return queryKey.length === 2;
+    if (queryKey[0] === "groups" || queryKey[0] === "activity") return queryKey.length === 2;
     return queryKey[0] === "group-data" && queryKey.length === 4 &&
       typeof queryKey[2] === "string" && queryKey[2].length > 0 &&
       (queryKey[3] === "members" || queryKey[3] === "expenses" || queryKey[3] === "payments");
+  };
+  const isPersistedData = (queryKey: readonly unknown[], data: unknown) => {
+    if (queryKey[0] !== "activity") return Array.isArray(data);
+    if (!data || typeof data !== "object" || !("pages" in data) || !("pageParams" in data)) return false;
+    return Array.isArray(data.pages) && Array.isArray(data.pageParams) && data.pages.length > 0 &&
+      data.pages.length === data.pageParams.length &&
+      data.pageParams.every((offset) => Number.isInteger(offset) && offset >= 0) &&
+      data.pages.every((page: unknown) => page !== null && typeof page === "object" &&
+        "events" in page && Array.isArray(page.events) && "hasMore" in page && typeof page.hasMore === "boolean");
   };
   const isUnexpired = (updatedAt: number) =>
     Number.isFinite(updatedAt) && updatedAt > 0 && Date.now() - updatedAt <= OFFLINE_CACHE_MAX_AGE;
@@ -40,7 +49,7 @@ export function createQueryPersistence(userId: string, storage: CacheStorage, is
     shouldDehydrateMutation: () => false,
     // A failed background refresh still has the last successful result.
     shouldDehydrateQuery: (query: Query) => isPersistedKey(query.queryKey) &&
-      query.state.data !== undefined && isUnexpired(query.state.dataUpdatedAt),
+      isPersistedData(query.queryKey, query.state.data) && isUnexpired(query.state.dataUpdatedAt),
   };
   const persister = createAsyncStoragePersister({
     key,
@@ -71,7 +80,7 @@ export function createQueryPersistence(userId: string, storage: CacheStorage, is
       }
       return { ...snapshot, clientState: { mutations: [], queries: snapshot.clientState.queries.filter((query) =>
         Array.isArray(query.queryKey) && isPersistedKey(query.queryKey) &&
-        Array.isArray(query.state?.data) && isUnexpired(query.state.dataUpdatedAt)
+        isPersistedData(query.queryKey, query.state?.data) && isUnexpired(query.state.dataUpdatedAt)
       ) } };
     },
   });

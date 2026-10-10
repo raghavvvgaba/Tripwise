@@ -14,5 +14,6 @@ export function createQueryClient() {
   });
   client.setQueryDefaults(["groups"], { gcTime: OFFLINE_CACHE_MAX_AGE });
   client.setQueryDefaults(["group-data"], { gcTime: OFFLINE_CACHE_MAX_AGE });
+  client.setQueryDefaults(["activity"], { gcTime: OFFLINE_CACHE_MAX_AGE });
   return client;
 }

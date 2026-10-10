@@ -53,14 +53,17 @@ export function useActivity() {
     if (query.hasNextPage && !query.isFetching) return query.fetchNextPage({ cancelRefetch: false });
   }
 
+  const error = groups.error ?? groups.refreshError ?? (!query.isFetchNextPageError
+    ? queryErrorMessage(query.error, query.data !== undefined, query.fetchStatus === "paused") : null);
+
   return {
     items,
-    isLoading: !!userId && (query.isPending || groups.isLoading),
+    isLoading: !!userId && (query.isPending || groups.isLoading) && !error,
     isRefreshing: query.isRefetching || groups.isRefreshing,
     isLoadingMore: query.isFetchingNextPage,
     isFetching: query.isFetching,
     hasMore: query.hasNextPage,
-    error: groups.error ?? groups.refreshError ?? (!query.isFetchNextPageError ? queryErrorMessage(query.error, query.data !== undefined, query.fetchStatus === "paused") : null),
+    error,
     pageError: query.isFetchNextPageError ? queryErrorMessage(query.error, false) : null,
     refresh, loadMore,
   };
