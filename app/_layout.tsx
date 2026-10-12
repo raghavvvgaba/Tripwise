@@ -1,6 +1,6 @@
 import "../global.css";
 
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 import { Platform, useColorScheme, View } from "react-native";
 import { DarkTheme, DefaultTheme, ThemeProvider } from "expo-router";
 import { Stack } from "expo-router/stack";
@@ -10,10 +10,24 @@ import { colorScheme as nativeWindColorScheme } from "nativewind";
 
 import { useAuthStore } from "@/store/use-auth-store";
 import { QueryProvider } from "@/components/query-provider";
+import { OfflineBanner } from "@/components/offline-banner";
+import { initializeNetworkMonitoring } from "@/lib/network";
 import { useSettingsStore } from "@/store/use-settings-store";
 import { WebAppShell } from "@/components/web-app-shell";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { resolveTheme, themeColors, themeVariables } from "@/constants/theme";
+
+initializeNetworkMonitoring();
+
+// Screen layouts also wrap native modal routes.
+function screenLayout({ children, route }: { children: ReactNode; route: { name: string } }) {
+  return (
+    <View className="flex-1">
+      {children}
+      <OfflineBanner topOffset={route.name === "(tabs)" ? 0 : 48} />
+    </View>
+  );
+}
 
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -58,6 +72,7 @@ export default function RootLayout() {
 
   const screens = (
       <Stack
+        screenLayout={screenLayout}
         screenOptions={{
           headerShadowVisible: false,
           headerStyle: { backgroundColor: colors.canvas },

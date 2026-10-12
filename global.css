@@ -3,6 +3,14 @@
 @tailwind utilities;
 
 @layer components {
+  .offline-banner {
+    @apply absolute z-50;
+  }
+
+  .offline-banner__content {
+    @apply flex-row items-center gap-1.5 rounded-full border bg-brand-50 px-2.5 py-1 shadow-sm;
+  }
+
   .route-modal {
     @apply absolute inset-0 items-center justify-center bg-black/40 p-4 md:p-8;
     animation: route-modal-backdrop-in 220ms ease-out both;

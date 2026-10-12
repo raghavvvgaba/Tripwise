@@ -173,3 +173,25 @@ test("group changes invalidate the account's Activity cache", async (t) => {
     assert.equal(h.client.getQueryState(key).isInvalidated, true);
   }
 });
+
+test("offline groups without saved data show the connection message and resume on reconnect", async (t) => {
+  const h = setup(t);
+  h.client.mount();
+  t.after(() => { h.client.unmount(); query.onlineManager.setOnline(true); });
+  query.onlineManager.setOnline(false);
+  const pending = h.hooks.useSharedGroups().loadGroups();
+  await new Promise((resolve) => setImmediate(resolve));
+  const screen = h.hooks.useSharedGroups();
+  assert.equal(h.client.getQueryState(["groups", "alice"]).fetchStatus, "paused");
+  assert.equal(screen.isLoading, false);
+  assert.equal(screen.isRefreshing, false);
+  assert.match(screen.error, /not saved on this device.*Connect to the internet/);
+  assert.equal(h.reads(), 0);
+  query.onlineManager.setOnline(true);
+  await pending;
+  const reconnected = h.hooks.useSharedGroups();
+  assert.equal(reconnected.groups.length, 1);
+  assert.equal(reconnected.error, null);
+  assert.equal(reconnected.isLoading, false);
+  assert.equal(h.reads(), 1);
+});

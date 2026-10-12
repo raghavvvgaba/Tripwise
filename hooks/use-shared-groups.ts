@@ -32,12 +32,14 @@ export function useSharedGroups() {
     if (userId) void loadGroups().catch(() => undefined);
   }, [loadGroups, userId]));
 
+  const error = query.data === undefined ? queryErrorMessage(query.error, false, query.fetchStatus === "paused") : null;
+
   return {
     groups: query.data ?? emptyGroups,
     userId,
-    isLoading: !!userId && query.isPending,
+    isLoading: !!userId && query.isPending && !error,
     isRefreshing: query.isFetching && !query.isPending,
-    error: query.data === undefined ? queryErrorMessage(query.error, false, query.fetchStatus === "paused") : null,
+    error,
     refreshError: query.data !== undefined ? queryErrorMessage(query.error, true) : null,
     loadGroups,
   };
