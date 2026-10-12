@@ -316,7 +316,7 @@ export default function SignInScreen() {
                   placeholder="••••••••"
                   placeholderTextColor={clay.textMuted}
                   // Let Android retain its native reveal span instead of rewriting text on each keystroke.
-                  defaultValue=""
+                  defaultValue={Platform.OS === "android" ? "" : undefined}
                   value={Platform.OS === "android" ? undefined : password}
                   onChangeText={setPassword}
                   editable={!isSubmitting && !isGoogleSubmitting}
