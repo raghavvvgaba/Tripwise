@@ -30,7 +30,8 @@ export default function TabsLayout() {
             borderTopColor: clay.cardBorder,
             borderTopWidth: 1,
             elevation: 8,
-            height: 56 + bottomInset,
+            // Keep 56 points for the tab controls after the top padding.
+            height: 64 + bottomInset,
             paddingTop: 8,
             paddingBottom: bottomInset,
           },
