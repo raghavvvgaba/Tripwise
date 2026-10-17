@@ -11,6 +11,7 @@ import { colorScheme as nativeWindColorScheme } from "nativewind";
 import { useAuthStore } from "@/store/use-auth-store";
 import { QueryProvider } from "@/components/query-provider";
 import { OfflineBanner } from "@/components/offline-banner";
+import { UpdateBanner } from "@/components/update-banner";
 import { initializeNetworkMonitoring } from "@/lib/network";
 import { useSettingsStore } from "@/store/use-settings-store";
 import { WebAppShell } from "@/components/web-app-shell";
@@ -107,6 +108,7 @@ export default function RootLayout() {
         <StatusBar style={scheme === "dark" ? "light" : "dark"} />
         <ThemeProvider value={navigationTheme}>
           {Platform.OS === "web" && session ? <WebAppShell>{screens}</WebAppShell> : screens}
+          <UpdateBanner />
           <ConfirmDialog />
         </ThemeProvider>
       </View>

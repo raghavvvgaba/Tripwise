@@ -3,6 +3,26 @@
 @tailwind utilities;
 
 @layer components {
+  .update-banner {
+    @apply absolute z-40 items-center;
+  }
+
+  .update-banner__card {
+    @apply w-full max-w-md gap-3 rounded-2xl border border-line bg-surface p-4 shadow-lg;
+  }
+
+  .update-banner__icon {
+    @apply h-10 w-10 items-center justify-center rounded-xl bg-brand-50;
+  }
+
+  .update-banner__later {
+    @apply min-h-11 items-center justify-center rounded-xl border border-line px-4 active:opacity-70;
+  }
+
+  .update-banner__restart {
+    @apply min-h-11 items-center justify-center rounded-xl bg-brand-600 px-4 active:opacity-70;
+  }
+
   .offline-banner {
     @apply absolute z-50;
   }
