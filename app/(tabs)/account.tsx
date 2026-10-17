@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { UpdateBanner } from "@/components/update-banner";
 import { useClayTheme } from "@/constants/clay-theme";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/use-auth-store";
@@ -91,6 +92,8 @@ export default function AccountScreen() {
             ) : null}
           </View>
         </View>
+
+        <UpdateBanner />
 
         <View className="gap-2">
           <Text className="account-settings__section-label">Account</Text>

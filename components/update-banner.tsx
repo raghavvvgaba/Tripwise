@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRef, useState } from "react";
 import { Platform, Pressable, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Updates from "expo-updates";
 
 import { useThemeColors } from "@/constants/theme";
@@ -15,7 +14,6 @@ export function UpdateBanner() {
 
 function NativeUpdateBanner() {
   const { isUpdatePending, downloadedUpdate, isRestarting } = Updates.useUpdates();
-  const insets = useSafeAreaInsets();
   const colors = useThemeColors();
   const [dismissedUpdate, setDismissedUpdate] = useState<string | null>(null);
   const [isApplying, setIsApplying] = useState(false);
@@ -45,11 +43,7 @@ function NativeUpdateBanner() {
   }
 
   return (
-    <View
-      pointerEvents="box-none"
-      className="update-banner"
-      style={{ top: insets.top + 64, left: insets.left + 16, right: insets.right + 16 }}
-    >
+    <View className="update-banner">
       <View className="update-banner__card">
         <View className="flex-row items-start gap-3">
           <View className="update-banner__icon">
