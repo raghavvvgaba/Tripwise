@@ -46,9 +46,9 @@
       "predictiveBackGestureEnabled": false,
       "icon": "./assets/tripwise-icon-light.png",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/tripwise-icon-foreground.png",
+        "foregroundImage": "./assets/tripwise-icon-light.png",
         "monochromeImage": "./assets/tripwise-icon-foreground.png",
-        "backgroundColor": "#0E0C18"
+        "backgroundColor": "#ECE9F5"
       },
       "permissions": [
         "android.permission.RECORD_AUDIO",
@@ -81,7 +81,8 @@
             "image": "./assets/tripwise-icon-dark.png"
           }
         }
-      ]
+      ],
+      "./plugins/with-launcher-icon-insets"
     ],
     "extra": {
       "router": {},

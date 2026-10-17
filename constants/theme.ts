@@ -7,8 +7,8 @@ export const themeColors = {
   light: {
     ink: "#2C254E",
     muted: "#6E658E",
-    canvas: "#ECE9F5",
-    surface: "#FFFFFF",
+    canvas: "#FFFFFF",
+    surface: "#ECE9F5",
     line: "#DBD5ED",
     "brand-50": "#F4EFE6",
     "brand-100": "#ECE7F7",

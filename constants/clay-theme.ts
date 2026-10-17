@@ -47,15 +47,15 @@ export const clayColors = {
   },
   light: {
     isDark: false,
-    // 60% Dominant Canvas (Misty Twilight Lavender Mist)
-    canvas: "#ECE9F5",
-    // 30% Secondary Surfaces (Elevated White & Dusty Lilac)
-    card: "#FFFFFF",
+    // 60% Dominant Canvas (White)
+    canvas: "#FFFFFF",
+    // 30% Secondary Surfaces (Lavender Mist)
+    card: "#ECE9F5",
     cardBorder: "#DBD5ED",
     track: "#DED8EE",
     squircle: "#E8E3F5",
     avatarBg: "#E4DEF2",
-    headerBtn: "#FFFFFF",
+    headerBtn: "#ECE9F5",
     headerBtnBorder: "#DBD5ED",
     // Typography (Rich Violet Indigo & Muted Dusty Lilac)
     textPrimary: "#2C254E",
@@ -81,7 +81,7 @@ export const clayColors = {
     youBadgeBg: "rgba(245, 210, 152, 0.4)",
     youBadgeBorder: "rgba(245, 210, 152, 0.7)",
     youBadgeText: "#7A5807",
-    dashedCardBg: "rgba(255, 255, 255, 0.85)",
+    dashedCardBg: "rgba(236, 233, 245, 0.85)",
     dashedCardBorder: "rgba(140, 120, 190, 0.45)",
     errorCardBorder: "rgba(239, 68, 68, 0.2)",
     errorText: "#DC2626",
