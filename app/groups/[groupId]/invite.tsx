@@ -6,6 +6,7 @@ import { useCallback, useState } from "react";
 import { ActivityIndicator, Platform, Pressable, RefreshControl, ScrollView, Share, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { ScoutFriendlySvg } from "@/components/scout-friendly-svg";
 import { useClayTheme } from "@/constants/clay-theme";
 import { getGroupInvite, getGroupMemberCount } from "@/lib/group-invites";
 import { showError } from "@/utils/dialogs";
@@ -174,16 +175,8 @@ export default function GroupInviteScreen() {
               style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
               className="flex-row items-center gap-4 rounded-3xl border p-5 shadow-sm"
             >
-              <View
-                style={{ backgroundColor: clay.squircle, borderColor: clay.cardBorder }}
-                className="h-14 w-14 items-center justify-center rounded-2xl border"
-              >
-                <Text
-                  style={{ color: clay.isDark ? "#F5D298" : "#9A6B1C" }}
-                  className="text-lg font-black tracking-tight"
-                >
-                  {invite.name.slice(0, 2).toUpperCase()}
-                </Text>
+              <View pointerEvents="none">
+                <ScoutFriendlySvg pose="wave" />
               </View>
               <View className="flex-1 gap-1">
                 <Text style={{ color: clay.textPrimary }} className="text-lg font-black" numberOfLines={1}>

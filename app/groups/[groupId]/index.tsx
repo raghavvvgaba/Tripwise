@@ -1,10 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, type ReactNode } from "react";
 import { ActivityIndicator, Animated, Easing, Platform, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import * as Haptics from "expo-haptics";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { ScoutReceiptSvg } from "@/components/scout-receipt-svg";
+import { ScoutMascot, type ScoutPose } from "@/components/scout-mascot";
 import { useClayTheme } from "@/constants/clay-theme";
 import { type GroupMember } from "@/lib/group-invites";
 import { useGroupMembers, useGroupExpenses, useGroupPayments } from "@/hooks/use-group-data";
@@ -119,10 +121,14 @@ function userExpenseContext(
 /** Tactile clay empty state */
 function ClayEmptyState({
   icon,
+  mascot,
+  illustration,
   title,
   message,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
+  mascot?: ScoutPose;
+  illustration?: ReactNode;
   title: string;
   message: string;
 }) {
@@ -132,12 +138,16 @@ function ClayEmptyState({
       style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
       className="items-center gap-2.5 rounded-3xl border px-8 py-10 shadow-sm"
     >
-      <View
-        style={{ backgroundColor: clay.squircle, borderColor: clay.cardBorder }}
-        className="h-16 w-16 items-center justify-center rounded-2xl border"
-      >
-        <Ionicons name={icon} size={28} color="#F5D298" />
-      </View>
+      {illustration ?? (mascot ? (
+        <ScoutMascot pose={mascot} />
+      ) : (
+        <View
+          style={{ backgroundColor: clay.squircle, borderColor: clay.cardBorder }}
+          className="h-16 w-16 items-center justify-center rounded-2xl border"
+        >
+          <Ionicons name={icon} size={28} color="#F5D298" />
+        </View>
+      ))}
       <Text style={{ color: clay.textPrimary }} className="text-center text-lg font-bold">
         {title}
       </Text>
@@ -753,6 +763,7 @@ function ExpensesTab({
       {expenses && !expenseError && expenses.length === 0 ? (
         <ClayEmptyState
           icon="receipt-outline"
+          illustration={<ScoutReceiptSvg />}
           title="No expenses yet"
           message="Add the first shared cost to split with the group."
         />
@@ -1055,6 +1066,7 @@ function SettleTab({
       {settlements && settlements.length === 0 ? (
         <ClayEmptyState
           icon="checkmark-circle-outline"
+          mascot="celebrate"
           title="All settled up"
           message="There are no pending payments to record right now."
         />

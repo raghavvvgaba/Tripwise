@@ -69,6 +69,7 @@ export default function GroupsScreen() {
         ) : (
           <EmptyState
             icon="airplane-outline"
+            mascot="wave"
             title="Plan the trip, not the math"
             message="Create a group and start adding shared expenses."
           />
