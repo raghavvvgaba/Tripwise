@@ -53,7 +53,7 @@ function setup(t, overrides = {}) {
   });
   const options = loadModule("lib/groups-query.ts", { "@/lib/groups": backend });
   const hooks = loadModule("hooks/use-shared-groups.ts", {
-    "@/lib/query-error": loadModule("lib/query-error.ts", {}),
+    "@/lib/query-error": loadModule("lib/query-error.ts", { "./user-error": loadModule("lib/user-error.ts", {}) }),
     "@/lib/refresh-activity": refreshActivity,
     "@/lib/groups": backend,
     "@/lib/groups-query": options,

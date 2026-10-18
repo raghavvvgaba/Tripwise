@@ -273,7 +273,7 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
     try {
       await deletePayment(payment.id);
     } catch (error) {
-      showError("Could not delete payment", error instanceof Error ? error.message : "Please try again.");
+      showError("Could not delete payment", error);
     } finally {
       deletingPayment.current = false;
       setDeletingPaymentId(null);
@@ -1116,7 +1116,7 @@ function DeletedSharedGroup({ group }: { group: SharedGroup }) {
     try {
       await restoreGroup(group.id);
     } catch (cause) {
-      showError("Could not restore group", cause instanceof Error ? cause.message : "Please try again.");
+      showError("Could not restore group", cause);
     } finally {
       setIsRestoring(false);
     }

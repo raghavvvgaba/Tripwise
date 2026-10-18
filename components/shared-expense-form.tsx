@@ -20,6 +20,7 @@ import AnimatedReanimated, { FadeInDown } from "react-native-reanimated";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useClayTheme } from "@/constants/clay-theme";
+import { friendlyErrorMessage } from "@/lib/user-error";
 import { type GroupMember } from "@/lib/group-invites";
 import { useGroupMembers, useGroupExpense } from "@/hooks/use-group-data";
 import { useGroupDataActions } from "@/hooks/use-group-data-actions";
@@ -209,7 +210,7 @@ function LoadedExpenseForm({ group, currentUserId, expenseId, onClose, headerPan
         router.dismissTo(`/groups/${group.id}`);
       }
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "Could not save the expense. Please try again.");
+      setSaveError(friendlyErrorMessage(error, "Could not save the expense. Please try again."));
     } finally {
       savingRef.current = false;
       setIsSaving(false);

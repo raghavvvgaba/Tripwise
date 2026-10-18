@@ -23,7 +23,7 @@ export default function DeletedGroupsScreen() {
       await restoreGroup(groupId);
       router.replace(`/groups/${groupId}`);
     } catch (cause) {
-      showError("Could not restore group", cause instanceof Error ? cause.message : "Please try again.");
+      showError("Could not restore group", cause);
     } finally {
       setRestoringId(null);
     }

@@ -44,7 +44,7 @@ export function SharedExpenseDetails({ group, expenseId }: { group: SharedGroup;
       await deleteExpense(expenseId);
       router.dismissTo(`/groups/${group.id}`);
     } catch (cause) {
-      showError("Could not delete expense", cause instanceof Error ? cause.message : "Please try again.");
+      showError("Could not delete expense", cause);
     } finally {
       deletingRef.current = false;
       setIsDeleting(false);

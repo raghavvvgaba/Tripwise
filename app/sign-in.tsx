@@ -18,6 +18,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { BrandIcon } from "@/components/brand-icon";
 import { GoogleIcon } from "@/components/google-icon";
 import { useClayTheme } from "@/constants/clay-theme";
+import { friendlyErrorMessage } from "@/lib/user-error";
 import { isInviteCode, normalizeInviteCode } from "@/lib/group-invites";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/use-auth-store";
@@ -59,6 +60,7 @@ export default function SignInScreen() {
     const { queryParams } = Linking.parse(incomingUrl);
     let code = queryParams?.code;
     let authError = queryParams?.error_description ?? queryParams?.error;
+    let authErrorCode = queryParams?.error_code ?? queryParams?.error;
     let accessToken: string | undefined;
     let refreshToken: string | undefined;
 
@@ -68,11 +70,14 @@ export default function SignInScreen() {
       accessToken = hashParams.get("access_token") ?? undefined;
       refreshToken = hashParams.get("refresh_token") ?? undefined;
       authError = authError ?? hashParams.get("error_description") ?? hashParams.get("error") ?? undefined;
+      authErrorCode = authErrorCode ?? hashParams.get("error_code") ?? hashParams.get("error") ?? undefined;
     }
 
-    if (typeof authError === "string") {
+    if (typeof authError === "string" || typeof authErrorCode === "string") {
       handledAuthUrl.current = incomingUrl;
-      setMessage(authError);
+      setMessage(friendlyErrorMessage({
+        code: authErrorCode,
+      }, "Could not complete Google sign-in. Please try again."));
       return;
     }
 
@@ -82,10 +87,10 @@ export default function SignInScreen() {
       void supabase.auth
         .setSession({ access_token: accessToken, refresh_token: refreshToken })
         .then(({ error }) => {
-          if (error) setMessage(error.message);
+          if (error) setMessage(friendlyErrorMessage(error, "Could not complete Google sign-in. Please try again."));
         })
         .catch((error: unknown) => {
-          setMessage(error instanceof Error ? error.message : "Google sign-in failed. Please try again.");
+          setMessage(friendlyErrorMessage(error, "Google sign-in failed. Please try again."));
         })
         .finally(() => {
           setIsGoogleSubmitting(false);
@@ -99,10 +104,10 @@ export default function SignInScreen() {
       void supabase.auth
         .exchangeCodeForSession(code)
         .then(({ error }) => {
-          if (error) setMessage(error.message);
+          if (error) setMessage(friendlyErrorMessage(error, "Could not complete Google sign-in. Please try again."));
         })
         .catch((error: unknown) => {
-          setMessage(error instanceof Error ? error.message : "Google sign-in failed. Please try again.");
+          setMessage(friendlyErrorMessage(error, "Google sign-in failed. Please try again."));
         })
         .finally(() => {
           setIsGoogleSubmitting(false);
@@ -131,7 +136,9 @@ export default function SignInScreen() {
         if (error) throw error;
       }
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Something went wrong. Please try again.");
+      setMessage(friendlyErrorMessage(error, isCreatingAccount
+        ? "Could not create your account. Please try again."
+        : "Could not sign in. Please try again."));
     } finally {
       setIsSubmitting(false);
     }
@@ -156,7 +163,7 @@ export default function SignInScreen() {
         await Linking.openURL(data.url);
       }
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Google sign-in failed. Please try again.");
+      setMessage(friendlyErrorMessage(error, "Google sign-in failed. Please try again."));
     } finally {
       setIsGoogleSubmitting(false);
     }
@@ -220,7 +227,7 @@ export default function SignInScreen() {
                     ? { backgroundColor: clay.card, borderColor: clay.cardBorder }
                     : undefined
                 }
-                className={`h-10 flex-1 items-center justify-center rounded-xl ${!isCreatingAccount ? "border shadow-sm" : ""}`}
+                className={`h-10 flex-1 items-center justify-center rounded-xl ${!isCreatingAccount ? "border shadow-sm" : "border border-transparent shadow-none"}`}
               >
                 <Text
                   style={{ color: !isCreatingAccount ? clay.textPrimary : clay.textMuted }}
@@ -241,7 +248,7 @@ export default function SignInScreen() {
                     ? { backgroundColor: clay.card, borderColor: clay.cardBorder }
                     : undefined
                 }
-                className={`h-10 flex-1 items-center justify-center rounded-xl ${isCreatingAccount ? "border shadow-sm" : ""}`}
+                className={`h-10 flex-1 items-center justify-center rounded-xl ${isCreatingAccount ? "border shadow-sm" : "border border-transparent shadow-none"}`}
               >
                 <Text
                   style={{ color: isCreatingAccount ? clay.textPrimary : clay.textMuted }}

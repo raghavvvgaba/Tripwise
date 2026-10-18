@@ -48,7 +48,7 @@ export default function ActivityScreen() {
     try {
       await restoreGroup(groupId);
     } catch (cause) {
-      showError("Could not restore group", cause instanceof Error ? cause.message : "Please try again.");
+      showError("Could not restore group", cause);
     } finally {
       setRestoringId(null);
     }

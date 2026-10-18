@@ -1,3 +1,5 @@
+import { File } from "expo-file-system";
+import { Platform } from "react-native";
 import type { ImagePickerAsset } from "expo-image-picker";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 
@@ -6,9 +8,15 @@ import { supabase } from "@/lib/supabase";
 const bucket = supabase.storage.from("Group-cover-images");
 const maxBytes = 4 * 1024 * 1024;
 async function uploadImage(path: string, uri: string): Promise<void> {
-  const response = await fetch(uri);
-  if (!response.ok) throw new Error("Could not read the selected photo.");
-  const bytes = await response.arrayBuffer();
+  let bytes: ArrayBuffer;
+  if (Platform.OS === "web") {
+    const response = await fetch(uri);
+    if (!response.ok) throw new Error("Could not read the selected photo.");
+    bytes = await response.arrayBuffer();
+  } else {
+    // ImageManipulator saves a local file; native fetch cannot reliably read it.
+    bytes = await new File(uri).arrayBuffer();
+  }
   if (bytes.byteLength > maxBytes) throw new Error("The compressed photo is too large. Choose a smaller image.");
   const { error } = await bucket.upload(path, bytes, { contentType: "image/jpeg", upsert: false });
   if (error) throw error;

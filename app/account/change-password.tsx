@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useClayTheme } from "@/constants/clay-theme";
+import { friendlyErrorMessage } from "@/lib/user-error";
 import { changePassword } from "@/lib/account-auth";
 
 type Feedback = { text: string; isError: boolean };
@@ -43,7 +44,7 @@ export default function ChangePasswordScreen() {
       setFeedback({ text: "Your password has been updated.", isError: false });
     } catch (error) {
       setFeedback({
-        text: error instanceof Error ? error.message : "Could not update your password. Please try again.",
+        text: friendlyErrorMessage(error, "Could not update your password. Please try again."),
         isError: true,
       });
     } finally {

@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useClayTheme } from "@/constants/clay-theme";
+import { friendlyErrorMessage } from "@/lib/user-error";
 import { changeEmail } from "@/lib/account-auth";
 import { useAuthStore } from "@/store/use-auth-store";
 
@@ -44,7 +45,7 @@ export default function ChangeEmailScreen() {
       });
     } catch (error) {
       setFeedback({
-        text: error instanceof Error ? error.message : "Could not update your email. Please try again.",
+        text: friendlyErrorMessage(error, "Could not update your email. Please try again."),
         isError: true,
       });
     } finally {

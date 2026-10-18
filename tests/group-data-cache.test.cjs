@@ -52,7 +52,7 @@ function setup(t, overrides = {}) {
     "@/lib/activity-query": activity, "@/store/use-auth-store": { useAuthStore: auth },
   });
   const dependencies = {
-    "@/lib/query-error": loadModule("lib/query-error.ts", {}),
+    "@/lib/query-error": loadModule("lib/query-error.ts", { "./user-error": loadModule("lib/user-error.ts", {}) }),
     "@/lib/refresh-activity": refreshActivity,
     "@/lib/expenses": backend, "@/lib/payments": backend,
     "@/lib/group-data-query": options, "@/store/use-auth-store": { useAuthStore: auth },
@@ -272,7 +272,7 @@ test("a failed detail query can recover from an invalidated list without revivin
 });
 
 test("cached reads hide native network failures while unsaved reads and permission failures remain explained", () => {
-  const { queryErrorMessage } = loadModule("lib/query-error.ts");
+  const { queryErrorMessage } = loadModule("lib/query-error.ts", { "./user-error": loadModule("lib/user-error.ts") });
   for (const message of ["TypeError: Network request failed", "Failed to fetch", "Error: fetch failed: java.net.UnknownHostException: Unable to resolve host example.test"]) {
     assert.equal(queryErrorMessage({ message }, true), null);
     assert.match(queryErrorMessage({ message }, false), /not saved.*Connect to the internet/);

@@ -16,6 +16,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { EmptyState } from "@/components/empty-state";
 import { PaymentDateField } from "@/components/payment-date-field";
 import { useClayTheme } from "@/constants/clay-theme";
+import { friendlyErrorMessage } from "@/lib/user-error";
 import { type GroupMember } from "@/lib/group-invites";
 import { useGroupMembers, useGroupExpenses, useGroupPayments } from "@/hooks/use-group-data";
 import { useGroupDataActions } from "@/hooks/use-group-data-actions";
@@ -124,8 +125,16 @@ export default function RecordPaymentScreen() {
         setIsDuplicate(true);
         setSaveError(null);
       } else {
-        setSaveError(error instanceof Error ? error.message : "Could not record the payment.");
-        if (error instanceof PaymentError && /^[0-9A-Z]{5}$/.test(error.code) && !error.code.startsWith("08")) {
+        const rejected = error instanceof PaymentError && /^[0-9A-Z]{5}$/.test(error.code) && !error.code.startsWith("08");
+        setSaveError(friendlyErrorMessage(error,
+          rejected
+            ? "Could not record this payment. Return to the group, refresh, and try again."
+            : "We couldn't confirm whether this payment was recorded. Retry here to check the same payment.",
+          { networkMessage: rejected
+            ? "Could not record this payment. Check your connection and try again."
+            : "We couldn't confirm whether this payment was recorded. Check your connection, then retry here." },
+        ));
+        if (rejected) {
           pendingRequest.current = null;
           setHasPendingRequest(false);
           setPendingDetails(null);

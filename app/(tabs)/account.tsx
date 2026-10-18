@@ -61,8 +61,13 @@ export default function AccountScreen() {
   }
 
   async function signOut() {
-    const { error } = await supabase.auth.signOut();
-    if (error) showError("Could not sign out", error.message);
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+    } catch (error) {
+      // Auth can clear the local session before a remote sign-out error arrives.
+      if (useAuthStore.getState().session) showError("Could not sign out", error);
+    }
   }
 
   return (

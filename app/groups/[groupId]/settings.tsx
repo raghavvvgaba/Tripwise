@@ -51,7 +51,7 @@ export default function GroupSettingsScreen() {
           : stage === "group update"
             ? "Could not save cover photo"
             : "Could not open photo library";
-      showError(title, error instanceof Error ? error.message : "Please try again.");
+      showError(title, error);
     } finally {
       setIsSavingCover(false);
     }
@@ -66,7 +66,7 @@ export default function GroupSettingsScreen() {
       await removeGroupCoverFiles(oldPaths).catch(() => undefined);
       setIsEditingCover(false);
     } catch (error) {
-      showError("Could not remove cover photo", error instanceof Error ? error.message : "Please try again.");
+      showError("Could not remove cover photo", error);
     } finally {
       setIsSavingCover(false);
     }
@@ -79,7 +79,7 @@ export default function GroupSettingsScreen() {
       await deleteGroup(group.id);
       router.dismissTo("/");
     } catch (cause) {
-      showError("Could not delete group", cause instanceof Error ? cause.message : "Please try again.");
+      showError("Could not delete group", cause);
     } finally {
       setIsDeleting(false);
     }

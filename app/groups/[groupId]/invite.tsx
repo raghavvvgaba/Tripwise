@@ -8,6 +8,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ScoutFriendlySvg } from "@/components/scout-friendly-svg";
 import { useClayTheme } from "@/constants/clay-theme";
+import { friendlyErrorMessage } from "@/lib/user-error";
 import { getGroupInvite, getGroupMemberCount } from "@/lib/group-invites";
 import { showError } from "@/utils/dialogs";
 
@@ -59,7 +60,7 @@ export default function GroupInviteScreen() {
       setInvite({ ...group, memberCount });
       setError(null);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not load invite.");
+      setError(friendlyErrorMessage(cause, "Could not load invite."));
     } finally {
       setIsLoading(false);
     }
@@ -81,7 +82,7 @@ export default function GroupInviteScreen() {
       setDidCopyCode(true);
       setTimeout(() => setDidCopyCode(false), 2500);
     } catch (cause) {
-      showError("Could not copy code", cause instanceof Error ? cause.message : "Please try again.");
+      showError("Could not copy code", cause);
     }
   }
 
@@ -109,7 +110,7 @@ export default function GroupInviteScreen() {
       });
     } catch (cause) {
       if (cause instanceof Error && cause.name === "AbortError") return;
-      showError("Could not share invite", cause instanceof Error ? cause.message : "Please try again.");
+      showError("Could not share invite", cause);
     }
   }
 

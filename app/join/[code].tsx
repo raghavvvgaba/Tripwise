@@ -8,6 +8,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { EmptyState } from "@/components/empty-state";
 import { useClayTheme } from "@/constants/clay-theme";
+import { friendlyErrorMessage } from "@/lib/user-error";
 import {
   acceptGroupInvite,
   isInviteCode,
@@ -52,7 +53,7 @@ export default function JoinGroupScreen() {
         if (!result) setError("This invite code is unavailable.");
       })
       .catch((cause) => {
-        if (active) setError(cause instanceof Error ? cause.message : "Could not load invite.");
+        if (active) setError(friendlyErrorMessage(cause, "Could not load invite."));
       })
       .finally(() => {
         if (active) setIsLoading(false);
@@ -67,19 +68,23 @@ export default function JoinGroupScreen() {
     if (!session || !isInviteCode(code) || isJoining) return;
     setIsJoining(true);
     setError(null);
+    let joined = joinedGroupId !== null;
     try {
-      const groupId = await acceptGroupInvite(normalizeInviteCode(code));
+      const groupId = joinedGroupId ?? await acceptGroupInvite(normalizeInviteCode(code));
       setJoinedGroupId(groupId);
+      joined = true;
       await queryClient.invalidateQueries({ queryKey: groupDataKey(session.user.id, groupId), refetchType: "none" });
       await refreshActivity(queryClient, session.user.id);
       const loaded = await loadGroups(true);
       if (loaded.some((group) => group.id === groupId)) {
         router.replace(`/groups/${groupId}`);
       } else {
-        setError("You joined, but your groups could not refresh. Try opening the group again.");
+        setError("You joined, but your groups could not refresh. Tap Refresh groups to try again.");
       }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not join group.");
+      setError(joined
+        ? "You joined, but your groups could not refresh. Tap Refresh groups to try again."
+        : friendlyErrorMessage(cause, "Could not join group. Please try again."));
     } finally {
       setIsJoining(false);
     }
@@ -151,8 +156,8 @@ export default function JoinGroupScreen() {
             <Text selectable style={{ color: clay.errorText }} className="text-sm font-semibold">
               {error}
             </Text>
-            <Pressable onPress={() => setRetryKey((k) => k + 1)} className="self-start">
-              <Text className="text-sm font-bold text-[#F5D298]">Try again</Text>
+            <Pressable disabled={isJoining} onPress={() => joinedGroupId ? void join() : setRetryKey((k) => k + 1)} className="self-start">
+              <Text className="text-sm font-bold text-[#F5D298]">{joinedGroupId ? "Refresh groups" : "Try again"}</Text>
             </Pressable>
           </View>
         ) : preview ? (

@@ -80,11 +80,7 @@ export default function CreateGroupScreen() {
       router.dismissTo("/");
       router.push(`/groups/${group.id}`);
     } catch (error) {
-      const message =
-        error && typeof error === "object" && "message" in error && typeof error.message === "string"
-          ? error.message
-          : "Please try again.";
-      showError("Could not create group", message);
+      showError("Could not create group", error);
     } finally {
       setIsSaving(false);
     }
