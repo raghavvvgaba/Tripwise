@@ -159,37 +159,48 @@ export function SharedExpenseDetails({ group, expenseId }: { group: SharedGroup;
               </Text>
               <View
                 style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
-                className="flex-row items-center justify-between rounded-3xl border p-4 shadow-sm"
+                className="rounded-3xl border px-4 py-1 shadow-sm"
               >
-                <View className="flex-row items-center gap-3">
-                  <View
-                    style={{
-                      width: 42,
-                      height: 42,
-                      borderRadius: 21,
-                      borderWidth: 2,
-                      borderColor: AVATAR_RING_COLORS[memberIndexFor(expense.paidById) % AVATAR_RING_COLORS.length],
-                      backgroundColor: clay.avatarBg,
-                    }}
-                    className="items-center justify-center"
-                  >
-                    <Text style={{ color: clay.textPrimary }} className="text-sm font-black">
-                      {(nameFor(expense.paidById).trim()[0] || "?").toUpperCase()}
-                    </Text>
-                  </View>
-                  <View>
-                    <Text style={{ color: clay.textPrimary }} className="text-base font-bold">
-                      {nameFor(expense.paidById)}
-                    </Text>
-                    <Text style={{ color: clay.textMuted }} className="text-xs">
-                      Paid full amount
-                    </Text>
-                  </View>
-                </View>
+                {expense.payers.map((payer, index) => (
+                  <View key={payer.userId}>
+                    <View className="flex-row items-center justify-between py-3">
+                      <View className="flex-row items-center gap-3">
+                        <View
+                          style={{
+                            width: 42,
+                            height: 42,
+                            borderRadius: 21,
+                            borderWidth: 2,
+                            borderColor: AVATAR_RING_COLORS[memberIndexFor(payer.userId) % AVATAR_RING_COLORS.length],
+                            backgroundColor: clay.avatarBg,
+                          }}
+                          className="items-center justify-center"
+                        >
+                          <Text style={{ color: clay.textPrimary }} className="text-sm font-black">
+                            {(nameFor(payer.userId).trim()[0] || "?").toUpperCase()}
+                          </Text>
+                        </View>
+                        <View>
+                          <Text style={{ color: clay.textPrimary }} className="text-base font-bold">
+                            {nameFor(payer.userId)}
+                          </Text>
+                          {expense.payers.length === 1 ? (
+                            <Text style={{ color: clay.textMuted }} className="text-xs">
+                              Paid full amount
+                            </Text>
+                          ) : null}
+                        </View>
+                      </View>
 
-                <Text selectable style={{ color: clay.textPrimary }} className="text-base font-black">
-                  {formatMoney(expense.amountMinor / 100, group.currency)}
-                </Text>
+                      <Text selectable style={{ color: clay.textPrimary }} className="text-base font-black">
+                        {formatMoney(payer.amountMinor / 100, group.currency)}
+                      </Text>
+                    </View>
+                    {index < expense.payers.length - 1 ? (
+                      <View style={{ backgroundColor: clay.cardBorder }} className="h-px w-full" />
+                    ) : null}
+                  </View>
+                ))}
               </View>
             </View>
 

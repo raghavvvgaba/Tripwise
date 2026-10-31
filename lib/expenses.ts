@@ -1,12 +1,11 @@
 import { supabase } from "@/lib/supabase";
-import type { SharedExpense } from "@/types/shared-expense";
+import type { SharedExpense, SharedExpensePayer } from "@/types/shared-expense";
 
 type ExpenseRow = {
   id: string;
   group_id: string;
   description: string;
   amount_minor: number;
-  paid_by: string;
   split_mode: "equal" | "exact";
   expense_date: string;
   note: string | null;
@@ -14,10 +13,11 @@ type ExpenseRow = {
   created_at: string;
   updated_by: string | null;
   updated_at: string | null;
+  expense_payers: { user_id: string; amount_minor: number }[];
   expense_shares: { user_id: string; amount_minor: number }[];
 };
 
-const EXPENSE_SELECT = "id, group_id, description, amount_minor, paid_by, split_mode, expense_date, note, created_by, created_at, updated_by, updated_at, expense_shares(user_id, amount_minor)";
+const EXPENSE_SELECT = "id, group_id, description, amount_minor, split_mode, expense_date, note, created_by, created_at, updated_by, updated_at, expense_payers(user_id, amount_minor), expense_shares(user_id, amount_minor)";
 
 function toExpense(row: ExpenseRow): SharedExpense {
   return {
@@ -25,7 +25,10 @@ function toExpense(row: ExpenseRow): SharedExpense {
     groupId: row.group_id,
     description: row.description,
     amountMinor: row.amount_minor,
-    paidById: row.paid_by,
+    payers: row.expense_payers.map((payer) => ({
+      userId: payer.user_id,
+      amountMinor: payer.amount_minor,
+    })),
     splitMode: row.split_mode,
     expenseDate: row.expense_date,
     note: row.note,
@@ -70,7 +73,7 @@ export type CreateGroupExpenseInput = {
   groupId: string;
   description: string;
   amountMinor: number;
-  paidById: string;
+  payers: SharedExpensePayer[];
   memberIds: string[];
   splitMode: "equal" | "exact";
   expenseDate: string;
@@ -83,7 +86,8 @@ export async function createGroupExpense(input: CreateGroupExpenseInput): Promis
     p_group_id: input.groupId,
     p_description: input.description,
     p_amount_minor: input.amountMinor,
-    p_paid_by: input.paidById,
+    p_payer_ids: input.payers.map((payer) => payer.userId),
+    p_payer_amounts_minor: input.payers.map((payer) => payer.amountMinor),
     p_member_ids: input.memberIds,
     p_split_mode: input.splitMode,
     p_expense_date: input.expenseDate,
@@ -107,7 +111,8 @@ export async function updateGroupExpense(input: UpdateGroupExpenseInput): Promis
     p_expense_id: input.expenseId,
     p_description: input.description,
     p_amount_minor: input.amountMinor,
-    p_paid_by: input.paidById,
+    p_payer_ids: input.payers.map((payer) => payer.userId),
+    p_payer_amounts_minor: input.payers.map((payer) => payer.amountMinor),
     p_member_ids: input.memberIds,
     p_split_mode: input.splitMode,
     p_exact_amounts_minor: input.exactAmountsMinor,

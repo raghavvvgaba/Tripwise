@@ -122,12 +122,42 @@ def run_checks(socket):
     delete(full, USERS[0])
     sql(request(key(7), amount=25000), USERS[0])
 
+    # Multiple payers: the pre-migration expense was backfilled as one full payer.
+    assert sql(f"select user_id || ':' || amount_minor from public.expense_payers where expense_id='{expense}';") == f"{USERS[1]}:30000"
+
+    def net(user):
+        return int(sql(f"select app_private.group_member_net('{GROUP}', '{user}');"))
+
+    def create(payers, amounts, expected_error=None):
+        return sql(f"select public.create_group_expense('{GROUP}', 'Food', 350000, "
+                   f"array[{','.join(repr(p) for p in payers)}]::uuid[], array{amounts}::bigint[], "
+                   f"array['{USERS[0]}','{USERS[1]}','{USERS[2]}']::uuid[], 'equal', current_date, null, null);",
+                   USERS[0], expected_error)
+
+    create([USERS[0], USERS[1]], [250000, 50000], "22023")  # Does not add up.
+    create([USERS[0], USERS[0]], [250000, 100000], "22023")  # Duplicate payer.
+    create([USERS[0], USERS[1]], [350000, 0], "22023")  # Zero amount.
+    create([USERS[0], USERS[3]], [250000, 100000], "22023")  # Outsider.
+    before = [net(u) for u in USERS[:3]]
+    food = create([USERS[0], USERS[1], USERS[2]], [250000, 50000, 50000])
+    # Equal shares are 116667, 116667, 116666; net = paid - share.
+    assert [net(u) - b for u, b in zip(USERS[:3], before)] == [133333, -66667, -66666]
+    assert sql(f"select count(*) from public.expense_payers where expense_id='{food}';", USERS[2]) == "3"
+    assert sql(f"select count(*) from public.expense_payers where expense_id='{food}';", USERS[3]) == "0"
+    sql(f"insert into public.expense_payers values ('{food}','{USERS[3]}',1);", USERS[0], "42501")
+    sql(f"select public.update_group_expense('{GROUP}', '{food}', 'Food', 350000, array['{USERS[2]}']::uuid[], "
+        f"array[350000]::bigint[], array['{USERS[0]}','{USERS[1]}','{USERS[2]}']::uuid[], 'equal', null, null, null);", USERS[1])
+    assert [net(u) - b for u, b in zip(USERS[:3], before)] == [-116667, -116667, 233334]
+    sql(f"select public.delete_group_expense('{GROUP}', '{food}');", USERS[0])
+    assert sql(f"select count(*) from public.expense_payers where expense_id='{food}';") == "0"
+    assert [net(u) for u in USERS[:3]] == before
+
     sql(f"update public.groups set deleted_at=now() where id='{GROUP}';")
     sql(request(key(8)), USERS[0], "42501")
     delete(ids[0], USERS[0], "42501")
     assert sql("select count(*) from public.group_payments;", USERS[0]) == "0"
     assert sql("select count(*) from public.group_activity where event_type in ('payment_recorded','payment_deleted');", USERS[0]) == "0"
-    print("PASS: migration, permissions, dates, balances, retries, duplicates, concurrent writes, deletion, Activity and RLS")
+    print("PASS: migration, permissions, dates, balances, multiple payers, retries, duplicates, concurrent writes, deletion, Activity and RLS")
 
 
 with tempfile.TemporaryDirectory(prefix="tripwise-payments-") as temp:

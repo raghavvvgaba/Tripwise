@@ -20,8 +20,10 @@ export function getSharedMemberBalances(
   ]));
 
   for (const expense of expenses) {
-    const payer = amounts.get(expense.paidById);
-    if (payer) payer.paidMinor += expense.amountMinor;
+    for (const payer of expense.payers) {
+      const member = amounts.get(payer.userId);
+      if (member) member.paidMinor += payer.amountMinor;
+    }
 
     for (const share of expense.shares) {
       const participant = amounts.get(share.userId);
@@ -74,4 +76,20 @@ export function getSharedSettlements(balances: SharedMemberBalance[]): SharedSet
     if (creditor.amountMinor === 0) creditorIndex += 1;
   }
   return settlements;
+}
+
+/** A member's net for one expense: what they paid minus their share. */
+export function getExpenseNetMinor(expense: SharedExpense, userId: string): number {
+  const paidMinor = expense.payers.find((payer) => payer.userId === userId)?.amountMinor ?? 0;
+  const shareMinor = expense.shares.find((share) => share.userId === userId)?.amountMinor ?? 0;
+  return paidMinor - shareMinor;
+}
+
+/** "Alice", "Alice & Bob", or "Alice + 2 others". */
+export function formatPayerNames(expense: SharedExpense, nameFor: (userId: string) => string): string {
+  const [first, second] = expense.payers.map((payer) => nameFor(payer.userId));
+  if (!first) return "A member";
+  if (expense.payers.length === 1) return first;
+  if (expense.payers.length === 2) return `${first} & ${second}`;
+  return `${first} + ${expense.payers.length - 1} others`;
 }

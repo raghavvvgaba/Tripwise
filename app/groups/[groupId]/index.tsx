@@ -18,7 +18,7 @@ import type { SharedPayment } from "@/types/shared-payment";
 import { confirmAction, showError } from "@/utils/dialogs";
 import { formatMoney } from "@/utils/money";
 import { formatExpenseDate, formatPaymentDate, formatRelativeTime } from "@/utils/date";
-import { getSharedMemberBalances, getSharedSettlements, type SharedSettlement } from "@/utils/shared-expenses";
+import { formatPayerNames, getExpenseNetMinor, getSharedMemberBalances, getSharedSettlements, type SharedSettlement } from "@/utils/shared-expenses";
 
 type GroupView = "expenses" | "balances" | "settle";
 
@@ -106,16 +106,10 @@ function userExpenseContext(
   currency?: import("@/types/models").CurrencyCode,
 ): { label: string; isPositive: boolean } | null {
   if (!currentUserId) return null;
-  const userShare = expense.shares.find((s) => s.userId === currentUserId);
-  if (!userShare) return null;
-
-  if (expense.paidById === currentUserId) {
-    const lentMinor = expense.amountMinor - userShare.amountMinor;
-    if (lentMinor === 0) return null;
-    return { label: `You lent ${formatMoney(lentMinor / 100, currency)}`, isPositive: true };
-  }
-  if (userShare.amountMinor === 0) return null;
-  return { label: `You owe ${formatMoney(userShare.amountMinor / 100, currency)}`, isPositive: false };
+  const netMinor = getExpenseNetMinor(expense, currentUserId);
+  if (netMinor === 0) return null;
+  if (netMinor > 0) return { label: `You lent ${formatMoney(netMinor / 100, currency)}`, isPositive: true };
+  return { label: `You owe ${formatMoney(-netMinor / 100, currency)}`, isPositive: false };
 }
 
 /** Tactile clay empty state */
@@ -774,7 +768,7 @@ function ExpensesTab({
         <View className="gap-3">
           {expenses.map((expense) => {
             const context = userExpenseContext(expense, currentUserId, group.currency);
-            const payerName = members?.find((m) => m.userId === expense.paidById)?.name ?? "A member";
+            const payerName = formatPayerNames(expense, (userId) => members?.find((m) => m.userId === userId)?.name ?? "A member");
 
             return (
               <Pressable

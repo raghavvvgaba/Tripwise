@@ -224,7 +224,7 @@ test("group lists restore across restarts, preserve balances, and exclude detail
   const h = setup(t);
   const client = h.client();
   const members = [{ userId: "alice", name: "Alice" }, { userId: "bob", name: "Bob" }];
-  const expenses = [{ id: "dinner", amountMinor: 10000, paidById: "alice",
+  const expenses = [{ id: "dinner", amountMinor: 10000, payers: [{ userId: "alice", amountMinor: 10000 }],
     shares: [{ userId: "alice", amountMinor: 5000 }, { userId: "bob", amountMinor: 5000 }] }];
   const payments = [{ id: "payment", payerId: "bob", recipientId: "alice", amountMinor: 2000 }];
   const lists = { members, expenses, payments };

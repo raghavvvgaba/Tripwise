@@ -3,12 +3,17 @@ export type SharedExpenseShare = {
   amountMinor: number;
 };
 
+export type SharedExpensePayer = {
+  userId: string;
+  amountMinor: number;
+};
+
 export type SharedExpense = {
   id: string;
   groupId: string;
   description: string;
   amountMinor: number;
-  paidById: string;
+  payers: SharedExpensePayer[];
   splitMode: "equal" | "exact";
   expenseDate: string;
   note: string | null;

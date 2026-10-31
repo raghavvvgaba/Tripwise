@@ -17,6 +17,7 @@ For a fresh Supabase database, run these files in order in the SQL Editor:
 13. `12_group_cover_thumbnails.sql`
 14. `13_remove_group_archiving.sql`
 15. `14_payment_safety.sql`
+16. `15_multiple_payers.sql`
 
 Each file is intended to run once. Future schema changes should get a new numbered file; do not edit an earlier file after it has been applied to a database.
 
@@ -54,6 +55,8 @@ These files are currently applied manually through the SQL Editor; the numbers d
 
 Run `14_payment_safety.sql` after `13_remove_group_archiving.sql`, before running this app build. It replaces the old payment RPC signature: only the sender or recipient may record or delete a payment. Request IDs make retries idempotent, and identical active payment details require explicit confirmation. Deletion excludes the payment from balances and lists and adds an Activity event. The internal cancelled row retains its request ID to prevent retries from recreating it; there is no restore action.
 
+Run `15_multiple_payers.sql` after `14_payment_safety.sql`, before running an app build that supports several payers on one expense. It adds `expense_payers`, copies each existing `paid_by` into it as one payer for the full amount, then drops `expenses.paid_by`. The add and edit expense RPCs now take `p_payer_ids` and `p_payer_amounts_minor` (amounts must be positive and add up to the total), and payment balance checks read `expense_payers`. Older app builds cannot add, edit, or list expenses after this runs.
+
 ## Local payment regression checks
 
-With PostgreSQL binaries (`initdb`, `pg_ctl`, `psql`) installed, run `python3 DB/tests/payment_safety.py`. It creates and removes an isolated temporary database, uses local Auth/Storage stubs, applies all numbered migrations, and checks payment permissions, duplicate/concurrent requests, deletion, Activity, and date/balance validation. It does not connect to Supabase.
+With PostgreSQL binaries (`initdb`, `pg_ctl`, `psql`) installed, run (as a non-root user) `python3 DB/tests/payment_safety.py`. It creates and removes an isolated temporary database, uses local Auth/Storage stubs, applies all numbered migrations, and checks payment permissions, duplicate/concurrent requests, deletion, Activity, date/balance validation, and multiple-payer expenses. It does not connect to Supabase.

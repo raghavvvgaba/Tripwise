@@ -23,6 +23,7 @@ import { useClayTheme } from "@/constants/clay-theme";
 import { type GroupMember } from "@/lib/group-invites";
 import { useGroupMembers, useGroupExpense } from "@/hooks/use-group-data";
 import { useGroupDataActions } from "@/hooks/use-group-data-actions";
+import type { CurrencyCode } from "@/types/models";
 import type { SharedExpense } from "@/types/shared-expense";
 import type { SharedGroup } from "@/types/shared-group";
 import { formatMoney, getCurrencySymbol, parseMoneyToMinor } from "@/utils/money";
@@ -85,7 +86,12 @@ function LoadedExpenseForm({ group, currentUserId, expenseId, onClose, headerPan
   const [existingExpense] = useState(initialExpense);
   const [description, setDescription] = useState(initialExpense?.description ?? "");
   const [amount, setAmount] = useState(initialExpense ? String(initialExpense.amountMinor / 100) : "");
-  const [paidById, setPaidById] = useState(initialExpense?.paidById ?? currentUserId);
+  const initialPayers = initialExpense?.payers ?? [];
+  const [payerMode, setPayerMode] = useState<"single" | "multiple">(initialPayers.length > 1 ? "multiple" : "single");
+  const [paidById, setPaidById] = useState(initialPayers[0]?.userId ?? currentUserId);
+  const [payerAmounts, setPayerAmounts] = useState<Record<string, string>>(
+    Object.fromEntries(initialPayers.map((payer) => [payer.userId, String(payer.amountMinor / 100)]))
+  );
   const [payerOpen, setPayerOpen] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const animValue = useRef(new Animated.Value(0)).current;
@@ -128,13 +134,22 @@ function LoadedExpenseForm({ group, currentUserId, expenseId, onClose, headerPan
   const exactMinor = selectedMembers.map((member) => parseMoneyToMinor(exactAmounts[member.userId] ?? ""));
   const exactTotalMinor = exactMinor.reduce<number>((total, value) => total + (value ?? 0), 0);
   const exactValid = exactMinor.every((value) => value !== null) && exactTotalMinor === amountMinor;
+  // A blank payer amount means that member did not pay.
+  const payerMinor = members.map((member) => {
+    const value = (payerAmounts[member.userId] ?? "").trim();
+    return value === "" ? 0 : parseMoneyToMinor(value);
+  });
+  const payerTotalMinor = payerMinor.reduce<number>((total, value) => total + (value ?? 0), 0);
+  const payersValid = payerMode === "single"
+    ? members.some((member) => member.userId === paidById)
+    : payerMinor.every((value) => value !== null) && payerTotalMinor === amountMinor;
   const isValid =
     description.trim().length > 0 &&
     description.trim().length <= 120 &&
     amountMinor !== null &&
     amountMinor > 0 &&
     selectedMembers.length > 0 &&
-    Boolean(members?.some((member) => member.userId === paidById)) &&
+    payersValid &&
     note.length <= 2000 &&
     (!expenseId || existingExpense !== null) &&
     (splitMode === "equal" || exactValid);
@@ -143,6 +158,15 @@ function LoadedExpenseForm({ group, currentUserId, expenseId, onClose, headerPan
 
   function toggleParticipant(userId: string) {
     setParticipantIds((ids) => (ids.includes(userId) ? ids.filter((id) => id !== userId) : [...ids, userId]));
+  }
+
+  function chooseMultiplePayers() {
+    // Start from the current single payer so the total is already assigned.
+    if (Object.values(payerAmounts).every((value) => value.trim() === "")) {
+      setPayerAmounts(amountMinor ? { [paidById]: String(amountMinor / 100) } : {});
+    }
+    setPayerMode("multiple");
+    closePayerModal();
   }
 
   function openPayerModal() {
@@ -191,7 +215,12 @@ function LoadedExpenseForm({ group, currentUserId, expenseId, onClose, headerPan
         groupId: group.id,
         description: description.trim(),
         amountMinor,
-        paidById,
+        payers: payerMode === "single"
+          ? [{ userId: paidById, amountMinor }]
+          : members.flatMap((member, index) => {
+              const value = payerMinor[index];
+              return value ? [{ userId: member.userId, amountMinor: value }] : [];
+            }),
         memberIds: selectedMembers.map((member) => member.userId),
         splitMode,
         exactAmountsMinor: splitMode === "exact" ? exactMinor.map((value) => value ?? 0) : null,
@@ -330,7 +359,7 @@ function LoadedExpenseForm({ group, currentUserId, expenseId, onClose, headerPan
               <>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`Paid by ${paidById === currentUserId ? "you" : members.find((m) => m.userId === paidById)?.name ?? "member"}`}
+                  accessibilityLabel={`Paid by ${payerMode === "multiple" ? "multiple people" : paidById === currentUserId ? "you" : members.find((m) => m.userId === paidById)?.name ?? "member"}`}
                   accessibilityState={{ expanded: payerOpen }}
                   onPress={openPayerModal}
                   style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
@@ -343,17 +372,25 @@ function LoadedExpenseForm({ group, currentUserId, expenseId, onClose, headerPan
                         height: 34,
                         borderRadius: 17,
                         borderWidth: 2,
-                        borderColor: AVATAR_RING_COLORS[memberIndexFor(paidById) % AVATAR_RING_COLORS.length],
+                        borderColor: payerMode === "multiple"
+                          ? clay.cardBorder
+                          : AVATAR_RING_COLORS[memberIndexFor(paidById) % AVATAR_RING_COLORS.length],
                         backgroundColor: clay.avatarBg,
                       }}
                       className="items-center justify-center"
                     >
-                      <Text style={{ color: clay.textPrimary }} className="text-xs font-black">
-                        {((members.find((m) => m.userId === paidById)?.name ?? "?").trim()[0] || "?").toUpperCase()}
-                      </Text>
+                      {payerMode === "multiple" ? (
+                        <Ionicons name="people" size={16} color={clay.textPrimary} />
+                      ) : (
+                        <Text style={{ color: clay.textPrimary }} className="text-xs font-black">
+                          {((members.find((m) => m.userId === paidById)?.name ?? "?").trim()[0] || "?").toUpperCase()}
+                        </Text>
+                      )}
                     </View>
                     <Text style={{ color: clay.textPrimary }} className="text-base font-bold">
-                      {paidById === currentUserId ? "You" : members.find((m) => m.userId === paidById)?.name}
+                      {payerMode === "multiple"
+                        ? "Multiple people"
+                        : paidById === currentUserId ? "You" : members.find((m) => m.userId === paidById)?.name}
                     </Text>
                   </View>
                   <Ionicons name={payerOpen ? "chevron-up" : "chevron-down"} size={18} color={clay.textMuted} />
@@ -410,7 +447,7 @@ function LoadedExpenseForm({ group, currentUserId, expenseId, onClose, headerPan
                             style={{ maxHeight: 360 }}
                           >
                             {members.map((member, index) => {
-                              const isSelected = paidById === member.userId;
+                              const isSelected = payerMode === "single" && paidById === member.userId;
                               const mRing = AVATAR_RING_COLORS[memberIndexFor(member.userId) % AVATAR_RING_COLORS.length];
                               return (
                                 <View key={member.userId}>
@@ -420,6 +457,7 @@ function LoadedExpenseForm({ group, currentUserId, expenseId, onClose, headerPan
                                     accessibilityState={{ selected: isSelected }}
                                     onPress={() => {
                                       setPaidById(member.userId);
+                                      setPayerMode("single");
                                       closePayerModal();
                                     }}
                                     style={isSelected ? { backgroundColor: clay.squircle } : undefined}
@@ -450,18 +488,117 @@ function LoadedExpenseForm({ group, currentUserId, expenseId, onClose, headerPan
                                       <Ionicons name="checkmark" size={20} color="#F5D298" />
                                     ) : null}
                                   </Pressable>
-                                  {index < members.length - 1 ? (
-                                    <View style={{ backgroundColor: clay.cardBorder }} className="h-px w-full" />
-                                  ) : null}
+                                  <View style={{ backgroundColor: clay.cardBorder }} className="h-px w-full" />
                                 </View>
                               );
                             })}
+                            <Pressable
+                              accessibilityRole="radio"
+                              accessibilityLabel="Multiple people"
+                              accessibilityState={{ selected: payerMode === "multiple" }}
+                              onPress={chooseMultiplePayers}
+                              style={payerMode === "multiple" ? { backgroundColor: clay.squircle } : undefined}
+                              className="min-h-14 flex-row items-center justify-between gap-3 px-4 active:opacity-75"
+                            >
+                              <View className="flex-row items-center gap-3">
+                                <View
+                                  style={{
+                                    width: 32,
+                                    height: 32,
+                                    borderRadius: 16,
+                                    borderWidth: 2,
+                                    borderColor: clay.cardBorder,
+                                    backgroundColor: clay.avatarBg,
+                                  }}
+                                  className="items-center justify-center"
+                                >
+                                  <Ionicons name="people" size={15} color={clay.textPrimary} />
+                                </View>
+                                <View>
+                                  <Text style={{ color: clay.textPrimary }} className="text-sm font-bold">
+                                    Multiple people
+                                  </Text>
+                                  <Text style={{ color: clay.textMuted }} className="text-xs">
+                                    Enter how much each person paid
+                                  </Text>
+                                </View>
+                              </View>
+                              {payerMode === "multiple" ? (
+                                <Ionicons name="checkmark" size={20} color="#F5D298" />
+                              ) : null}
+                            </Pressable>
                           </ScrollView>
                         </View>
                       </View>
                     </Animated.View>
                   </View>
                 </Modal>
+
+                {payerMode === "multiple" ? (
+                  <>
+                    <View
+                      style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+                      className="overflow-hidden rounded-3xl border px-4 py-1 shadow-sm"
+                    >
+                      {members.map((member, index) => (
+                        <View key={member.userId}>
+                          <View className="flex-row items-center gap-3 py-3">
+                            <View
+                              style={{
+                                width: 32,
+                                height: 32,
+                                borderRadius: 16,
+                                borderWidth: 2,
+                                borderColor: AVATAR_RING_COLORS[memberIndexFor(member.userId) % AVATAR_RING_COLORS.length],
+                                backgroundColor: clay.avatarBg,
+                              }}
+                              className="items-center justify-center"
+                            >
+                              <Text style={{ color: clay.textPrimary }} className="text-xs font-black">
+                                {(member.name.trim()[0] || "?").toUpperCase()}
+                              </Text>
+                            </View>
+                            <Text style={{ color: clay.textPrimary }} className="flex-1 text-sm font-bold" numberOfLines={1}>
+                              {member.name}
+                              {member.userId === currentUserId ? " (you)" : ""}
+                            </Text>
+                            <View
+                              style={{ backgroundColor: clay.squircle, borderColor: clay.cardBorder }}
+                              className="w-28 flex-row items-center rounded-xl border px-2.5"
+                            >
+                              <Text style={{ color: clay.textMuted }} className="text-xs font-bold">
+                                {getCurrencySymbol(group.currency)}
+                              </Text>
+                              <TextInput
+                                accessibilityLabel={`Amount paid by ${member.name}`}
+                                style={{ color: clay.textPrimary }}
+                                className="flex-1 py-1.5 text-right text-sm font-bold"
+                                keyboardType="decimal-pad"
+                                placeholder="0"
+                                placeholderTextColor={clay.textMuted}
+                                value={payerAmounts[member.userId] ?? ""}
+                                onChangeText={(value) =>
+                                  setPayerAmounts((current) => ({ ...current, [member.userId]: value }))
+                                }
+                              />
+                            </View>
+                          </View>
+                          {index < members.length - 1 ? (
+                            <View style={{ backgroundColor: clay.cardBorder }} className="h-px w-full" />
+                          ) : null}
+                        </View>
+                      ))}
+                    </View>
+                    {amountMinor !== null ? (
+                      <AmountCheck
+                        valid={payersValid}
+                        expectedMinor={amountMinor}
+                        enteredMinor={payerTotalMinor}
+                        currency={group.currency}
+                      />
+                    ) : null}
+                  </>
+                ) : null}
               </>
             ) : (
               <ActivityIndicator color="#F5D298" className="self-start py-2" />
@@ -613,25 +750,12 @@ function LoadedExpenseForm({ group, currentUserId, expenseId, onClose, headerPan
                 </View>
 
                 {splitMode === "exact" && amountMinor !== null ? (
-                  <View
-                    style={{
-                      backgroundColor: exactValid ? clay.badgePositiveBg : clay.badgeNegativeBg,
-                    }}
-                    className="rounded-2xl px-4 py-2.5"
-                  >
-                    <Text
-                      style={{
-                        color: exactValid ? clay.badgePositiveText : clay.badgeNegativeText,
-                      }}
-                      className="text-xs font-bold"
-                    >
-                      {exactValid
-                        ? "Amounts add up correctly"
-                        : `${formatMoney(Math.abs(amountMinor - exactTotalMinor) / 100, group.currency)} ${
-                            amountMinor >= exactTotalMinor ? "left to assign" : "over the total"
-                          }`}
-                    </Text>
-                  </View>
+                  <AmountCheck
+                    valid={exactValid}
+                    expectedMinor={amountMinor}
+                    enteredMinor={exactTotalMinor}
+                    currency={group.currency}
+                  />
                 ) : null}
               </AnimatedReanimated.View>
 
@@ -713,5 +837,33 @@ function LoadedExpenseForm({ group, currentUserId, expenseId, onClose, headerPan
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
+  );
+}
+
+/** Shows whether entered amounts add up to the expense total. */
+function AmountCheck({ valid, expectedMinor, enteredMinor, currency }: {
+  valid: boolean;
+  expectedMinor: number;
+  enteredMinor: number;
+  currency: CurrencyCode;
+}) {
+  const clay = useClayTheme();
+  const differenceMinor = expectedMinor - enteredMinor;
+  return (
+    <View
+      style={{ backgroundColor: valid ? clay.badgePositiveBg : clay.badgeNegativeBg }}
+      className="rounded-2xl px-4 py-2.5"
+    >
+      <Text
+        style={{ color: valid ? clay.badgePositiveText : clay.badgeNegativeText }}
+        className="text-xs font-bold"
+      >
+        {valid
+          ? "Amounts add up correctly"
+          : differenceMinor === 0
+            ? "Enter amounts with up to two decimal places"
+            : `${formatMoney(Math.abs(differenceMinor) / 100, currency)} ${differenceMinor > 0 ? "left to assign" : "over the total"}`}
+      </Text>
+    </View>
   );
 }

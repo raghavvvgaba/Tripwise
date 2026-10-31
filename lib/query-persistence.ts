@@ -86,8 +86,8 @@ export function createQueryPersistence(userId: string, storage: CacheStorage, is
   });
 
   return {
-    // Keep the Phase 1 storage version so existing saved groups still restore.
-    persistOptions: { persister, maxAge: OFFLINE_CACHE_MAX_AGE, buster: "groups-v1", dehydrateOptions },
+    // Bump the buster when cached data changes shape; v2 replaced paidById with payers.
+    persistOptions: { persister, maxAge: OFFLINE_CACHE_MAX_AGE, buster: "groups-v2", dehydrateOptions },
     remove: () => {
       removed = true; // Also blocks saves still waiting in the adapter's throttle.
       return inOrder(key, () => storage.removeItem(key));

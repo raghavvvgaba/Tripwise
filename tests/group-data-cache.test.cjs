@@ -22,7 +22,7 @@ function setup(t, overrides = {}) {
   const client = createQueryClient();
   client.setDefaultOptions({ queries: { ...client.getDefaultOptions().queries, retry: false } });
   const members = [{ userId: "alice", name: "Alice" }, { userId: "bob", name: "Bob" }];
-  let expenses = [{ id: "expense", groupId: "trip", amountMinor: 10000, paidById: "alice",
+  let expenses = [{ id: "expense", groupId: "trip", amountMinor: 10000, payers: [{ userId: "alice", amountMinor: 10000 }],
     shares: [{ userId: "alice", amountMinor: 5000 }, { userId: "bob", amountMinor: 5000 }], updatedAt: "first" }];
   let payments = [];
   const reads = { members: 0, expenses: 0, payments: 0, detail: 0 };
