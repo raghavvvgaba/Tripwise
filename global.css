@@ -28,10 +28,9 @@
     @apply h-full min-h-0 flex-1;
   }
 
-  .web-app-shell__mobile-header {
+  /* Screens start below the status bar; the shell owns the top inset. */
+  .web-app-shell__content {
     padding-top: env(safe-area-inset-top);
-    padding-left: max(1.25rem, env(safe-area-inset-left));
-    padding-right: max(1.25rem, env(safe-area-inset-right));
   }
 
   .web-app-shell__mobile-tabs {

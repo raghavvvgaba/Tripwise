@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Link, usePathname } from "expo-router";
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
+import { SafeAreaInsetsContext, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuthStore } from "@/store/use-auth-store";
 import { useThemeColors } from "@/constants/theme";
@@ -30,6 +31,10 @@ export function WebAppShell({ children }: { children: ReactNode }) {
   const email = useAuthStore((state) => state.session?.user.email);
   const activePage = navigation.find((item) => item.href === pathname)?.label ?? "Workspace";
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
+  // The shell's content area and tab bar already pad for the notch and home indicator,
+  // so screens inside it must not add the top/bottom insets a second time.
+  const contentInsets = useMemo(() => ({ ...insets, top: 0, bottom: 0 }), [insets]);
 
   return (
     <View className="web-app-shell min-h-0 bg-canvas lg:flex-row">
@@ -73,17 +78,6 @@ export function WebAppShell({ children }: { children: ReactNode }) {
       </View>
 
       <View className="relative min-h-0 min-w-0 flex-1">
-        <View className="web-app-shell__mobile-header min-h-16 flex-row items-center justify-between border-b border-line bg-surface px-5 lg:hidden">
-          <Link href="/" asChild>
-            <Pressable accessibilityLabel="Tripwise home"><Brand /></Pressable>
-          </Link>
-          <Link href="/account" asChild>
-            <Pressable accessibilityLabel="Account" className="h-11 w-11 items-center justify-center rounded-full bg-brand-50">
-              <Text className="text-sm font-bold text-brand-700">{email?.[0]?.toUpperCase() ?? "?"}</Text>
-            </Pressable>
-          </Link>
-        </View>
-
         <View className="hidden min-h-16 flex-row items-center justify-between border-b border-line bg-surface px-10 lg:flex">
           <Text className="text-sm font-medium text-muted">Workspace <Text className="text-line">/</Text> <Text className="font-semibold text-ink">{activePage}</Text></Text>
           <View className="flex-row items-center gap-3">
@@ -94,7 +88,9 @@ export function WebAppShell({ children }: { children: ReactNode }) {
           </View>
         </View>
 
-        <View className={isExpenseSheet ? "absolute inset-0 z-50 min-h-0" : "min-h-0 flex-1"}>{children}</View>
+        <View className={isExpenseSheet ? "absolute inset-0 z-50 min-h-0" : "web-app-shell__content min-h-0 flex-1"}>
+          <SafeAreaInsetsContext.Provider value={contentInsets}>{children}</SafeAreaInsetsContext.Provider>
+        </View>
 
         <View className="web-app-shell__mobile-tabs shrink-0 flex-row border-t border-line bg-surface lg:hidden">
           {navigation.map((item) => {

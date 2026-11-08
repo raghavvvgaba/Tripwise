@@ -16,7 +16,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { cssInterop } from "nativewind";
 import AnimatedReanimated, { FadeInDown } from "react-native-reanimated";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -28,9 +27,6 @@ import { useGroupDataActions } from "@/hooks/use-group-data-actions";
 import type { SharedExpense } from "@/types/shared-expense";
 import type { SharedGroup } from "@/types/shared-group";
 import { formatMoney, getCurrencySymbol, parseMoneyToMinor } from "@/utils/money";
-
-// Reanimated's web views drop `className`; convert it to `style` first.
-cssInterop(AnimatedReanimated.View, { className: "style" });
 
 const AVATAR_RING_COLORS = [
   "#38BDF8", // Sky blue
@@ -279,410 +275,419 @@ function LoadedExpenseForm({ group, currentUserId, expenseId, onClose, headerPan
           showsVerticalScrollIndicator={false}
         >
           {/* ── Expense Details: Description & Amount Card ── */}
-          <AnimatedReanimated.View
-            entering={FadeInDown.duration(280).delay(60)}
-            style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
-            className="gap-4 rounded-3xl border p-5 shadow-sm"
-          >
-            <View className="gap-2">
-              <Text style={{ color: clay.textMuted }} className="text-xs font-bold uppercase tracking-wider">
-                What was it for?
-              </Text>
-              <TextInput
-                style={{
-                  backgroundColor: clay.squircle,
-                  borderColor: clay.cardBorder,
-                  color: clay.textPrimary,
-                }}
-                className="h-[52px] rounded-2xl border px-4 text-base font-bold"
-                placeholder="e.g. Dinner, Train ticket, Groceries"
-                placeholderTextColor={clay.textMuted}
-                value={description}
-                onChangeText={setDescription}
-                maxLength={120}
-              />
-            </View>
-
-            <View className="gap-2">
-              <Text style={{ color: clay.textMuted }} className="text-xs font-bold uppercase tracking-wider">
-                Amount
-              </Text>
-              <View
-                style={{ backgroundColor: clay.squircle, borderColor: clay.cardBorder }}
-                className="flex-row items-center rounded-2xl border px-4"
-              >
-                <Text style={{ color: clay.textMuted }} className="text-2xl font-black">
-                  {getCurrencySymbol(group.currency)}
+          <AnimatedReanimated.View entering={FadeInDown.duration(280).delay(60)}>
+            <View
+              style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+              className="gap-4 rounded-3xl border p-5 shadow-sm"
+            >
+              <View className="gap-2">
+                <Text style={{ color: clay.textMuted }} className="text-xs font-bold uppercase tracking-wider">
+                  What was it for?
                 </Text>
                 <TextInput
-                  style={{ color: clay.textPrimary }}
-                  className="flex-1 py-3 pl-2 text-2xl font-black"
-                  placeholder="0.00"
+                  style={{
+                    backgroundColor: clay.squircle,
+                    borderColor: clay.cardBorder,
+                    color: clay.textPrimary,
+                  }}
+                  className="h-[52px] rounded-2xl border px-4 text-base font-bold"
+                  placeholder="e.g. Dinner, Train ticket, Groceries"
                   placeholderTextColor={clay.textMuted}
-                  keyboardType="decimal-pad"
-                  value={amount}
-                  onChangeText={setAmount}
+                  value={description}
+                  onChangeText={setDescription}
+                  maxLength={120}
                 />
               </View>
-              {amount && amountMinor === null ? (
-                <Text style={{ color: clay.errorText }} className="px-1 text-xs">
-                  Enter an amount with up to two decimal places.
+
+              <View className="gap-2">
+                <Text style={{ color: clay.textMuted }} className="text-xs font-bold uppercase tracking-wider">
+                  Amount
                 </Text>
-              ) : null}
+                <View
+                  style={{ backgroundColor: clay.squircle, borderColor: clay.cardBorder }}
+                  className="flex-row items-center rounded-2xl border px-4"
+                >
+                  <Text style={{ color: clay.textMuted }} className="text-2xl font-black">
+                    {getCurrencySymbol(group.currency)}
+                  </Text>
+                  <TextInput
+                    style={{ color: clay.textPrimary }}
+                    className="flex-1 py-3 pl-2 text-2xl font-black"
+                    placeholder="0.00"
+                    placeholderTextColor={clay.textMuted}
+                    keyboardType="decimal-pad"
+                    value={amount}
+                    onChangeText={setAmount}
+                  />
+                </View>
+                {amount && amountMinor === null ? (
+                  <Text style={{ color: clay.errorText }} className="px-1 text-xs">
+                    Enter an amount with up to two decimal places.
+                  </Text>
+                ) : null}
+              </View>
             </View>
           </AnimatedReanimated.View>
 
           {/* ── Paid By Section ── */}
-          <AnimatedReanimated.View entering={FadeInDown.duration(280).delay(120)} className="gap-2">
-            <Text style={{ color: clay.textMuted }} className="px-1 text-xs font-bold uppercase tracking-wider">
-              Paid by
-            </Text>
-            {members ? (
-              <>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Paid by ${paidById === currentUserId ? "you" : members.find((m) => m.userId === paidById)?.name ?? "member"}`}
-                  accessibilityState={{ expanded: payerOpen }}
-                  onPress={openPayerModal}
-                  style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
-                  className="h-14 flex-row items-center justify-between rounded-3xl border px-4 shadow-sm active:opacity-80"
-                >
-                  <View className="flex-row items-center gap-3">
-                    <View
-                      style={{
-                        width: 34,
-                        height: 34,
-                        borderRadius: 17,
-                        borderWidth: 2,
-                        borderColor: AVATAR_RING_COLORS[memberIndexFor(paidById) % AVATAR_RING_COLORS.length],
-                        backgroundColor: clay.avatarBg,
-                      }}
-                      className="items-center justify-center"
-                    >
-                      <Text style={{ color: clay.textPrimary }} className="text-xs font-black">
-                        {((members.find((m) => m.userId === paidById)?.name ?? "?").trim()[0] || "?").toUpperCase()}
+          <AnimatedReanimated.View entering={FadeInDown.duration(280).delay(120)}>
+            <View className="gap-2">
+              <Text style={{ color: clay.textMuted }} className="px-1 text-xs font-bold uppercase tracking-wider">
+                Paid by
+              </Text>
+              {members ? (
+                <>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Paid by ${paidById === currentUserId ? "you" : members.find((m) => m.userId === paidById)?.name ?? "member"}`}
+                    accessibilityState={{ expanded: payerOpen }}
+                    onPress={openPayerModal}
+                    style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+                    className="h-14 flex-row items-center justify-between rounded-3xl border px-4 shadow-sm active:opacity-80"
+                  >
+                    <View className="flex-row items-center gap-3">
+                      <View
+                        style={{
+                          width: 34,
+                          height: 34,
+                          borderRadius: 17,
+                          borderWidth: 2,
+                          borderColor: AVATAR_RING_COLORS[memberIndexFor(paidById) % AVATAR_RING_COLORS.length],
+                          backgroundColor: clay.avatarBg,
+                        }}
+                        className="items-center justify-center"
+                      >
+                        <Text style={{ color: clay.textPrimary }} className="text-xs font-black">
+                          {((members.find((m) => m.userId === paidById)?.name ?? "?").trim()[0] || "?").toUpperCase()}
+                        </Text>
+                      </View>
+                      <Text style={{ color: clay.textPrimary }} className="text-base font-bold">
+                        {paidById === currentUserId ? "You" : members.find((m) => m.userId === paidById)?.name}
                       </Text>
                     </View>
-                    <Text style={{ color: clay.textPrimary }} className="text-base font-bold">
-                      {paidById === currentUserId ? "You" : members.find((m) => m.userId === paidById)?.name}
-                    </Text>
-                  </View>
-                  <Ionicons name={payerOpen ? "chevron-up" : "chevron-down"} size={18} color={clay.textMuted} />
-                </Pressable>
+                    <Ionicons name={payerOpen ? "chevron-up" : "chevron-down"} size={18} color={clay.textMuted} />
+                  </Pressable>
 
-                <Modal
-                  transparent
-                  visible={modalVisible}
-                  animationType="none"
-                  onRequestClose={() => closePayerModal()}
-                >
-                  <View className="flex-1 justify-end">
-                    <Animated.View
-                      style={{ opacity: backdropOpacity }}
-                      className="absolute inset-0 bg-black/40"
-                    >
-                      <Pressable
-                        accessibilityLabel="Close member options"
-                        onPress={() => closePayerModal()}
-                        className="flex-1"
-                      />
-                    </Animated.View>
-                    <Animated.View
-                      style={{
-                        transform: [{ translateY: sheetTranslateY }],
-                        backgroundColor: clay.card,
-                        borderColor: clay.cardBorder,
-                        paddingBottom: Math.max(insets.bottom, 24) + 8,
-                      }}
-                      className="rounded-t-3xl border-t px-5 pt-5"
-                    >
-                      <View className="w-full max-w-2xl self-center gap-4">
-                        <View className="flex-row items-center justify-between">
-                          <Text style={{ color: clay.textPrimary }} className="text-lg font-bold">
-                            Paid by
-                          </Text>
-                          <Pressable
-                            accessibilityRole="button"
-                            accessibilityLabel="Close member options"
-                            onPress={() => closePayerModal()}
-                            className="h-10 w-10 items-center justify-center rounded-full active:opacity-75"
-                          >
-                            <Ionicons name="close" size={22} color={clay.textMuted} />
-                          </Pressable>
-                        </View>
+                  <Modal
+                    transparent
+                    visible={modalVisible}
+                    animationType="none"
+                    onRequestClose={() => closePayerModal()}
+                  >
+                    <View className="flex-1 justify-end">
+                      <Animated.View
+                        style={{ opacity: backdropOpacity }}
+                        className="absolute inset-0 bg-black/40"
+                      >
+                        <Pressable
+                          accessibilityLabel="Close member options"
+                          onPress={() => closePayerModal()}
+                          className="flex-1"
+                        />
+                      </Animated.View>
+                      <Animated.View
+                        style={{
+                          transform: [{ translateY: sheetTranslateY }],
+                          backgroundColor: clay.card,
+                          borderColor: clay.cardBorder,
+                          paddingBottom: Math.max(insets.bottom, 24) + 8,
+                        }}
+                        className="rounded-t-3xl border-t px-5 pt-5"
+                      >
+                        <View className="w-full max-w-2xl self-center gap-4">
+                          <View className="flex-row items-center justify-between">
+                            <Text style={{ color: clay.textPrimary }} className="text-lg font-bold">
+                              Paid by
+                            </Text>
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityLabel="Close member options"
+                              onPress={() => closePayerModal()}
+                              className="h-10 w-10 items-center justify-center rounded-full active:opacity-75"
+                            >
+                              <Ionicons name="close" size={22} color={clay.textMuted} />
+                            </Pressable>
+                          </View>
 
-                        <View
-                          style={{ borderColor: clay.cardBorder }}
-                          className="overflow-hidden rounded-xl border"
-                        >
-                          <ScrollView
-                            nestedScrollEnabled
-                            showsVerticalScrollIndicator={members.length > 5}
-                            style={{ maxHeight: 360 }}
+                          <View
+                            style={{ borderColor: clay.cardBorder }}
+                            className="overflow-hidden rounded-xl border"
                           >
-                            {members.map((member, index) => {
-                              const isSelected = paidById === member.userId;
-                              const mRing = AVATAR_RING_COLORS[memberIndexFor(member.userId) % AVATAR_RING_COLORS.length];
-                              return (
-                                <View key={member.userId}>
-                                  <Pressable
-                                    accessibilityRole="radio"
-                                    accessibilityLabel={`${member.name}${member.userId === currentUserId ? " (you)" : ""}`}
-                                    accessibilityState={{ selected: isSelected }}
-                                    onPress={() => {
-                                      setPaidById(member.userId);
-                                      closePayerModal();
-                                    }}
-                                    style={isSelected ? { backgroundColor: clay.squircle } : undefined}
-                                    className="min-h-14 flex-row items-center justify-between gap-3 px-4 active:opacity-75"
-                                  >
-                                    <View className="flex-row items-center gap-3">
-                                      <View
-                                        style={{
-                                          width: 32,
-                                          height: 32,
-                                          borderRadius: 16,
-                                          borderWidth: 2,
-                                          borderColor: mRing,
-                                          backgroundColor: clay.avatarBg,
-                                        }}
-                                        className="items-center justify-center"
-                                      >
-                                        <Text style={{ color: clay.textPrimary }} className="text-xs font-black">
-                                          {(member.name.trim()[0] || "?").toUpperCase()}
+                            <ScrollView
+                              nestedScrollEnabled
+                              showsVerticalScrollIndicator={members.length > 5}
+                              style={{ maxHeight: 360 }}
+                            >
+                              {members.map((member, index) => {
+                                const isSelected = paidById === member.userId;
+                                const mRing = AVATAR_RING_COLORS[memberIndexFor(member.userId) % AVATAR_RING_COLORS.length];
+                                return (
+                                  <View key={member.userId}>
+                                    <Pressable
+                                      accessibilityRole="radio"
+                                      accessibilityLabel={`${member.name}${member.userId === currentUserId ? " (you)" : ""}`}
+                                      accessibilityState={{ selected: isSelected }}
+                                      onPress={() => {
+                                        setPaidById(member.userId);
+                                        closePayerModal();
+                                      }}
+                                      style={isSelected ? { backgroundColor: clay.squircle } : undefined}
+                                      className="min-h-14 flex-row items-center justify-between gap-3 px-4 active:opacity-75"
+                                    >
+                                      <View className="flex-row items-center gap-3">
+                                        <View
+                                          style={{
+                                            width: 32,
+                                            height: 32,
+                                            borderRadius: 16,
+                                            borderWidth: 2,
+                                            borderColor: mRing,
+                                            backgroundColor: clay.avatarBg,
+                                          }}
+                                          className="items-center justify-center"
+                                        >
+                                          <Text style={{ color: clay.textPrimary }} className="text-xs font-black">
+                                            {(member.name.trim()[0] || "?").toUpperCase()}
+                                          </Text>
+                                        </View>
+                                        <Text style={{ color: clay.textPrimary }} className="text-sm font-bold">
+                                          {member.name}
+                                          {member.userId === currentUserId ? " (you)" : ""}
                                         </Text>
                                       </View>
-                                      <Text style={{ color: clay.textPrimary }} className="text-sm font-bold">
-                                        {member.name}
-                                        {member.userId === currentUserId ? " (you)" : ""}
-                                      </Text>
-                                    </View>
-                                    {isSelected ? (
-                                      <Ionicons name="checkmark" size={20} color="#F5D298" />
+                                      {isSelected ? (
+                                        <Ionicons name="checkmark" size={20} color="#F5D298" />
+                                      ) : null}
+                                    </Pressable>
+                                    {index < members.length - 1 ? (
+                                      <View style={{ backgroundColor: clay.cardBorder }} className="h-px w-full" />
                                     ) : null}
-                                  </Pressable>
-                                  {index < members.length - 1 ? (
-                                    <View style={{ backgroundColor: clay.cardBorder }} className="h-px w-full" />
-                                  ) : null}
-                                </View>
-                              );
-                            })}
-                          </ScrollView>
+                                  </View>
+                                );
+                              })}
+                            </ScrollView>
+                          </View>
                         </View>
-                      </View>
-                    </Animated.View>
-                  </View>
-                </Modal>
-              </>
-            ) : (
-              <ActivityIndicator color="#F5D298" className="self-start py-2" />
-            )}
+                      </Animated.View>
+                    </View>
+                  </Modal>
+                </>
+              ) : (
+                <ActivityIndicator color="#F5D298" className="self-start py-2" />
+              )}
+            </View>
           </AnimatedReanimated.View>
 
           {members ? (
             <>
               {/* ── Split Method Toggle ── */}
-              <AnimatedReanimated.View entering={FadeInDown.duration(280).delay(180)} className="gap-2">
-                <Text style={{ color: clay.textMuted }} className="px-1 text-xs font-bold uppercase tracking-wider">
-                  Split Method
-                </Text>
-                <View
-                  style={{ backgroundColor: clay.squircle, borderColor: clay.cardBorder }}
-                  className="flex-row rounded-2xl border p-1"
-                >
-                  {(["equal", "exact"] as const).map((mode) => {
-                    const isSelected = splitMode === mode;
-                    return (
-                      <Pressable
-                        key={mode}
-                        onPress={() => setSplitMode(mode)}
-                        style={
-                          isSelected
-                            ? { backgroundColor: clay.card, borderColor: clay.cardBorder }
-                            : undefined
-                        }
-                        className={`h-11 flex-1 items-center justify-center rounded-xl ${isSelected ? "border shadow-sm" : "shadow-none"}`}
-                      >
-                        <Text
-                          style={{ color: isSelected ? clay.textPrimary : clay.textMuted }}
-                          className="text-xs font-extrabold"
+              <AnimatedReanimated.View entering={FadeInDown.duration(280).delay(180)}>
+                <View className="gap-2">
+                  <Text style={{ color: clay.textMuted }} className="px-1 text-xs font-bold uppercase tracking-wider">
+                    Split Method
+                  </Text>
+                  <View
+                    style={{ backgroundColor: clay.squircle, borderColor: clay.cardBorder }}
+                    className="flex-row rounded-2xl border p-1"
+                  >
+                    {(["equal", "exact"] as const).map((mode) => {
+                      const isSelected = splitMode === mode;
+                      return (
+                        <Pressable
+                          key={mode}
+                          onPress={() => setSplitMode(mode)}
+                          style={
+                            isSelected
+                              ? { backgroundColor: clay.card, borderColor: clay.cardBorder }
+                              : undefined
+                          }
+                          className={`h-11 flex-1 items-center justify-center rounded-xl ${isSelected ? "border shadow-sm" : "shadow-none"}`}
                         >
-                          {mode === "equal" ? "Equally" : "Exact Amounts"}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
+                          <Text
+                            style={{ color: isSelected ? clay.textPrimary : clay.textMuted }}
+                            className="text-xs font-extrabold"
+                          >
+                            {mode === "equal" ? "Equally" : "Exact Amounts"}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
                 </View>
               </AnimatedReanimated.View>
 
               {/* ── Split Among Section ── */}
-              <AnimatedReanimated.View entering={FadeInDown.duration(280).delay(220)} className="gap-2">
-                <View className="flex-row items-baseline justify-between px-1">
-                  <Text style={{ color: clay.textMuted }} className="text-xs font-bold uppercase tracking-wider">
-                    Split Among
-                  </Text>
-                  <View style={{ backgroundColor: clay.badgeNeutralBg }} className="rounded-full px-2.5 py-0.5">
-                    <Text style={{ color: clay.textMuted }} className="text-[11px] font-bold">
-                      {selectedMembers.length} selected
+              <AnimatedReanimated.View entering={FadeInDown.duration(280).delay(220)}>
+                <View className="gap-2">
+                  <View className="flex-row items-baseline justify-between px-1">
+                    <Text style={{ color: clay.textMuted }} className="text-xs font-bold uppercase tracking-wider">
+                      Split Among
                     </Text>
+                    <View style={{ backgroundColor: clay.badgeNeutralBg }} className="rounded-full px-2.5 py-0.5">
+                      <Text style={{ color: clay.textMuted }} className="text-[11px] font-bold">
+                        {selectedMembers.length} selected
+                      </Text>
+                    </View>
                   </View>
-                </View>
 
-                <View
-                  style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
-                  className="overflow-hidden rounded-3xl border px-4 py-1 shadow-sm"
-                >
-                  {members.map((member, index) => {
-                    const selected = participantIds.includes(member.userId);
-                    const selectedIndex = selectedMembers.findIndex((item) => item.userId === member.userId);
-                    const equalShare =
-                      amountMinor && selectedIndex >= 0
-                        ? Math.floor(amountMinor / selectedMembers.length) +
-                          (selectedIndex < amountMinor % selectedMembers.length ? 1 : 0)
-                        : 0;
-                    const mRing = AVATAR_RING_COLORS[memberIndexFor(member.userId) % AVATAR_RING_COLORS.length];
+                  <View
+                    style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
+                    className="overflow-hidden rounded-3xl border px-4 py-1 shadow-sm"
+                  >
+                    {members.map((member, index) => {
+                      const selected = participantIds.includes(member.userId);
+                      const selectedIndex = selectedMembers.findIndex((item) => item.userId === member.userId);
+                      const equalShare =
+                        amountMinor && selectedIndex >= 0
+                          ? Math.floor(amountMinor / selectedMembers.length) +
+                            (selectedIndex < amountMinor % selectedMembers.length ? 1 : 0)
+                          : 0;
+                      const mRing = AVATAR_RING_COLORS[memberIndexFor(member.userId) % AVATAR_RING_COLORS.length];
 
-                    return (
-                      <View key={member.userId}>
-                        <View className="flex-row items-center gap-3 py-3">
-                          <Pressable
-                            accessibilityRole="checkbox"
-                            accessibilityState={{ checked: selected }}
-                            onPress={() => toggleParticipant(member.userId)}
-                            className="flex-1 flex-row items-center gap-3"
-                          >
-                            <View
-                              style={{
-                                backgroundColor: selected ? "#F5D298" : clay.squircle,
-                                borderColor: selected ? "#F5D298" : clay.cardBorder,
-                              }}
-                              className="h-6 w-6 items-center justify-center rounded-lg border"
+                      return (
+                        <View key={member.userId}>
+                          <View className="flex-row items-center gap-3 py-3">
+                            <Pressable
+                              accessibilityRole="checkbox"
+                              accessibilityState={{ checked: selected }}
+                              onPress={() => toggleParticipant(member.userId)}
+                              className="flex-1 flex-row items-center gap-3"
                             >
-                              {selected ? <Ionicons name="checkmark" size={15} color={clay.heroText} /> : null}
-                            </View>
+                              <View
+                                style={{
+                                  backgroundColor: selected ? "#F5D298" : clay.squircle,
+                                  borderColor: selected ? "#F5D298" : clay.cardBorder,
+                                }}
+                                className="h-6 w-6 items-center justify-center rounded-lg border"
+                              >
+                                {selected ? <Ionicons name="checkmark" size={15} color={clay.heroText} /> : null}
+                              </View>
 
-                            <View
-                              style={{
-                                width: 32,
-                                height: 32,
-                                borderRadius: 16,
-                                borderWidth: 2,
-                                borderColor: mRing,
-                                backgroundColor: clay.avatarBg,
-                              }}
-                              className="items-center justify-center"
-                            >
-                              <Text style={{ color: clay.textPrimary }} className="text-xs font-black">
-                                {(member.name.trim()[0] || "?").toUpperCase()}
+                              <View
+                                style={{
+                                  width: 32,
+                                  height: 32,
+                                  borderRadius: 16,
+                                  borderWidth: 2,
+                                  borderColor: mRing,
+                                  backgroundColor: clay.avatarBg,
+                                }}
+                                className="items-center justify-center"
+                              >
+                                <Text style={{ color: clay.textPrimary }} className="text-xs font-black">
+                                  {(member.name.trim()[0] || "?").toUpperCase()}
+                                </Text>
+                              </View>
+
+                              <Text
+                                style={{ color: selected ? clay.textPrimary : clay.textMuted }}
+                                className="flex-1 text-sm font-bold"
+                                numberOfLines={1}
+                              >
+                                {member.name}
+                                {member.userId === currentUserId ? " (you)" : ""}
                               </Text>
-                            </View>
+                            </Pressable>
 
-                            <Text
-                              style={{ color: selected ? clay.textPrimary : clay.textMuted }}
-                              className="flex-1 text-sm font-bold"
-                              numberOfLines={1}
-                            >
-                              {member.name}
-                              {member.userId === currentUserId ? " (you)" : ""}
-                            </Text>
-                          </Pressable>
-
-                          {selected && splitMode === "equal" ? (
-                            <Text selectable style={{ color: clay.textPrimary }} className="text-sm font-extrabold">
-                              {formatMoney(equalShare / 100, group.currency)}
-                            </Text>
-                          ) : null}
-
-                          {selected && splitMode === "exact" ? (
-                            <View
-                              style={{ backgroundColor: clay.squircle, borderColor: clay.cardBorder }}
-                              className="w-28 flex-row items-center rounded-xl border px-2.5"
-                            >
-                              <Text style={{ color: clay.textMuted }} className="text-xs font-bold">
-                                {getCurrencySymbol(group.currency)}
+                            {selected && splitMode === "equal" ? (
+                              <Text selectable style={{ color: clay.textPrimary }} className="text-sm font-extrabold">
+                                {formatMoney(equalShare / 100, group.currency)}
                               </Text>
-                              <TextInput
-                                style={{ color: clay.textPrimary }}
-                                className="flex-1 py-1.5 text-right text-sm font-bold"
-                                keyboardType="decimal-pad"
-                                placeholder="0"
-                                placeholderTextColor={clay.textMuted}
-                                value={exactAmounts[member.userId] ?? ""}
-                                onChangeText={(value) =>
-                                  setExactAmounts((current) => ({ ...current, [member.userId]: value }))
-                                }
-                              />
-                            </View>
+                            ) : null}
+
+                            {selected && splitMode === "exact" ? (
+                              <View
+                                style={{ backgroundColor: clay.squircle, borderColor: clay.cardBorder }}
+                                className="w-28 flex-row items-center rounded-xl border px-2.5"
+                              >
+                                <Text style={{ color: clay.textMuted }} className="text-xs font-bold">
+                                  {getCurrencySymbol(group.currency)}
+                                </Text>
+                                <TextInput
+                                  style={{ color: clay.textPrimary }}
+                                  className="flex-1 py-1.5 text-right text-sm font-bold"
+                                  keyboardType="decimal-pad"
+                                  placeholder="0"
+                                  placeholderTextColor={clay.textMuted}
+                                  value={exactAmounts[member.userId] ?? ""}
+                                  onChangeText={(value) =>
+                                    setExactAmounts((current) => ({ ...current, [member.userId]: value }))
+                                  }
+                                />
+                              </View>
+                            ) : null}
+                          </View>
+                          {index < members.length - 1 ? (
+                            <View style={{ backgroundColor: clay.cardBorder }} className="h-px w-full" />
                           ) : null}
                         </View>
-                        {index < members.length - 1 ? (
-                          <View style={{ backgroundColor: clay.cardBorder }} className="h-px w-full" />
-                        ) : null}
-                      </View>
-                    );
-                  })}
-                </View>
-
-                {splitMode === "exact" && amountMinor !== null ? (
-                  <View
-                    style={{
-                      backgroundColor: exactValid ? clay.badgePositiveBg : clay.badgeNegativeBg,
-                    }}
-                    className="rounded-2xl px-4 py-2.5"
-                  >
-                    <Text
-                      style={{
-                        color: exactValid ? clay.badgePositiveText : clay.badgeNegativeText,
-                      }}
-                      className="text-xs font-bold"
-                    >
-                      {exactValid
-                        ? "Amounts add up correctly"
-                        : `${formatMoney(Math.abs(amountMinor - exactTotalMinor) / 100, group.currency)} ${
-                            amountMinor >= exactTotalMinor ? "left to assign" : "over the total"
-                          }`}
-                    </Text>
+                      );
+                    })}
                   </View>
-                ) : null}
+
+                  {splitMode === "exact" && amountMinor !== null ? (
+                    <View
+                      style={{
+                        backgroundColor: exactValid ? clay.badgePositiveBg : clay.badgeNegativeBg,
+                      }}
+                      className="rounded-2xl px-4 py-2.5"
+                    >
+                      <Text
+                        style={{
+                          color: exactValid ? clay.badgePositiveText : clay.badgeNegativeText,
+                        }}
+                        className="text-xs font-bold"
+                      >
+                        {exactValid
+                          ? "Amounts add up correctly"
+                          : `${formatMoney(Math.abs(amountMinor - exactTotalMinor) / 100, group.currency)} ${
+                              amountMinor >= exactTotalMinor ? "left to assign" : "over the total"
+                            }`}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
               </AnimatedReanimated.View>
 
               {/* ── Optional Note ── */}
-              <AnimatedReanimated.View entering={FadeInDown.duration(280).delay(260)} className="gap-2">
-                <Text style={{ color: clay.textMuted }} className="px-1 text-xs font-bold uppercase tracking-wider">
-                  Note (Optional)
-                </Text>
-                <TextInput
-                  style={{
-                    backgroundColor: clay.card,
-                    borderColor: clay.cardBorder,
-                    color: clay.textPrimary,
-                  }}
-                  className="min-h-20 rounded-3xl border p-4 text-sm font-medium"
-                  placeholder="Add details, receipt notes, etc."
-                  placeholderTextColor={clay.textMuted}
-                  multiline
-                  scrollEnabled={false}
-                  maxLength={2000}
-                  textAlignVertical="top"
-                  value={note}
-                  onChangeText={setNote}
-                  onFocus={() => {
-                    isNoteFocusedRef.current = true;
-                    setIsNoteFocused(true);
-                    setTimeout(() => {
-                      scrollViewRef.current?.scrollToEnd({ animated: true });
-                    }, 100);
-                  }}
-                  onBlur={() => {
-                    isNoteFocusedRef.current = false;
-                    setIsNoteFocused(false);
-                  }}
-                  onContentSizeChange={() => {
-                    if (isNoteFocusedRef.current) {
-                      scrollViewRef.current?.scrollToEnd({ animated: true });
-                    }
-                  }}
-                />
+              <AnimatedReanimated.View entering={FadeInDown.duration(280).delay(260)}>
+                <View className="gap-2">
+                  <Text style={{ color: clay.textMuted }} className="px-1 text-xs font-bold uppercase tracking-wider">
+                    Note (Optional)
+                  </Text>
+                  <TextInput
+                    style={{
+                      backgroundColor: clay.card,
+                      borderColor: clay.cardBorder,
+                      color: clay.textPrimary,
+                    }}
+                    className="min-h-20 rounded-3xl border p-4 text-sm font-medium"
+                    placeholder="Add details, receipt notes, etc."
+                    placeholderTextColor={clay.textMuted}
+                    multiline
+                    scrollEnabled={false}
+                    maxLength={2000}
+                    textAlignVertical="top"
+                    value={note}
+                    onChangeText={setNote}
+                    onFocus={() => {
+                      isNoteFocusedRef.current = true;
+                      setIsNoteFocused(true);
+                      setTimeout(() => {
+                        scrollViewRef.current?.scrollToEnd({ animated: true });
+                      }, 100);
+                    }}
+                    onBlur={() => {
+                      isNoteFocusedRef.current = false;
+                      setIsNoteFocused(false);
+                    }}
+                    onContentSizeChange={() => {
+                      if (isNoteFocusedRef.current) {
+                        scrollViewRef.current?.scrollToEnd({ animated: true });
+                      }
+                    }}
+                  />
+                </View>
               </AnimatedReanimated.View>
             </>
           ) : null}
