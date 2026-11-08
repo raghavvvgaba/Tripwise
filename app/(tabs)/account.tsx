@@ -73,10 +73,10 @@ export default function AccountScreen() {
   return (
     <>
       <ScrollView
+        className="account-settings__canvas h-full min-h-0 flex-1"
         contentInsetAdjustmentBehavior="automatic"
         contentContainerClassName="w-full max-w-2xl self-center gap-5 px-5 pb-10 pt-3 md:px-8 md:pt-8"
         showsVerticalScrollIndicator={false}
-        className="account-settings__canvas"
         accessibilityElementsHidden={isSheetVisible}
         importantForAccessibility={isSheetVisible ? "no-hide-descendants" : "auto"}
       >

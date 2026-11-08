@@ -26,12 +26,13 @@ function Brand() {
 
 export function WebAppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const isExpenseSheet = /^\/groups\/[^/]+\/add-expense\/?$/.test(pathname);
   const email = useAuthStore((state) => state.session?.user.email);
   const activePage = navigation.find((item) => item.href === pathname)?.label ?? "Workspace";
   const colors = useThemeColors();
 
   return (
-    <View className="h-dvh flex-1 bg-canvas lg:flex-row">
+    <View className="web-app-shell min-h-0 bg-canvas lg:flex-row">
       <View className="hidden w-64 border-r border-line bg-surface px-5 py-7 lg:flex">
         <Link href="/" asChild>
           <Pressable accessibilityLabel="Tripwise home" className="mb-12 self-start rounded-xl">
@@ -71,13 +72,13 @@ export function WebAppShell({ children }: { children: ReactNode }) {
         </View>
       </View>
 
-      <View className="min-w-0 flex-1">
-        <View className="min-h-16 flex-row items-center justify-between border-b border-line bg-surface px-5 lg:hidden">
+      <View className="relative min-h-0 min-w-0 flex-1">
+        <View className="web-app-shell__mobile-header min-h-16 flex-row items-center justify-between border-b border-line bg-surface px-5 lg:hidden">
           <Link href="/" asChild>
             <Pressable accessibilityLabel="Tripwise home"><Brand /></Pressable>
           </Link>
           <Link href="/account" asChild>
-            <Pressable accessibilityLabel="Account" className="h-9 w-9 items-center justify-center rounded-full bg-brand-50">
+            <Pressable accessibilityLabel="Account" className="h-11 w-11 items-center justify-center rounded-full bg-brand-50">
               <Text className="text-sm font-bold text-brand-700">{email?.[0]?.toUpperCase() ?? "?"}</Text>
             </Pressable>
           </Link>
@@ -93,9 +94,9 @@ export function WebAppShell({ children }: { children: ReactNode }) {
           </View>
         </View>
 
-        <View className="min-h-0 flex-1">{children}</View>
+        <View className={isExpenseSheet ? "absolute inset-0 z-50 min-h-0" : "min-h-0 flex-1"}>{children}</View>
 
-        <View className="min-h-16 flex-row border-t border-line bg-surface lg:hidden">
+        <View className="web-app-shell__mobile-tabs shrink-0 flex-row border-t border-line bg-surface lg:hidden">
           {navigation.map((item) => {
             const isActive = pathname === item.href;
             return (
@@ -103,7 +104,7 @@ export function WebAppShell({ children }: { children: ReactNode }) {
                 <Pressable
                   accessibilityRole="link"
                   accessibilityState={{ selected: isActive }}
-                  className="min-h-16 flex-1 items-center justify-center gap-1"
+                  className="h-14 flex-1 items-center justify-center gap-1 active:opacity-70"
                 >
                   <Ionicons name={isActive ? item.activeIcon : item.icon} size={21} color={isActive ? colors["brand-700"] : colors.muted} />
                   <Text className={`text-[11px] font-semibold ${isActive ? "text-brand-700" : "text-muted"}`}>

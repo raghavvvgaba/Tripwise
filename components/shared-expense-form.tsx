@@ -217,8 +217,14 @@ function LoadedExpenseForm({ group, currentUserId, expenseId, onClose, headerPan
     }
   }
 
+  // CSS handles browser safe areas; native keeps SafeAreaView's inset handling.
+  const FormContainer = Platform.OS === "web" ? View : SafeAreaView;
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: clay.canvas }}>
+    <FormContainer
+      className={Platform.OS === "web" ? "expense-form__viewport min-h-0" : undefined}
+      style={{ flex: 1, backgroundColor: clay.canvas }}
+    >
       <Stack.Screen options={{ headerShown: false }} />
 
       {/* ── Drag Handle & Top Bar Header ── */}
@@ -256,11 +262,11 @@ function LoadedExpenseForm({ group, currentUserId, expenseId, onClose, headerPan
 
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        className="flex-1"
+        className="min-h-0 flex-1"
       >
         <ScrollView
           ref={scrollViewRef}
-          className="flex-1"
+          className="min-h-0 flex-1"
           contentInsetAdjustmentBehavior="never"
           keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
           keyboardShouldPersistTaps="handled"
@@ -683,9 +689,9 @@ function LoadedExpenseForm({ group, currentUserId, expenseId, onClose, headerPan
           style={{
             backgroundColor: clay.canvas,
             borderColor: clay.cardBorder,
-            paddingBottom: isKeyboardVisible ? 12 : Math.max(insets.bottom, 12) + 8,
+            paddingBottom: Platform.OS === "web" ? undefined : isKeyboardVisible ? 12 : Math.max(insets.bottom, 12) + 8,
           }}
-          className="w-full max-w-2xl self-center border-t px-5 pt-3"
+          className={`w-full max-w-2xl self-center border-t px-5 pt-3 ${Platform.OS === "web" ? "expense-form__footer" : ""}`}
         >
           {saveError ? (
             <Text selectable style={{ color: clay.errorText }} className="mb-2 text-center text-xs font-semibold">
@@ -713,6 +719,6 @@ function LoadedExpenseForm({ group, currentUserId, expenseId, onClose, headerPan
           </Pressable>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </FormContainer>
   );
 }

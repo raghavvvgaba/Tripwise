@@ -60,6 +60,15 @@ export default function RootLayout() {
     nativeWindColorScheme.set(Platform.OS === "web" ? scheme : themePreference);
   }, [scheme, settingsHydrated, themePreference]);
 
+  // Keep the browser chrome (iOS status bar, Android toolbar) in sync with the app theme.
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", colors.canvas);
+    document.documentElement.style.colorScheme = scheme;
+    document.documentElement.style.backgroundColor = colors.canvas;
+    document.body.style.backgroundColor = colors.canvas;
+  }, [colors.canvas, scheme]);
+
   useEffect(() => {
     if (!isLoading && settingsHydrated) {
       void SplashScreen.hideAsync().catch(() => {});
