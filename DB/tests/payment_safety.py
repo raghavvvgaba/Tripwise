@@ -1,6 +1,7 @@
 """Payment authorization/integrity regression checks against isolated PostgreSQL."""
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+import json
 import subprocess
 import tempfile
 
@@ -38,6 +39,7 @@ def run_checks(socket):
     sql("""
       create role anon;
       create role authenticated;
+      create role service_role bypassrls;
       create schema auth;
       create table auth.users (id uuid primary key, raw_user_meta_data jsonb default '{}');
       create function auth.uid() returns uuid language sql stable as
@@ -120,14 +122,101 @@ def run_checks(socket):
     assert sql(request(key(6), amount=25000), USERS[1]) == full
     sql(request(key(7), amount=1), USERS[0], "22023")
     delete(full, USERS[0])
-    sql(request(key(7), amount=25000), USERS[0])
+    seventh = sql(request(key(7), amount=25000), USERS[0])
+    # Leave one 25000 debt outstanding so the reminder checks have a balance.
+    delete(seventh, USERS[0])
+
+    # Payment reminders: tokens, permissions, cooldown, and private activity.
+    def remind(recipient, actor, expected_error=None, role="authenticated"):
+        return sql(f"select public.send_payment_reminder('{GROUP}', '{recipient}');", actor, expected_error, role)
+
+    def register(token, actor, expected_error=None, role="authenticated"):
+        return sql(f"select public.register_push_token('{token}', 'android');", actor, expected_error, role)
+
+    register("tok-a", USERS[0])
+    register("tok-a", USERS[0])  # Re-registering is idempotent.
+    assert sql("select count(*) from public.push_tokens;", USERS[0]) == "1"
+    assert sql("select count(*) from public.push_tokens;", USERS[2]) == "0"
+    # Direct writes are closed; registration only goes through the RPC.
+    sql(f"insert into public.push_tokens(user_id, token, platform) values ('{USERS[0]}', 'tok-b', 'android');", USERS[2], "42501")
+    sql(f"insert into public.push_tokens(user_id, token, platform) values ('{USERS[2]}', 'tok-b', 'android');", USERS[2], "42501")
+    register("tok-b", "", "42501")  # No session.
+    register("tok-b", USERS[2], "42501", role="anon")
+    # A shared device moves to whoever signs in; the previous account loses it.
+    register("tok-shared", USERS[2])
+    register("tok-shared", USERS[0])
+    assert sql("select count(*) from public.push_tokens;", USERS[2]) == "0"
+    assert sql("select count(*) from public.push_tokens;", USERS[0]) == "2"
+    sql("delete from public.push_tokens where token='tok-shared';", USERS[0])
+    # The Edge Function looks up and prunes tokens as service_role.
+    assert sql(f"select count(*) from public.push_tokens where user_id='{USERS[0]}';", "", role="service_role") == "1"
+    register("tok-stale", USERS[2])
+    sql("delete from public.push_tokens where token='tok-stale';", "", role="service_role")
+    assert sql("select count(*) from public.push_tokens where token='tok-stale';") == "0"
+    sql(f"delete from public.push_tokens where user_id='{USERS[0]}';", USERS[2])
+    assert sql("select count(*) from public.push_tokens;", USERS[0]) == "1"
+
+    remind(USERS[0], "", "42501")  # No session.
+    remind(USERS[0], USERS[0], "42501", role="anon")
+    remind(USERS[0], USERS[3], "42501")  # Caller not in the group.
+    remind(USERS[3], USERS[1], "This person is not a member")  # Recipient not in the group.
+    remind(USERS[1], USERS[1], "Invalid reminder details")  # Self reminder.
+    remind(USERS[0], USERS[2], "does not owe you money")  # Caller is not owed anything.
+    def reserve():
+        return json.loads(remind(USERS[0], USERS[1]))
+
+    def finish(attempt, sent, actor="", role="service_role", expected_error=None):
+        return sql(f"select public.finish_payment_reminder('{attempt}', {str(sent).lower()});", actor, expected_error, role)
+
+    pending = reserve()
+    assert pending['amountMinor'] == 25000
+    assert sql("select count(*) from public.group_activity where event_type='reminder_sent';") == "0"
+    remind(USERS[0], USERS[1], "already being sent")
+    finish(pending['attemptId'], True, USERS[1], "authenticated", "42501")
+    finish(pending['attemptId'], False, USERS[0], "authenticated", "42501")
+    finish(pending['attemptId'], True, "", "anon", "42501")
+    sql("select * from app_private.payment_reminder_attempts;", USERS[1], "42501")
+    assert finish(pending['attemptId'], False) == "t"
+    assert sql("select count(*) from public.group_activity where event_type='reminder_sent';") == "0"
+    # Failure permits an immediate retry, and stale callbacks cannot affect it.
+    retry = reserve()
+    assert retry['attemptId'] != pending['attemptId']
+    assert finish(pending['attemptId'], True) == "f"
+    # Abandoned reservations expire; only the replacement may be finalized.
+    sql("update app_private.payment_reminder_attempts set reserved_at = now() - interval '6 minutes';")
+    replacement = reserve()
+    assert finish(retry['attemptId'], False) == "f"
+    assert finish(replacement['attemptId'], True) == "t"
+    assert finish(replacement['attemptId'], True) == "t"  # Idempotent completion.
+    assert finish(replacement['attemptId'], False) == "f"  # Cannot release sent pushes.
+    remind(USERS[0], USERS[1], "A reminder was already sent")  # Daily cooldown.
+    sql("update app_private.payment_reminder_attempts set sent_at = now() - interval '25 hours';")
+    # Two simultaneous new requests reserve exactly one attempt.
+    def concurrent_reminder(_):
+        try:
+            return reserve()
+        except AssertionError as error:
+            assert "already being sent" in str(error), str(error)
+            return None
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        attempts = list(pool.map(concurrent_reminder, range(2)))
+    assert attempts.count(None) == 1
+    winner = next(attempt for attempt in attempts if attempt)
+    assert winner['amountMinor'] == 25000
+    assert finish(winner['attemptId'], True) == "t"
+    # Only the sender and the reminded person see reminder events.
+    assert sql("select count(*) from public.group_activity where event_type='reminder_sent';", USERS[1]) == "2"
+    assert sql("select count(*) from public.group_activity where event_type='reminder_sent';", USERS[0]) == "2"
+    assert sql("select count(*) from public.group_activity where event_type='reminder_sent';", USERS[2]) == "0"
+    sql(f"delete from public.push_tokens where user_id='{USERS[0]}';", USERS[0])
+    assert sql("select count(*) from public.push_tokens;", USERS[0]) == "0"
 
     sql(f"update public.groups set deleted_at=now() where id='{GROUP}';")
     sql(request(key(8)), USERS[0], "42501")
     delete(ids[0], USERS[0], "42501")
     assert sql("select count(*) from public.group_payments;", USERS[0]) == "0"
     assert sql("select count(*) from public.group_activity where event_type in ('payment_recorded','payment_deleted');", USERS[0]) == "0"
-    print("PASS: migration, permissions, dates, balances, retries, duplicates, concurrent writes, deletion, Activity and RLS")
+    print("PASS: migration, permissions, dates, balances, retries, duplicates, concurrent writes, deletion, reminders, Activity and RLS")
 
 
 with tempfile.TemporaryDirectory(prefix="tripwise-payments-") as temp:

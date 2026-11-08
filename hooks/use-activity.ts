@@ -17,8 +17,13 @@ export function useActivity() {
   const events = [...new Map(
     query.data?.pages.flatMap((page) => page.events).map((event) => [event.id, event])
   ).values()];
+  // Reminders the caller sent name the debtor through payment_from, so those
+  // groups need member names even when the caller is the actor.
   const groupIds = [...new Set(events.filter((event) =>
-    event.actorId !== userId || event.eventType === "payment_recorded" || event.eventType === "payment_deleted"
+    event.actorId !== userId
+    || event.eventType === "payment_recorded"
+    || event.eventType === "payment_deleted"
+    || event.eventType === "reminder_sent"
   ).map((event) => event.groupId))];
   const memberQueries = useQueries({ queries: groupIds.map((groupId) => membersQueryOptions(userId, groupId)) });
   const names = new Map(groupIds.map((groupId, index) => [

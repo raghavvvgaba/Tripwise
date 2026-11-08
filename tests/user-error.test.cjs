@@ -304,6 +304,7 @@ for (const outcome of ["cleared", "retained", "thrown"]) {
     const alerts = [];
     const authStore = Object.assign((select) => select({ session }), { getState: () => ({ session }) });
     const h = screenHarness("app/(tabs)/account.tsx", {
+      "@/lib/push-notifications": { unregisterPushTokens: async () => {} },
       "@/store/use-auth-store": { useAuthStore: authStore },
       "@/lib/supabase": { supabase: { auth: { signOut: async () => {
         if (outcome === "cleared") session = null;

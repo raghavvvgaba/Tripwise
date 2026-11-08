@@ -35,6 +35,8 @@ export default function ActivityScreen() {
       return;
     } else if (event.eventType === "payment_recorded" || event.eventType === "payment_deleted") {
       router.push(`/groups/${group.id}`);
+    } else if (event.eventType === "reminder_sent") {
+      router.push(`/groups/${group.id}`);
     } else if ((event.eventType === "expense_added" || event.eventType === "expense_edited") && event.expenseId) {
       router.push({ pathname: "/expenses/[expenseId]", params: { expenseId: event.expenseId, groupId: group.id } });
     } else if (event.eventType === "group_deleted" || event.eventType === "group_restored") {
@@ -107,6 +109,7 @@ export default function ActivityScreen() {
               event.eventType === "expense_edited" ||
               event.eventType === "expense_deleted";
             const isPayment = event.eventType === "payment_recorded" || event.eventType === "payment_deleted";
+            const isReminder = event.eventType === "reminder_sent";
             const isUnavailableExpense = isExpense && !event.expenseId;
             const { payerName, recipientName } = item;
 
@@ -134,9 +137,11 @@ export default function ActivityScreen() {
                           ? "trash-outline"
                           : isPayment
                             ? "swap-horizontal-outline"
-                            : isExpense
-                              ? "receipt-outline"
-                              : "refresh-outline"
+                            : isReminder
+                              ? "notifications-outline"
+                              : isExpense
+                                ? "receipt-outline"
+                                : "refresh-outline"
                       }
                       size={20}
                       color={clay.isDark ? "#F5D298" : "#9A6B1C"}
@@ -149,7 +154,9 @@ export default function ActivityScreen() {
                         ? `${actorName} ${event.eventType === "expense_deleted" ? "deleted" : event.eventType === "expense_edited" ? "edited" : "added"} “${event.description}”`
                         : isPayment
                           ? `${actorName} ${event.eventType === "payment_deleted" ? "deleted" : "recorded"} a payment`
-                          : `${actorName} ${event.eventType === "group_deleted" ? "deleted" : "restored"} ${group.name}`}
+                          : isReminder
+                            ? `${actorName} asked ${payerName} to settle up`
+                            : `${actorName} ${event.eventType === "group_deleted" ? "deleted" : "restored"} ${group.name}`}
                     </Text>
 
                     {isPayment ? (
@@ -175,7 +182,7 @@ export default function ActivityScreen() {
                     )}
                   </View>
 
-                  {(isExpense || isPayment) && event.amountMinor !== null ? (
+                  {(isExpense || isPayment || isReminder) && event.amountMinor !== null ? (
                     <Text selectable style={{ color: clay.textPrimary }} className="text-base font-black">
                       {formatMoney(event.amountMinor / 100, group.currency)}
                     </Text>

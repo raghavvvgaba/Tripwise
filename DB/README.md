@@ -17,6 +17,9 @@ For a fresh Supabase database, run these files in order in the SQL Editor:
 13. `12_group_cover_thumbnails.sql`
 14. `13_remove_group_archiving.sql`
 15. `14_payment_safety.sql`
+16. `15_payment_reminders.sql`
+17. `16_keep_alive_ping.sql`
+18. `17_push_tokens_service_role.sql`
 
 Each file is intended to run once. Future schema changes should get a new numbered file; do not edit an earlier file after it has been applied to a database.
 
@@ -54,6 +57,14 @@ These files are currently applied manually through the SQL Editor; the numbers d
 
 Run `14_payment_safety.sql` after `13_remove_group_archiving.sql`, before running this app build. It replaces the old payment RPC signature: only the sender or recipient may record or delete a payment. Request IDs make retries idempotent, and identical active payment details require explicit confirmation. Deletion excludes the payment from balances and lists and adds an Activity event. The internal cancelled row retains its request ID to prevent retries from recreating it; there is no restore action.
 
+Run `15_payment_reminders.sql` after `14_payment_safety.sql`, before an app build with payment reminders. It adds the `push_tokens` table (each Expo push token belongs to one user; `register_push_token` claims it for whoever signed in last, and users can only read or delete their own), private reminder attempts, the `reminder_sent` Activity event visible only to the sender and the reminded person, and the `send_payment_reminder` RPC. The RPC checks membership and the same greedy settlement matching as the app, then reserves an attempt per (group, debtor, creditor). Only the service-role `finish_payment_reminder` RPC can confirm or release that attempt. Expo acceptance creates Activity and starts the 24-hour cooldown; failed sends release the attempt for immediate retry. Pending attempts expire after five minutes if the worker stops or cleanup fails. Reminders are hidden while the group is deleted, like payments.
+
+Expo acceptance does not prove delivery to the phone. If a network response is lost after Expo accepted a push, a retry can send another notification; this flow cannot guarantee exactly-once delivery across Expo and Postgres. If database finalization fails after acceptance, the function retries finalization once and retains the pending reservation instead of releasing it.
+
+## Payment reminder Edge Function
+
+The `supabase/functions/send-payment-reminder` function is deployed separately from the app: run `supabase functions deploy send-payment-reminder` from the repo root (or paste the code into a new function in the Supabase dashboard). It uses the platform's built-in `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` secrets, so no extra secrets are required. Delivering pushes on Android additionally needs the FCM credential uploaded once via `npx eas credentials`; iOS needs an Apple developer account and APNs keys.
+
 ## Local payment regression checks
 
-With PostgreSQL binaries (`initdb`, `pg_ctl`, `psql`) installed, run `python3 DB/tests/payment_safety.py`. It creates and removes an isolated temporary database, uses local Auth/Storage stubs, applies all numbered migrations, and checks payment permissions, duplicate/concurrent requests, deletion, Activity, and date/balance validation. It does not connect to Supabase.
+With PostgreSQL binaries (`initdb`, `pg_ctl`, `psql`) installed, run `python3 DB/tests/payment_safety.py`. It creates and removes an isolated temporary database, uses local Auth/Storage stubs, applies all numbered migrations, and checks payment permissions, duplicate/concurrent requests, deletion, reminders (tokens, cooldown, settlement amounts, private visibility), Activity, and date/balance validation. It does not connect to Supabase.

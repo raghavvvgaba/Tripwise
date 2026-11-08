@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { UpdateBanner } from "@/components/update-banner";
 import { useClayTheme } from "@/constants/clay-theme";
+import { unregisterPushTokens } from "@/lib/push-notifications";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/use-auth-store";
 import { useCurrencyStore } from "@/store/use-currency-store";
@@ -61,8 +62,12 @@ export default function AccountScreen() {
   }
 
   async function signOut() {
+    const userId = useAuthStore.getState().session?.user.id;
     try {
-      const { error } = await supabase.auth.signOut();
+      // Best effort: stop reminder pushes before the session disappears.
+      if (userId) await unregisterPushTokens(userId).catch(() => {});
+      // Local scope: signing out here must not end this account's sessions on other devices.
+      const { error } = await supabase.auth.signOut({ scope: "local" });
       if (error) throw error;
     } catch (error) {
       // Auth can clear the local session before a remote sign-out error arrives.
