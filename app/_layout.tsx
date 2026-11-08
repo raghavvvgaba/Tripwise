@@ -16,6 +16,7 @@ import { useSettingsStore } from "@/store/use-settings-store";
 import { WebAppShell } from "@/components/web-app-shell";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { resolveTheme, themeColors, themeVariables } from "@/constants/theme";
+import { useWebKeyboardViewport } from "@/hooks/use-web-keyboard-viewport";
 
 initializeNetworkMonitoring();
 
@@ -54,6 +55,7 @@ export default function RootLayout() {
     },
   };
 
+  useWebKeyboardViewport();
   useEffect(() => initialize(), [initialize]);
   useEffect(() => {
     if (!settingsHydrated) return;

@@ -17,7 +17,7 @@ import {
   View,
 } from "react-native";
 import AnimatedReanimated, { FadeInDown } from "react-native-reanimated";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useClayTheme } from "@/constants/clay-theme";
 import { friendlyErrorMessage } from "@/lib/user-error";
@@ -217,13 +217,19 @@ function LoadedExpenseForm({ group, currentUserId, expenseId, onClose, headerPan
     }
   }
 
-  // CSS handles browser safe areas; native keeps SafeAreaView's inset handling.
-  const FormContainer = Platform.OS === "web" ? View : SafeAreaView;
+  // CSS handles browser safe areas. On native the form opens inside a scaled
+  // "bloom" animation, where SafeAreaView measures zero insets and never
+  // re-measures, so pad with the window insets directly. The footer pads the bottom.
+  const isWeb = Platform.OS === "web";
 
   return (
-    <FormContainer
-      className={Platform.OS === "web" ? "expense-form__viewport min-h-0" : undefined}
-      style={{ flex: 1, backgroundColor: clay.canvas }}
+    <View
+      className={isWeb ? "expense-form__viewport min-h-0" : undefined}
+      style={{
+        flex: 1,
+        backgroundColor: clay.canvas,
+        ...(isWeb ? {} : { paddingTop: insets.top, paddingLeft: insets.left, paddingRight: insets.right }),
+      }}
     >
       <Stack.Screen options={{ headerShown: false }} />
 
@@ -728,6 +734,6 @@ function LoadedExpenseForm({ group, currentUserId, expenseId, onClose, headerPan
           </Pressable>
         </View>
       </KeyboardAvoidingView>
-    </FormContainer>
+    </View>
   );
 }
