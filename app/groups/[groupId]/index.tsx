@@ -19,6 +19,7 @@ import { confirmAction, showError } from "@/utils/dialogs";
 import { formatMoney } from "@/utils/money";
 import { formatExpenseDate, formatPaymentDate, formatRelativeTime } from "@/utils/date";
 import { getSharedMemberBalances, getSharedSettlements, type SharedSettlement } from "@/utils/shared-expenses";
+import { ReminderError, sendPaymentReminder } from "@/lib/reminders";
 
 type GroupView = "expenses" | "balances" | "settle";
 
@@ -213,6 +214,8 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
   const refreshPayments = paymentsQuery.refetch;
   const [deletingPaymentId, setDeletingPaymentId] = useState<string | null>(null);
   const deletingPayment = useRef(false);
+  const [remindingKey, setRemindingKey] = useState<string | null>(null);
+  const [remindedKey, setRemindedKey] = useState<string | null>(null);
   const [sharedView, setSharedView] = useState<GroupView>("expenses");
 
   const isNavigating = useRef(false);
@@ -277,6 +280,28 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
     } finally {
       deletingPayment.current = false;
       setDeletingPaymentId(null);
+    }
+  }
+
+  async function remindDebtor(settlement: SharedSettlement) {
+    const key = `${settlement.from.userId}-${settlement.to.userId}`;
+    if (remindingKey || remindedKey === key) return;
+
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setRemindingKey(key);
+    try {
+      await sendPaymentReminder(group.id, settlement.from.userId);
+      setRemindedKey(key);
+      // Reset the confirmation after a short delay so the bell can be reused.
+      setTimeout(() => setRemindedKey((current) => (current === key ? null : current)), 4000);
+    } catch (error) {
+      if (error instanceof ReminderError && error.code === "no_push_tokens") {
+        showError("Could not send reminder", null, `${settlement.from.name} hasn't enabled notifications yet.`);
+      } else {
+        showError("Could not send reminder", error);
+      }
+    } finally {
+      setRemindingKey(null);
     }
   }
 
@@ -354,22 +379,42 @@ function SharedGroupDetails({ group }: { group: SharedGroup }) {
           </View>
         </View>
         {isYours ? (
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.push({
-              pathname: "/groups/[groupId]/record-payment",
-              params: {
-                groupId: group.id,
-                payerId: settlement.from.userId,
-                recipientId: settlement.to.userId,
-                amountMinor: String(settlement.amountMinor),
-              },
-            })}
-            className="min-h-12 flex-row items-center justify-center gap-2 rounded-2xl bg-[#F5D298] px-4 active:opacity-75"
-          >
-            <Ionicons name="card-outline" size={18} color={clay.heroText} />
-            <Text style={{ color: clay.heroText }} className="text-sm font-extrabold">Record payment</Text>
-          </Pressable>
+          <View className="flex-row gap-2.5">
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push({
+                pathname: "/groups/[groupId]/record-payment",
+                params: {
+                  groupId: group.id,
+                  payerId: settlement.from.userId,
+                  recipientId: settlement.to.userId,
+                  amountMinor: String(settlement.amountMinor),
+                },
+              })}
+              className="min-h-12 flex-1 flex-row items-center justify-center gap-2 rounded-2xl bg-[#F5D298] px-4 active:opacity-75"
+            >
+              <Ionicons name="card-outline" size={18} color={clay.heroText} />
+              <Text style={{ color: clay.heroText }} className="text-sm font-extrabold">Record payment</Text>
+            </Pressable>
+            {settlement.to.userId === currentUserId ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Send a payment reminder to ${settlement.from.name}`}
+                disabled={remindingKey !== null || remindedKey === `${settlement.from.userId}-${settlement.to.userId}`}
+                onPress={() => void remindDebtor(settlement)}
+                style={{ backgroundColor: clay.squircle, borderColor: clay.cardBorder }}
+                className="min-h-12 w-12 items-center justify-center rounded-2xl border active:opacity-75 disabled:opacity-60"
+              >
+                {remindingKey === `${settlement.from.userId}-${settlement.to.userId}` ? (
+                  <ActivityIndicator size="small" color={clay.isDark ? "#F5D298" : "#9A6B1C"} />
+                ) : remindedKey === `${settlement.from.userId}-${settlement.to.userId}` ? (
+                  <Ionicons name="checkmark" size={20} color={clay.isDark ? "#4ADE80" : "#15803D"} />
+                ) : (
+                  <Ionicons name="notifications-outline" size={18} color={clay.isDark ? "#F5D298" : "#9A6B1C"} />
+                )}
+              </Pressable>
+            ) : null}
+          </View>
         ) : null}
       </View>
     );

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Tripwise",
     "slug": "tripwise",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "scheme": "tripwise",
     "icon": "./assets/tripwise-icon-light.png",
@@ -26,6 +26,7 @@
     },
     "android": {
       "package": "com.tripwise.app",
+      "googleServicesFile": "./google-services.json",
       "intentFilters": [
         {
           "action": "VIEW",

@@ -50,15 +50,23 @@ export type SharedSettlement = {
   amountMinor: number;
 };
 
+// Plain codepoint order matches the database's uuid comparison. The reminder
+// RPC rebuilds this list server-side, so ties must resolve identically.
+function byUserId(a: GroupMember, b: GroupMember): number {
+  if (a.userId < b.userId) return -1;
+  if (a.userId > b.userId) return 1;
+  return 0;
+}
+
 export function getSharedSettlements(balances: SharedMemberBalance[]): SharedSettlement[] {
   const debtors = balances
     .filter((balance) => balance.netMinor < 0)
     .map((balance) => ({ member: balance.member, amountMinor: -balance.netMinor }))
-    .sort((a, b) => b.amountMinor - a.amountMinor || a.member.userId.localeCompare(b.member.userId));
+    .sort((a, b) => b.amountMinor - a.amountMinor || byUserId(a.member, b.member));
   const creditors = balances
     .filter((balance) => balance.netMinor > 0)
     .map((balance) => ({ member: balance.member, amountMinor: balance.netMinor }))
-    .sort((a, b) => b.amountMinor - a.amountMinor || a.member.userId.localeCompare(b.member.userId));
+    .sort((a, b) => b.amountMinor - a.amountMinor || byUserId(a.member, b.member));
 
   const settlements: SharedSettlement[] = [];
   let debtorIndex = 0;

@@ -1,8 +1,9 @@
 import "../global.css";
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { Platform, useColorScheme, View } from "react-native";
-import { DarkTheme, DefaultTheme, ThemeProvider } from "expo-router";
+import type { NotificationResponse } from "expo-notifications";
+import { DarkTheme, DefaultTheme, ThemeProvider, router, useNavigationContainerRef } from "expo-router";
 import { Stack } from "expo-router/stack";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
@@ -12,6 +13,8 @@ import { useAuthStore } from "@/store/use-auth-store";
 import { QueryProvider } from "@/components/query-provider";
 import { OfflineBanner } from "@/components/offline-banner";
 import { initializeNetworkMonitoring } from "@/lib/network";
+import { Notifications } from "@/lib/notifications-module";
+import { registerPushToken } from "@/lib/push-notifications";
 import { useSettingsStore } from "@/store/use-settings-store";
 import { WebAppShell } from "@/components/web-app-shell";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -59,6 +62,44 @@ export default function RootLayout() {
     if (!settingsHydrated) return;
     nativeWindColorScheme.set(Platform.OS === "web" ? scheme : themePreference);
   }, [scheme, settingsHydrated, themePreference]);
+
+  // Register this device for payment reminder pushes whenever a session exists.
+  const userId = session?.user.id ?? null;
+  useEffect(() => {
+    if (userId) void registerPushToken();
+  }, [userId]);
+
+  // Tapping a reminder push opens that group's screen.
+  const navigationRef = useNavigationContainerRef();
+  const handledNotificationId = useRef<string | null>(null);
+  useEffect(() => {
+    // Null on web and in Expo Go, which lack native push support.
+    const notifications = Notifications;
+    if (!notifications) return;
+
+    const openGroup = (response: NotificationResponse | null | undefined) => {
+      if (isLoading || !settingsHydrated || !userId || !navigationRef.isReady()) return;
+      if (!response || response.actionIdentifier !== notifications.DEFAULT_ACTION_IDENTIFIER) return;
+      const notificationId = response.notification.request.identifier;
+      if (handledNotificationId.current === notificationId) return;
+      const groupId = (response.notification.request.content.data as { groupId?: unknown } | undefined)?.groupId;
+      if (typeof groupId !== "string") return;
+      handledNotificationId.current = notificationId;
+      router.push(`/groups/${groupId}`);
+    };
+
+    // Native retains the last tap while auth, settings, or navigation loads.
+    const openPendingGroup = () => openGroup(notifications.getLastNotificationResponse());
+    const subscription = notifications.addNotificationResponseReceivedListener(openGroup);
+    const unsubscribeReady = navigationRef.addListener("ready", openPendingGroup);
+    const unsubscribeState = navigationRef.addListener("state", openPendingGroup);
+    openPendingGroup();
+    return () => {
+      subscription.remove();
+      unsubscribeReady();
+      unsubscribeState();
+    };
+  }, [isLoading, navigationRef, settingsHydrated, userId]);
 
   useEffect(() => {
     if (!isLoading && settingsHydrated) {
