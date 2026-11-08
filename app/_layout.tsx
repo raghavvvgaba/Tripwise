@@ -17,8 +17,10 @@ import { WebAppShell } from "@/components/web-app-shell";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { resolveTheme, themeColors, themeVariables } from "@/constants/theme";
 import { useWebKeyboardViewport } from "@/hooks/use-web-keyboard-viewport";
+import { registerServiceWorker } from "@/lib/service-worker";
 
 initializeNetworkMonitoring();
+registerServiceWorker();
 
 // Screen layouts also wrap native modal routes.
 function screenLayout({ children, route }: { children: ReactNode; route: { name: string } }) {

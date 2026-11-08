@@ -4,17 +4,43 @@ import { Platform, Pressable, Text, View } from "react-native";
 import * as Updates from "expo-updates";
 
 import { useThemeColors } from "@/constants/theme";
+import { applyWebUpdate } from "@/lib/service-worker";
+import { useWebUpdateStore } from "@/store/use-web-update-store";
 
 export function UpdateBanner() {
-  // OTA updates are unavailable on web, in Expo Go, and in ordinary dev builds.
-  if (Platform.OS === "web" || !Updates.isEnabled || __DEV__) return null;
+  if (Platform.OS === "web") return <WebUpdateBanner />;
+  // OTA updates are unavailable in Expo Go and in ordinary dev builds.
+  if (!Updates.isEnabled || __DEV__) return null;
 
   return <NativeUpdateBanner />;
 }
 
+// A new service worker (see lib/service-worker.ts) is waiting to take over.
+function WebUpdateBanner() {
+  const waitingWorker = useWebUpdateStore((state) => state.waitingWorker);
+  const setWaitingWorker = useWebUpdateStore((state) => state.setWaitingWorker);
+  const [isApplying, setIsApplying] = useState(false);
+
+  if (!waitingWorker) return null;
+
+  return (
+    <UpdateCard
+      message="Reload Tripwise to apply the latest improvements."
+      busy={isApplying}
+      busyLabel="Reloading…"
+      restartLabel="Reload now"
+      laterHint="Remind me next time"
+      onLater={() => setWaitingWorker(null)}
+      onRestart={() => {
+        setIsApplying(true);
+        applyWebUpdate(waitingWorker);
+      }}
+    />
+  );
+}
+
 function NativeUpdateBanner() {
   const { isUpdatePending, downloadedUpdate, isRestarting } = Updates.useUpdates();
-  const colors = useThemeColors();
   const [dismissedUpdate, setDismissedUpdate] = useState<string | null>(null);
   const [isApplying, setIsApplying] = useState(false);
   const [hasRestartError, setHasRestartError] = useState(false);
@@ -43,6 +69,34 @@ function NativeUpdateBanner() {
   }
 
   return (
+    <UpdateCard
+      message={hasRestartError
+        ? "Couldn’t restart. Try again, or close and reopen Tripwise."
+        : "Restart Tripwise to apply the latest improvements."}
+      busy={busy}
+      busyLabel="Restarting…"
+      restartLabel={hasRestartError ? "Try again" : "Restart now"}
+      laterHint="Remind me on the next app launch"
+      onLater={() => setDismissedUpdate(pendingUpdate)}
+      onRestart={() => void restart()}
+    />
+  );
+}
+
+type UpdateCardProps = {
+  message: string;
+  busy: boolean;
+  busyLabel: string;
+  restartLabel: string;
+  laterHint: string;
+  onLater: () => void;
+  onRestart: () => void;
+};
+
+function UpdateCard({ message, busy, busyLabel, restartLabel, laterHint, onLater, onRestart }: UpdateCardProps) {
+  const colors = useThemeColors();
+
+  return (
     <View className="update-banner">
       <View className="update-banner__card">
         <View className="flex-row items-start gap-3">
@@ -52,34 +106,32 @@ function NativeUpdateBanner() {
           <View className="flex-1 gap-1" accessibilityLiveRegion="polite">
             <Text className="text-base font-bold text-ink">Update ready</Text>
             <Text className="text-sm leading-5 text-muted">
-              {hasRestartError
-                ? "Couldn’t restart. Try again, or close and reopen Tripwise."
-                : "Restart Tripwise to apply the latest improvements."}
+              {message}
             </Text>
           </View>
         </View>
         <View className="flex-row flex-wrap justify-end gap-2">
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Remind me on the next app launch"
+            accessibilityLabel={laterHint}
             accessibilityState={{ disabled: busy }}
             disabled={busy}
-            onPress={() => setDismissedUpdate(pendingUpdate)}
+            onPress={onLater}
             className={`update-banner__later ${busy ? "opacity-50" : ""}`}
           >
             <Text className="text-sm font-semibold text-ink">Later</Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={hasRestartError ? "Try restarting again" : "Restart Tripwise now"}
+            accessibilityLabel={restartLabel}
             accessibilityHint="Applies the downloaded update. Finish any unsaved changes first."
             accessibilityState={{ disabled: busy, busy }}
             disabled={busy}
-            onPress={() => void restart()}
+            onPress={onRestart}
             className={`update-banner__restart ${busy ? "opacity-50" : ""}`}
           >
             <Text className="text-sm font-semibold text-[#2C254E]">
-              {busy ? "Restarting…" : hasRestartError ? "Try again" : "Restart now"}
+              {busy ? busyLabel : restartLabel}
             </Text>
           </Pressable>
         </View>
