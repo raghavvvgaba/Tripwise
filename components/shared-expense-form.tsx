@@ -16,6 +16,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { cssInterop } from "nativewind";
 import AnimatedReanimated, { FadeInDown } from "react-native-reanimated";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -27,6 +28,9 @@ import { useGroupDataActions } from "@/hooks/use-group-data-actions";
 import type { SharedExpense } from "@/types/shared-expense";
 import type { SharedGroup } from "@/types/shared-group";
 import { formatMoney, getCurrencySymbol, parseMoneyToMinor } from "@/utils/money";
+
+// Reanimated's web views drop `className`; convert it to `style` first.
+cssInterop(AnimatedReanimated.View, { className: "style" });
 
 const AVATAR_RING_COLORS = [
   "#38BDF8", // Sky blue
@@ -290,7 +294,7 @@ function LoadedExpenseForm({ group, currentUserId, expenseId, onClose, headerPan
                   borderColor: clay.cardBorder,
                   color: clay.textPrimary,
                 }}
-                className="h-13 rounded-2xl border px-4 text-base font-bold"
+                className="h-[52px] rounded-2xl border px-4 text-base font-bold"
                 placeholder="e.g. Dinner, Train ticket, Groceries"
                 placeholderTextColor={clay.textMuted}
                 value={description}

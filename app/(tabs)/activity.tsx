@@ -208,7 +208,7 @@ export default function ActivityScreen() {
           disabled={isFetching}
           onPress={() => void loadMore()}
           style={{ backgroundColor: clay.card, borderColor: clay.cardBorder }}
-          className="h-13 items-center justify-center rounded-2xl border px-5 active:opacity-75 disabled:opacity-50"
+          className="h-[52px] items-center justify-center rounded-2xl border px-5 active:opacity-75 disabled:opacity-50"
         >
           {isLoadingMore ? (
             <ActivityIndicator color="#F5D298" />
