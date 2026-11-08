@@ -32,6 +32,10 @@ export async function sendPaymentReminder(groupId: string, recipientId: string):
   }
 
   if (response.ok) return;
+  // The session behind this token was ended (e.g. signed out elsewhere).
+  if (response.status === 401) {
+    throw new ReminderError("Your session has expired. Please sign in again.", "session_expired");
+  }
 
   let payload: { error?: string; message?: string | null } = {};
   try {

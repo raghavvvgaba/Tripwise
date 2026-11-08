@@ -125,6 +125,8 @@ Deno.serve(async (request) => {
         title: `${details.groupName} · Payment reminder`,
         body: `You owe ${formatMoney(details.amountMinor, details.currency)} to ${details.senderName} in ${details.groupName}.`,
         sound: "default",
+        // Android: use the app's "Payment reminders" channel (created on sign-in).
+        channelId: "default",
         data: { groupId },
       }]),
     });

@@ -88,6 +88,17 @@ test("partial acceptance confirms the attempt and removes stale tokens", async (
   assert.deepEqual(result.removed, ["one"]);
 });
 
+test("push uses the app's Android payment reminder channel", async () => {
+  let message;
+  const result = await send({ push: async (_url, init) => {
+    [message] = JSON.parse(init.body);
+    return Response.json({ data: [{ status: "ok", id: "ticket" }, { status: "ok", id: "ticket2" }] });
+  } });
+  assert.equal(result.status, 200);
+  assert.equal(message.channelId, "default");
+  assert.deepEqual(message.data, { groupId: "00000000-0000-0000-0000-000000000100" });
+});
+
 test("finalization retries without sending a second push", async () => {
   let pushes = 0;
   const result = await send({ finishErrors: 1, push: async () => {

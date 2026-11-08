@@ -66,7 +66,8 @@ export default function AccountScreen() {
     try {
       // Best effort: stop reminder pushes before the session disappears.
       if (userId) await unregisterPushTokens(userId).catch(() => {});
-      const { error } = await supabase.auth.signOut();
+      // Local scope: signing out here must not end this account's sessions on other devices.
+      const { error } = await supabase.auth.signOut({ scope: "local" });
       if (error) throw error;
     } catch (error) {
       // Auth can clear the local session before a remote sign-out error arrives.
