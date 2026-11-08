@@ -22,6 +22,11 @@ import { registerServiceWorker } from "@/lib/service-worker";
 initializeNetworkMonitoring();
 registerServiceWorker();
 
+// On web, a deep link (a reload, a shared URL or a manifest shortcut) opens on
+// top of the tabs, so modal routes have a screen behind them and Back works.
+// Signed-out visitors still land on sign-in, since (tabs) is protected.
+export const unstable_settings = Platform.OS === "web" ? { anchor: "(tabs)" } : {};
+
 // Screen layouts also wrap native modal routes.
 function screenLayout({ children, route }: { children: ReactNode; route: { name: string } }) {
   return (
