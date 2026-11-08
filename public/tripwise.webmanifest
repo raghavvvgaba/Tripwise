@@ -6,8 +6,10 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#ECE9F5",
-  "theme_color": "#ECE9F5",
+  "orientation": "portrait",
+  "categories": ["finance", "travel"],
+  "background_color": "#FFFFFF",
+  "theme_color": "#FFFFFF",
   "icons": [
     {
       "src": "/tripwise-icon-192.png",
@@ -20,6 +22,18 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "/tripwise-icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/tripwise-icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
