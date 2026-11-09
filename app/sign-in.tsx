@@ -22,6 +22,7 @@ import { friendlyErrorMessage } from "@/lib/user-error";
 import { isInviteCode, normalizeInviteCode } from "@/lib/group-invites";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/use-auth-store";
+import { usePendingInviteStore } from "@/store/use-pending-invite-store";
 
 export default function SignInScreen() {
   const clay = useClayTheme();
@@ -49,10 +50,14 @@ export default function SignInScreen() {
     };
   }, []);
 
+  // Signing in remounts the screen stack, so the Groups screen opens the invite afterwards.
   useEffect(() => {
-    if (!session) return;
-    router.replace(isInviteCode(inviteCode) ? `/join/${normalizeInviteCode(inviteCode)}` : "/");
-  }, [session, inviteCode]);
+    if (isInviteCode(inviteCode)) usePendingInviteStore.getState().setCode(normalizeInviteCode(inviteCode));
+  }, [inviteCode]);
+
+  useEffect(() => {
+    if (session) router.replace("/");
+  }, [session]);
 
   useEffect(() => {
     if (process.env.EXPO_OS === "web" || !incomingUrl || handledAuthUrl.current === incomingUrl) return;

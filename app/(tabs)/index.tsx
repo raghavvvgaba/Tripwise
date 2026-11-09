@@ -1,3 +1,5 @@
+import { router } from "expo-router";
+import { useEffect } from "react";
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 
 import { EmptyState } from "@/components/empty-state";
@@ -5,11 +7,21 @@ import { GroupCard } from "@/components/group-card";
 import { BaggageTagHero } from "@/components/hero-variants/tag-hero";
 import { useClayTheme } from "@/constants/clay-theme";
 import { useSharedGroups } from "@/hooks/use-shared-groups";
+import { usePendingInviteStore } from "@/store/use-pending-invite-store";
 
 export default function GroupsScreen() {
   const clay = useClayTheme();
   const { groups, isLoading, isRefreshing, error, refreshError, loadGroups } = useSharedGroups();
   const activeGroups = groups.filter((group) => !group.deletedAt);
+
+  // Signing in remounts the screen stack onto this screen, so open the invite
+  // the user was signing in for from here.
+  const pendingInviteCode = usePendingInviteStore((state) => state.code);
+  useEffect(() => {
+    if (!pendingInviteCode) return;
+    usePendingInviteStore.getState().setCode(null);
+    router.push(`/join/${pendingInviteCode}`);
+  }, [pendingInviteCode]);
 
   return (
     <ScrollView
