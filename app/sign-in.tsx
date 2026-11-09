@@ -181,7 +181,9 @@ export default function SignInScreen() {
         <ScrollView
           className="flex-1"
           contentInsetAdjustmentBehavior="never"
-          keyboardDismissMode="on-drag"
+          // React Native Web treats every scroll as a drag, including the scroll
+          // that brings a focused field into view, which would close the keyboard.
+          keyboardDismissMode={Platform.OS === "web" ? "none" : "on-drag"}
           keyboardShouldPersistTaps="handled"
           contentContainerClassName={`w-full max-w-md flex-grow self-center px-5 ${isKeyboardVisible ? "justify-start gap-4 py-4" : "justify-center gap-6 py-8"}`}
           showsVerticalScrollIndicator={false}

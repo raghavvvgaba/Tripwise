@@ -99,31 +99,31 @@ export function OfflineBanner({ topOffset = 48 }: { topOffset?: number }) {
 
   const statusColor = offline ? colors.coral : colors.positive;
 
+  // Position on a plain View: Reanimated's Animated.View drops className on web.
   return (
-    <Animated.View
+    <View
       pointerEvents="none"
       className="offline-banner"
-      style={[
-        { top: insets.top + topOffset, right: insets.right + 16 },
-        animatedStyle,
-      ]}
+      style={{ top: insets.top + topOffset, right: insets.right + 16 }}
     >
-      <View
-        className={`offline-banner__content ${offline ? "border-coral" : "border-positive"}`}
-        accessible
-        accessibilityLabel={offline ? "You’re offline. Check your internet connection." : "You’re back online."}
-        accessibilityRole="alert"
-        accessibilityLiveRegion="polite"
-      >
-        <Ionicons
-          name={offline ? "cloud-offline-outline" : "cloud-done-outline"}
-          size={14}
-          color={statusColor}
-        />
-        <Text className={`text-xs font-semibold leading-4 ${offline ? "text-coral" : "text-positive"}`}>
-          {offline ? "Offline" : "Online"}
-        </Text>
-      </View>
-    </Animated.View>
+      <Animated.View style={animatedStyle}>
+        <View
+          className={`offline-banner__content ${offline ? "border-coral" : "border-positive"}`}
+          accessible
+          accessibilityLabel={offline ? "You’re offline. Check your internet connection." : "You’re back online."}
+          accessibilityRole="alert"
+          accessibilityLiveRegion="polite"
+        >
+          <Ionicons
+            name={offline ? "cloud-offline-outline" : "cloud-done-outline"}
+            size={14}
+            color={statusColor}
+          />
+          <Text className={`text-xs font-semibold leading-4 ${offline ? "text-coral" : "text-positive"}`}>
+            {offline ? "Offline" : "Online"}
+          </Text>
+        </View>
+      </Animated.View>
+    </View>
   );
 }

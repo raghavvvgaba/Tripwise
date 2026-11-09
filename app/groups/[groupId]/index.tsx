@@ -884,7 +884,7 @@ function ExpensesTab({
       ) : null}
 
       {/* Recorded Payments Section */}
-      {paymentError ? (
+      {paymentError && paymentError !== expenseError ? (
         <Text selectable style={{ color: clay.errorText }} className="px-1 text-sm font-semibold">
           {paymentError}
         </Text>
@@ -953,6 +953,11 @@ function ExpensesTab({
   );
 }
 
+// Offline, every group query fails with the same message; show each message once.
+function uniqueErrors(...errors: (string | null)[]) {
+  return [...new Set(errors.filter((error): error is string => error !== null))];
+}
+
 // ─── Balances Tab ───────────────────────────────────────────────────────────
 
 function BalancesTab({
@@ -974,21 +979,11 @@ function BalancesTab({
 
   return (
     <View className="gap-3">
-      {memberError ? (
-        <Text selectable style={{ color: clay.errorText }} className="px-1 text-sm font-semibold">
-          {memberError}
+      {uniqueErrors(memberError, expenseError, paymentError).map((error) => (
+        <Text key={error} selectable style={{ color: clay.errorText }} className="px-1 text-sm font-semibold">
+          {error}
         </Text>
-      ) : null}
-      {expenseError ? (
-        <Text selectable style={{ color: clay.errorText }} className="px-1 text-sm font-semibold">
-          {expenseError}
-        </Text>
-      ) : null}
-      {paymentError ? (
-        <Text selectable style={{ color: clay.errorText }} className="px-1 text-sm font-semibold">
-          {paymentError}
-        </Text>
-      ) : null}
+      ))}
       {balances === null && !memberError && !expenseError && !paymentError ? (
         <ActivityIndicator color="#F5D298" className="py-6" />
       ) : null}
@@ -1088,21 +1083,11 @@ function SettleTab({
         Pay outside the app, then record it here to settle balances.
       </Text>
 
-      {memberError ? (
-        <Text selectable style={{ color: clay.errorText }} className="px-1 text-sm font-semibold">
-          {memberError}
+      {uniqueErrors(memberError, expenseError, paymentError).map((error) => (
+        <Text key={error} selectable style={{ color: clay.errorText }} className="px-1 text-sm font-semibold">
+          {error}
         </Text>
-      ) : null}
-      {expenseError ? (
-        <Text selectable style={{ color: clay.errorText }} className="px-1 text-sm font-semibold">
-          {expenseError}
-        </Text>
-      ) : null}
-      {paymentError ? (
-        <Text selectable style={{ color: clay.errorText }} className="px-1 text-sm font-semibold">
-          {paymentError}
-        </Text>
-      ) : null}
+      ))}
 
       {settlements === null && !memberError && !expenseError && !paymentError ? (
         <ActivityIndicator color="#F5D298" className="py-6" />
