@@ -93,6 +93,7 @@ export default function GroupInviteScreen() {
         if (navigator.share) {
           await navigator.share({
             title: `Join ${invite.name} on Tripwise`,
+            text: `Join ${invite.name} on Tripwise. Or open Tripwise and enter code ${invite.code}.`,
             url: inviteUrl,
           });
         } else {
@@ -106,7 +107,7 @@ export default function GroupInviteScreen() {
 
       await Share.share({
         title: `Join ${invite.name} on Tripwise`,
-        message: `Join ${invite.name} on Tripwise: ${inviteUrl}`,
+        message: `Join ${invite.name} on Tripwise: ${inviteUrl}\nOr open Tripwise and enter code ${invite.code}`,
       });
     } catch (cause) {
       if (cause instanceof Error && cause.name === "AbortError") return;

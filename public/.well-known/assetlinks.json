@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.tripwise.app",
+      "sha256_cert_fingerprints": [
+        "AC:B8:35:DC:B6:DD:19:57:4C:E8:75:4F:86:93:A0:CE:1D:F0:55:A9:57:8D:AE:89:3D:7D:B6:7E:77:B2:FA:73"
+      ]
+    }
+  }
+]
