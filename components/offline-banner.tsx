@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useRef, useState } from "react";
-import { Text, View } from "react-native";
+import { Platform, Text, View } from "react-native";
 import Animated, {
   Easing,
   runOnJS,
@@ -16,7 +16,12 @@ import { useNetworkStore } from "@/store/use-network-store";
 
 const SLIDE_OFFSET = 140;
 
-export function OfflineBanner({ topOffset = 48 }: { topOffset?: number }) {
+// Gap above the bottom edge on other screens, clearing the group screen's add button.
+const ABOVE_ADD_BUTTON = 84;
+// Native draws its 64px tab bar inside the tab screens; the web shell draws its nav outside them.
+const ABOVE_TAB_BAR = Platform.OS === "web" ? 12 : 64 + 12;
+
+export function OfflineBanner({ aboveTabBar = false }: { aboveTabBar?: boolean }) {
   const isOnline = useNetworkStore((state) => state.isOnline);
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
@@ -53,7 +58,7 @@ export function OfflineBanner({ topOffset = 48 }: { topOffset?: number }) {
     setIsRendered(true);
   }
 
-  const translateX = useSharedValue(isVisible ? 0 : SLIDE_OFFSET);
+  const translateY = useSharedValue(isVisible ? 0 : SLIDE_OFFSET);
   const opacity = useSharedValue(isVisible ? 1 : 0);
 
   useEffect(() => {
@@ -62,7 +67,7 @@ export function OfflineBanner({ topOffset = 48 }: { topOffset?: number }) {
 
   useEffect(() => {
     if (isVisible) {
-      translateX.value = withTiming(0, {
+      translateY.value = withTiming(0, {
         duration: reducedMotion ? 0 : 240,
         easing: Easing.bezier(0.16, 1, 0.3, 1),
       });
@@ -71,7 +76,7 @@ export function OfflineBanner({ topOffset = 48 }: { topOffset?: number }) {
         easing: Easing.out(Easing.ease),
       });
     } else if (isRendered) {
-      translateX.value = withTiming(
+      translateY.value = withTiming(
         SLIDE_OFFSET,
         {
           duration: reducedMotion ? 0 : 200,
@@ -88,10 +93,10 @@ export function OfflineBanner({ topOffset = 48 }: { topOffset?: number }) {
         easing: Easing.in(Easing.ease),
       });
     }
-  }, [isVisible, isRendered, opacity, reducedMotion, translateX]);
+  }, [isVisible, isRendered, opacity, reducedMotion, translateY]);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }],
+    transform: [{ translateY: translateY.value }],
     opacity: opacity.value,
   }));
 
@@ -104,7 +109,7 @@ export function OfflineBanner({ topOffset = 48 }: { topOffset?: number }) {
     <View
       pointerEvents="none"
       className="offline-banner"
-      style={{ top: insets.top + topOffset, right: insets.right + 16 }}
+      style={{ bottom: aboveTabBar ? insets.bottom + ABOVE_TAB_BAR : Math.max(insets.bottom, 16) + ABOVE_ADD_BUTTON }}
     >
       <Animated.View style={animatedStyle}>
         <View

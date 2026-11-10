@@ -35,7 +35,7 @@ function screenLayout({ children, route }: { children: ReactNode; route: { name:
   return (
     <View className="flex-1">
       {children}
-      <OfflineBanner topOffset={route.name === "(tabs)" ? 0 : 48} />
+      <OfflineBanner aboveTabBar={route.name === "(tabs)"} />
     </View>
   );
 }

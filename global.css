@@ -79,7 +79,7 @@ body,
   }
 
   .offline-banner {
-    @apply absolute z-50;
+    @apply absolute inset-x-0 z-50 items-center;
   }
 
   .offline-banner__content {
